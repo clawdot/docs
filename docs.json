@@ -130,7 +130,8 @@
   },
   "logo": {
     "light": "/logo/light.png",
-    "dark": "/logo/dark.png"
+    "dark": "/logo/dark.png",
+    "text": "Clawdot Docs"
   },
   "navbar": {
     "links": [
