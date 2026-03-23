@@ -126,21 +126,19 @@
         ]
       }
     ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/clawdot",
-          "icon": "github"
-        }
-      ]
-    }
+    "global": {}
   },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
   "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/clawdot"
+      }
+    ],
     "primary": {
       "type": "button",
       "label": "Get API Key",
