@@ -1,0 +1,148 @@
+---
+title: "预览订单"
+description: "POST /orders/preview — 渲染订单并自动应用最优优惠券"
+---
+
+## POST /orders/preview
+
+预览订单，自动选择最优优惠券，返回最终价格和 `session_id`。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "shop_id": "E1234567890123",
+  "address_id": "1234567890",
+  "items": [
+    {
+      "item_id": "123456789",
+      "sku_id": "987654321",
+      "quantity": 1,
+      "specs": [
+        {"name": "规格", "value": "大杯"}
+      ],
+      "attrs": [
+        {"name": "温度", "value": "冰"}
+      ],
+      "ingredients": [
+        {
+          "item_id": "11111",
+          "sku_id": "22222",
+          "package_id": "33333",
+          "buy_amount": 1
+        }
+      ]
+    }
+  ],
+  "lat": 39.9,
+  "lng": 116.4,
+  "note": "少冰"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `shop_id` | string | 是 | 商家 ID（E 前缀）|
+| `address_id` | string | 是 | 收货地址 ID |
+| `items` | array | 是 | 商品列表 |
+| `items[].item_id` | string | 是 | 商品 Taobao ID（来自菜单）|
+| `items[].sku_id` | string | 是 | SKU Taobao ID（来自菜单）|
+| `items[].quantity` | integer | 是 | 数量 |
+| `items[].specs` | array | 否 | 规格选择 |
+| `items[].attrs` | array | 否 | 属性选择 |
+| `items[].ingredients` | array | 否 | 加料选择 |
+| `lat` | float | 是 | 纬度 |
+| `lng` | float | 是 | 经度 |
+| `note` | string | 否 | 备注 |
+
+### 快速下单（推荐 Agent 使用）
+
+直接使用菜单中的 `default_ingredients`，无需手动选择规格/属性/加料：
+
+```json
+{
+  "shop_id": "E1234567890123",
+  "address_id": "1234567890",
+  "items": [
+    {
+      "item_id": "123456789",
+      "sku_id": "987654321",
+      "quantity": 1,
+      "ingredients": [
+        {"item_id": "11111", "sku_id": "22222", "package_id": "33333", "buy_amount": 1}
+      ]
+    }
+  ],
+  "lat": 39.9,
+  "lng": 116.4
+}
+```
+
+### 响应
+
+```json
+{
+  "session_id": "abc-def-ghi",
+  "shop_name": "瑞幸咖啡(国贸店)",
+  "items": [
+    {
+      "name": "生椰拿铁",
+      "price": 9.9,
+      "quantity": 1,
+      "description": "大杯, 冰"
+    }
+  ],
+  "packing_fee": 0.0,
+  "delivery_fee": 0.0,
+  "discount": 1.5,
+  "total": 8.4,
+  "estimated_delivery_time": "35分钟"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `session_id` | string | 订单会话 ID（一次性，10 分钟有效）|
+| `shop_name` | string | 商家名称 |
+| `items` | array | 商品明细 |
+| `packing_fee` | float | 打包费 |
+| `delivery_fee` | float | 配送费 |
+| `discount` | float | 优惠金额 |
+| `total` | float | 实付总价 |
+| `estimated_delivery_time` | string | 预计配送时间 |
+
+### 自动优惠券
+
+系统自动执行两次渲染：
+
+1. **第一次渲染**（无优惠券）— 获取可用优惠券列表
+2. **选择最优** — 过滤有效券，优先推荐券，其次最大金额
+3. **第二次渲染**（带优惠券）— 返回折后价
+
+<Note>
+  `session_id` 是一次性的，使用后或超过 10 分钟后失效。需要重新预览。
+</Note>
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/orders/preview" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "E1234567890123",
+    "address_id": "1234567890",
+    "items": [{"item_id": "123456789", "sku_id": "987654321", "quantity": 1}],
+    "lat": 39.9,
+    "lng": 116.4
+  }'
+```

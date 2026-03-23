@@ -1,0 +1,138 @@
+---
+title: "下单流程"
+description: "从搜索商家到确认订单的完整端到端流程"
+---
+
+## 概览
+
+完成一笔订单需要经过以下步骤：
+
+```mermaid
+flowchart LR
+  A["搜索商家"] --> B["查看菜单"]
+  B --> C["准备地址"]
+  C --> D["预览订单"]
+  D --> E["确认下单"]
+
+  style A fill:#e0e7ff,stroke:#6366f1
+  style B fill:#e0e7ff,stroke:#6366f1
+  style C fill:#e0e7ff,stroke:#6366f1
+  style D fill:#e0e7ff,stroke:#6366f1
+  style E fill:#c7d2fe,stroke:#4f46e5,stroke-width:2px
+```
+
+<Steps>
+
+### 搜索附近商家
+
+```bash
+GET /api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡
+```
+
+不传 `keyword` 时，系统会并行搜索 10 个默认品类（推荐、快餐、炒菜、西餐、轻食、甜品、奶茶、咖啡、粥、烧烤），自动去重后返回约 50 家商店。
+
+<Tip>
+  传入 `keyword` 时为精确搜索，最多返回 5 家。
+</Tip>
+
+### 查看店铺菜单
+
+```bash
+GET /api/v1/shops/E1234567890?lat=39.9&lng=116.4
+```
+
+返回完整菜单，每个商品包含：
+- **specs** — 规格选项（如大杯/中杯）
+- **attrs** — 属性选项（如冰/热）
+- **ingredients** — 加料选项（含互斥规则）
+- **default_ingredients** — 预计算的默认选项（用于快速下单）
+
+<Note>
+  详细的规格/属性/加料体系说明见 [加料系统](/guides/ingredient-system)。
+</Note>
+
+### 准备收货地址
+
+如果用户还没有地址，需要先创建：
+
+```bash
+# 1. 搜索 POI
+POST /api/v1/addresses/search
+{"lat": 39.9, "lng": 116.4, "keyword": "国贸大厦"}
+
+# 2. 选中 POI（必须！否则创建地址会报错）
+POST /api/v1/addresses/select
+{"poi_data": {"id": "poi_123", "name": "国贸大厦", ...}}
+
+# 3. 创建地址
+POST /api/v1/addresses
+{"poi_id": "poi_123", "name": "张三", "phone": "13800138000", "detail": "3楼301室"}
+```
+
+<Warning>
+  必须先调用 `/addresses/select`，再调用 `/addresses`。否则饿了么会返回「未选中该地址」错误。
+</Warning>
+
+如果已有地址，直接查询：
+
+```bash
+GET /api/v1/addresses
+```
+
+### 预览订单
+
+```bash
+POST /api/v1/orders/preview
+{
+  "shop_id": "E1234567890",
+  "address_id": "addr_123",
+  "items": [
+    {
+      "item_id": "123456789",
+      "sku_id": "987654321",
+      "quantity": 1,
+      "ingredients": [...]
+    }
+  ],
+  "lat": 39.9,
+  "lng": 116.4
+}
+```
+
+系统会：
+1. 首次渲染订单（不带优惠券）
+2. 从可用优惠券中选择最优的
+3. 二次渲染（带优惠券）获取最终价格
+
+返回的 `session_id` 是**一次性的**，10 分钟内有效。
+
+<Tip>
+  AI Agent 快速下单时，可以直接使用菜单中的 `default_ingredients` 字段，无需手动选择加料。
+</Tip>
+
+### 确认下单
+
+```bash
+POST /api/v1/orders
+{"session_id": "abc-def-ghi"}
+```
+
+使用预览返回的 `session_id` 确认下单。创建成功后返回 `order_id`。
+
+</Steps>
+
+## 查询订单
+
+```bash
+GET /api/v1/orders/1234567890
+```
+
+返回订单状态和详情。
+
+## 限流说明
+
+| 操作 | 限制 |
+|------|------|
+| 下单 (`POST /orders`) | 10 次/分钟/Agent |
+| 其他接口 | 60 次/分钟/Agent |
+| SMS 发送 | 60 秒冷却/手机号 |

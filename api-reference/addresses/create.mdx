@@ -1,0 +1,77 @@
+---
+title: "创建地址"
+description: "POST /addresses — 创建新的收货地址"
+---
+
+## POST /addresses
+
+创建一个新的收货地址。
+
+<Warning>
+  创建前必须先调用 [选中 POI](/api-reference/addresses/select) 接口，否则会报错。
+</Warning>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "poi_id": "poi-123456",
+  "name": "张三",
+  "phone": "13800138000",
+  "detail": "3楼301室",
+  "sex": 0,
+  "tag": "home"
+}
+```
+
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `poi_id` | string | 是 | — | POI ID（来自搜索结果）|
+| `name` | string | 是 | — | 收件人姓名 |
+| `phone` | string | 是 | — | 收件人手机号 |
+| `detail` | string | 是 | — | 详细地址（楼层/房间号等）|
+| `sex` | integer | 否 | 0 | 性别：0=未知, 1=男, 2=女 |
+| `tag` | string | 否 | `""` | 标签：`home`, `school`, `work` |
+
+### 响应
+
+```json
+{
+  "address_id": "1234567890"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `address_id` | string | 新创建的地址 ID，用于下单 |
+
+### 完整流程
+
+```bash
+# 1. 搜索 POI
+curl -X POST ".../addresses/search" -d '{"lat":39.9,"lng":116.4,"keyword":"国贸"}'
+
+# 2. 选中 POI（必须！）
+curl -X POST ".../addresses/select" -d '{"poi_data":{...}}'
+
+# 3. 创建地址
+curl -X POST ".../addresses" -d '{"poi_id":"poi-123","name":"张三","phone":"138...","detail":"3楼"}'
+```
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/addresses" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"poi_id": "poi-123456", "name": "张三", "phone": "13800138000", "detail": "3楼301室", "tag": "work"}'
+```

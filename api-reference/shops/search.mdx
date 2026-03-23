@@ -1,0 +1,82 @@
+---
+title: "搜索商家"
+description: "GET /shops/search — 按位置和关键词搜索附近商家"
+---
+
+## GET /shops/search
+
+搜索指定坐标附近的饿了么商家。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+
+### 查询参数
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `lat` | float | 是 | — | 纬度 |
+| `lng` | float | 是 | — | 经度 |
+| `keyword` | string | 否 | — | 搜索关键词 |
+| `offset` | integer | 否 | 0 | 分页偏移 |
+| `limit` | integer | 否 | 20 | 每页数量（最大 20）|
+
+### 响应
+
+```json
+{
+  "shops": [
+    {
+      "id": "E1234567890123",
+      "name": "瑞幸咖啡(国贸店)",
+      "brand_name": "瑞幸咖啡",
+      "image": "https://image.url/shop.jpg",
+      "delivery_fee": 0.0,
+      "delivery_time_minutes": 35,
+      "min_order_amount": 10.0,
+      "is_ad": false,
+      "items": [
+        {
+          "name": "生椰拿铁",
+          "price": 9.9,
+          "original_price": 19.0,
+          "description": "椰浆+浓缩咖啡",
+          "image": "https://image.url/item.jpg",
+          "packing_fee": 0.0,
+          "item_type": "NORMAL"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 搜索行为
+
+<Tabs>
+  <Tab title="关键词搜索">
+    传入 `keyword` 时，执行单次精确搜索，最多返回 5 家商家。
+
+    ```bash
+    GET /shops/search?lat=39.9&lng=116.4&keyword=星巴克
+    ```
+  </Tab>
+  <Tab title="默认分类搜索">
+    不传 `keyword` 时，系统并行搜索 10 个默认品类：
+
+    > 推荐、快餐、炒菜、西餐、轻食、甜品、奶茶、咖啡、粥、烧烤
+
+    结果按 `id` 自动去重，返回约 50 家商家（约 1.3 秒）。
+  </Tab>
+</Tabs>
+
+### 示例
+
+```bash
+curl -X GET "https://your-gateway/api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token"
+```

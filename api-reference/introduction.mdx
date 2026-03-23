@@ -1,33 +1,67 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API 概览"
+description: "Clawdot Gateway REST API 接口说明"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Base URL
 
-## Welcome
+```
+https://your-gateway/api/v1
+```
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+## 认证
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+所有接口（除 Agent 注册外）需要 API Key 认证。大部分业务接口还需要 User Token。
 
-## Authentication
+```bash
+# API Key 认证
+Authorization: Bearer clw_your_api_key
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+# User Token 认证（业务接口需要）
+X-User-Token: your_user_token
+```
+
+详见 [认证机制](/guides/authentication)。
+
+## 接口分组
+
+<Columns cols={2}>
+  <Card title="Auth" icon="key" href="/api-reference/auth/register-agent">
+    Agent 注册，获取 API Key。
+  </Card>
+  <Card title="User Binding" icon="user-plus" href="/api-reference/user/bind-request">
+    SMS 验证绑定饿了么用户。
+  </Card>
+  <Card title="Shops" icon="store" href="/api-reference/shops/search">
+    商家搜索和菜单查询。
+  </Card>
+  <Card title="Addresses" icon="location-dot" href="/api-reference/addresses/search-pois">
+    POI 搜索和地址管理。
+  </Card>
+  <Card title="Orders" icon="receipt" href="/api-reference/orders/preview">
+    订单预览、创建和查询。
+  </Card>
+</Columns>
+
+## 统一错误格式
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "人类可读的错误描述"
   }
-]
+}
 ```
+
+详见 [错误处理](/guides/error-handling)。
+
+## 限流
+
+| 操作 | 限制 |
+|------|------|
+| 下单 (`POST /orders`) | 10 次/分钟/Agent |
+| 其他接口 | 60 次/分钟/Agent |
+| SMS 发送 | 60 秒冷却/手机号 |
+
+超过限制返回 `429` 状态码和 `RATE_LIMITED` 错误码。

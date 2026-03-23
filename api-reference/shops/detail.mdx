@@ -1,0 +1,98 @@
+---
+title: "商家详情"
+description: "GET /shops/{shop_id} — 获取商家信息和完整菜单"
+---
+
+## GET /shops/{shop_id}
+
+获取指定商家的详细信息和完整菜单（含规格、属性、加料）。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+
+### 路径参数
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `shop_id` | string | 商家 ID（E 前缀，来自搜索结果）|
+
+### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `lat` | float | 是 | 纬度 |
+| `lng` | float | 是 | 经度 |
+
+### 响应
+
+```json
+{
+  "shop": {
+    "id": "E1234567890123",
+    "name": "瑞幸咖啡(国贸店)",
+    "address": "国贸大厦B1层",
+    "business_hours": "06:00 - 23:00",
+    "status": "open",
+    "_tb_shop_id": "internal-id"
+  },
+  "menu": [
+    {
+      "category": "经典咖啡",
+      "items": [
+        {
+          "item_id": "123456789",
+          "sku_id": "987654321",
+          "name": "生椰拿铁",
+          "description": "椰浆+浓缩咖啡",
+          "image": "https://image.url/item.jpg",
+          "price": 9.9,
+          "original_price": 19.0,
+          "sold_count": "已售1000+",
+          "in_stock": true,
+          "specs": [...],
+          "attrs": [...],
+          "ingredients": [...],
+          "default_ingredients": [...]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 商家状态
+
+| 状态值 | 说明 |
+|--------|------|
+| `open` | 营业中 |
+| `busy` | 繁忙（可能配送较慢）|
+| `closed` | 已关店 |
+| `booking` | 预订中 |
+| `closing_soon` | 即将关店 |
+
+### 菜单字段说明
+
+每个菜品包含四个定制维度，详见 [加料系统](/guides/ingredient-system)：
+
+| 字段 | 说明 |
+|------|------|
+| `specs` | 规格选项（影响价格，如大杯/中杯）|
+| `attrs` | 属性选项（不影响价格，如冰/热）|
+| `ingredients` | 加料选项（含互斥规则）|
+| `default_ingredients` | 预计算默认选择（Agent 快速下单用）|
+
+<Tip>
+  `item_id` 和 `sku_id` 是下单时必需的 Taobao ID。不要与搜索结果中的商家 `id` 混淆。
+</Tip>
+
+### 示例
+
+```bash
+curl -X GET "https://your-gateway/api/v1/shops/E1234567890?lat=39.9&lng=116.4" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token"
+```

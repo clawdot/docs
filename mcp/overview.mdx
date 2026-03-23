@@ -1,0 +1,68 @@
+---
+title: "MCP 集成"
+description: "通过 Model Context Protocol 接入 Clawdot Gateway"
+---
+
+## 概览
+
+Clawdot Gateway 通过 `/mcp` 端点提供 MCP (Model Context Protocol) 接口，让 AI Agent 可以直接调用外卖能力。
+
+MCP 和 REST API 共享同一套服务层，功能完全一致。
+
+## 连接方式
+
+### Streamable HTTP
+
+```
+POST https://your-gateway/mcp
+Authorization: Bearer clw_your_api_key
+```
+
+MCP 使用 Streamable HTTP 传输协议。认证方式与 REST 相同（Bearer Token）。
+
+### Claude Desktop 配置
+
+```json
+{
+  "mcpServers": {
+    "clawdot": {
+      "url": "https://your-gateway/mcp",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key"
+      }
+    }
+  }
+}
+```
+
+## 与 REST API 的差异
+
+| 差异项 | REST API | MCP |
+|--------|----------|-----|
+| User Token 传递 | `X-User-Token` 请求头 | 每个工具的 `user_token` 参数 |
+| 商品列表格式 | JSON 数组 | `items_json` JSON 字符串 |
+| 认证 | FastAPI 依赖注入 | ASGI 中间件注入 `agent_id` |
+
+<Warning>
+  MCP 的 `preview_order` 工具中，`items_json` 必须是 **JSON 字符串**（不是数组）。
+
+  正确：`"items_json": "[{\"item_id\": \"123\", ...}]"`
+
+  错误：`"items_json": [{"item_id": "123", ...}]`
+</Warning>
+
+## 可用工具
+
+MCP 提供 9 个工具，完整覆盖外卖流程。详见 [工具参考](/mcp/tools)。
+
+| 工具 | 对应 REST | 说明 |
+|------|-----------|------|
+| `search_shops` | `GET /shops/search` | 搜索商家 |
+| `get_shop_detail` | `GET /shops/{id}` | 商家详情+菜单 |
+| `search_pois` | `POST /addresses/search` | 搜索 POI |
+| `select_address` | `POST /addresses/select` | 选中 POI |
+| `list_addresses` | `GET /addresses` | 地址列表 |
+| `create_address` | `POST /addresses` | 创建地址 |
+| `preview_order` | `POST /orders/preview` | 预览订单 |
+| `confirm_order` | `POST /orders` | 确认下单 |
+| `get_order` | `GET /orders/{id}` | 查询订单 |

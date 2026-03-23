@@ -1,0 +1,89 @@
+---
+title: "创建订单"
+description: "POST /orders — 使用预览的 session_id 确认下单"
+---
+
+## POST /orders
+
+使用预览返回的 `session_id` 确认创建订单。
+
+<Warning>
+  此接口有**速率限制**：每个 Agent 每分钟最多 10 次。`session_id` 是一次性的，用后即失效。
+</Warning>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "session_id": "abc-def-ghi"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | string | 是 | 从 `/orders/preview` 获取的会话 ID |
+
+### 响应
+
+<Tabs>
+  <Tab title="200 成功">
+    ```json
+    {
+      "order_id": "1234567890",
+      "status": "created",
+      "shop_name": "瑞幸咖啡(国贸店)",
+      "total_amount": 8.4
+    }
+    ```
+
+    | 字段 | 类型 | 说明 |
+    |------|------|------|
+    | `order_id` | string | 饿了么订单 ID |
+    | `status` | string | 订单状态 |
+    | `shop_name` | string | 商家名称 |
+    | `total_amount` | float | 订单总额 |
+  </Tab>
+  <Tab title="500 下单失败">
+    ```json
+    {
+      "error": {
+        "code": "ORDER_FAILED",
+        "message": "Session expired or order creation failed"
+      }
+    }
+    ```
+
+    常见原因：
+    - `session_id` 已过期（>10 分钟）
+    - `session_id` 已被使用
+    - 饿了么 API 返回错误
+  </Tab>
+  <Tab title="429 限流">
+    ```json
+    {
+      "error": {
+        "code": "RATE_LIMITED",
+        "message": "Too many order requests"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/orders" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "abc-def-ghi"}'
+```

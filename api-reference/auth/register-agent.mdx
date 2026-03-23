@@ -1,0 +1,68 @@
+---
+title: "注册 Agent"
+description: "POST /auth/agents — 创建新的 Agent 并获取 API Key"
+---
+
+## POST /auth/agents
+
+创建一个新的 Agent，返回唯一的 API Key。
+
+<Warning>
+  此接口使用 **Admin Secret** 认证，不是 API Key。API Key 仅在创建时返回一次。
+</Warning>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `X-Admin-Secret` | 是 | 管理员密钥（环境变量 `ADMIN_SECRET`）|
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "name": "my-ai-agent"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Agent 名称，最长 100 字符 |
+
+### 响应
+
+<Tabs>
+  <Tab title="200 成功">
+    ```json
+    {
+      "agent_id": 1,
+      "api_key": "clw_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+    }
+    ```
+
+    | 字段 | 类型 | 说明 |
+    |------|------|------|
+    | `agent_id` | integer | Agent 唯一 ID |
+    | `api_key` | string | API Key（`clw_` 前缀 + 32 位十六进制）|
+  </Tab>
+  <Tab title="401 认证失败">
+    ```json
+    {
+      "error": {
+        "code": "AUTH_INVALID",
+        "message": "Invalid admin secret"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/auth/agents" \
+  -H "X-Admin-Secret: your_admin_secret" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "food-ordering-agent"}'
+```

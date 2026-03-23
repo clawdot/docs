@@ -1,0 +1,67 @@
+---
+title: "搜索 POI"
+description: "POST /addresses/search — 搜索兴趣点（POI）"
+---
+
+## POST /addresses/search
+
+搜索指定坐标附近的兴趣点（POI），用于创建收货地址。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "lat": 39.9,
+  "lng": 116.4,
+  "keyword": "国贸大厦"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `lat` | float | 是 | 纬度 |
+| `lng` | float | 是 | 经度 |
+| `keyword` | string | 是 | 搜索关键词 |
+
+### 响应
+
+```json
+{
+  "pois": [
+    {
+      "id": "poi-123456",
+      "name": "国贸大厦",
+      "address": "北京市朝阳区建国门外大街1号",
+      "latitude": 39.9087,
+      "longitude": 116.4549,
+      "city": "北京",
+      "district": "朝阳区"
+    }
+  ]
+}
+```
+
+### 说明
+
+搜索到 POI 后，需要按以下顺序操作：
+
+1. 调用 [选中 POI](/api-reference/addresses/select) 保存选择
+2. 调用 [创建地址](/api-reference/addresses/create) 填写收件人信息
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/addresses/search" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"lat": 39.9, "lng": 116.4, "keyword": "国贸大厦"}'
+```

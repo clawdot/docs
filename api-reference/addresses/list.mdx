@@ -1,0 +1,45 @@
+---
+title: "地址列表"
+description: "GET /addresses — 获取已保存的收货地址"
+---
+
+## GET /addresses
+
+获取当前用户已保存的所有收货地址。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+
+### 响应
+
+```json
+{
+  "addresses": [
+    {
+      "id": "1234567890",
+      "address": "国贸大厦3楼301室",
+      "lat": 39.9087,
+      "lng": 116.4549
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 地址 ID，用于下单 |
+| `address` | string | 完整地址文本 |
+| `lat` | float | 纬度 |
+| `lng` | float | 经度 |
+
+### 示例
+
+```bash
+curl -X GET "https://your-gateway/api/v1/addresses" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token"
+```

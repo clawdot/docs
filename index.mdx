@@ -1,97 +1,82 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Clawdot Gateway"
+description: "AI Agent 到饿了么外卖 API 的桥接网关，支持 REST 和 MCP 双协议接入"
 ---
 
-## Setting up
+## 让 AI Agent 帮你点外卖
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
+Clawdot Gateway 将饿了么外卖能力封装为标准 API，让任何 AI Agent 都能完成从搜索商家、浏览菜单到下单的完整流程。
 
 <Columns cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="快速开始"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    3 步完成接入：注册 Agent、绑定用户、发起第一笔订单。
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="架构概览"
+    icon="sitemap"
+    href="/architecture"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    了解三层架构设计：Gateway → Services → Eleme Client。
   </Card>
   <Card
-    title="API documentation"
+    title="API 参考"
     icon="terminal"
     href="/api-reference/introduction"
   >
-    Auto-generate API documentation from OpenAPI specifications.
+    完整的 REST API 端点文档，包含请求示例和响应格式。
+  </Card>
+  <Card
+    title="MCP 集成"
+    icon="plug"
+    href="/mcp/overview"
+  >
+    通过 MCP 协议接入，让 Claude 等 AI 直接调用外卖能力。
   </Card>
 </Columns>
 
-## Create beautiful pages
+## 核心能力
 
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<Columns cols={3}>
+  <Card title="商家搜索" icon="magnifying-glass">
+    按关键词或默认分类搜索附近商家，支持 10 个品类并行搜索。
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="菜单浏览" icon="utensils">
+    完整菜单含规格、属性、加料体系，预计算默认选项。
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="智能下单" icon="cart-shopping">
+    两步下单（预览 + 确认），自动选择最优优惠券。
   </Card>
 </Columns>
 
-## Need inspiration?
+## 双协议支持
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Tabs>
+  <Tab title="REST API">
+    标准 RESTful 接口，适合任何 HTTP 客户端：
+
+    ```bash
+    curl -X GET "https://your-gateway/api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡" \
+      -H "Authorization: Bearer clw_your_api_key" \
+      -H "X-User-Token: your_user_token"
+    ```
+  </Tab>
+  <Tab title="MCP Protocol">
+    Model Context Protocol 接入，AI Agent 原生调用：
+
+    ```json
+    {
+      "tool": "search_shops",
+      "arguments": {
+        "lat": 39.9,
+        "lng": 116.4,
+        "keyword": "咖啡",
+        "user_token": "your_user_token"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>

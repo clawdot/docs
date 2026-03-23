@@ -1,0 +1,58 @@
+---
+title: "选中 POI"
+description: "POST /addresses/select — 保存选中的 POI"
+---
+
+## POST /addresses/select
+
+将搜索到的 POI 保存到饿了么服务端。这是创建地址前的**必要步骤**。
+
+<Warning>
+  必须在调用 `/addresses`（创建地址）之前调用此接口。否则饿了么会返回「未选中该地址」错误。
+</Warning>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "poi_data": {
+    "id": "poi-123456",
+    "name": "国贸大厦",
+    "address": "北京市朝阳区建国门外大街1号",
+    "latitude": 39.9087,
+    "longitude": 116.4549,
+    "city": "北京",
+    "district": "朝阳区"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `poi_data` | object | 是 | 从 `/addresses/search` 返回的完整 POI 对象 |
+
+### 响应
+
+```json
+{
+  "success": true
+}
+```
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/addresses/select" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"poi_data": {"id": "poi-123456", "name": "国贸大厦", "address": "北京市朝阳区建国门外大街1号", "latitude": 39.9087, "longitude": 116.4549, "city": "北京", "district": "朝阳区"}}'
+```

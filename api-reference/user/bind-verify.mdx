@@ -1,0 +1,72 @@
+---
+title: "验证绑定"
+description: "POST /user/bind/verify — 验证 SMS 码并获取 User Token"
+---
+
+## POST /user/bind/verify
+
+验证 SMS 验证码，完成用户绑定并返回 User Token。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+  "code": "123456"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `bind_id` | string | 是 | 从 `/user/bind/request` 获取的绑定会话 ID |
+| `code` | string | 是 | 用户收到的 6 位验证码 |
+
+### 响应
+
+<Tabs>
+  <Tab title="200 成功">
+    ```json
+    {
+      "user_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "expires_at": "2026-06-22T12:34:56.789Z"
+    }
+    ```
+
+    | 字段 | 类型 | 说明 |
+    |------|------|------|
+    | `user_token` | string | User Token（UUID），用于后续所有业务接口 |
+    | `expires_at` | string | Token 过期时间（ISO 8601），默认 90 天 |
+  </Tab>
+  <Tab title="400 验证失败">
+    ```json
+    {
+      "error": {
+        "code": "SMS_CODE_INVALID",
+        "message": "Invalid or expired verification code"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 说明
+
+- 验证成功后，系统会查询饿了么获取用户 ID 并加密存储
+- 同一 Agent + 手机号只保留一个绑定（重复绑定会更新 Token）
+- Token 过期后需重新执行绑定流程
+
+### 示例
+
+```bash
+curl -X POST "https://your-gateway/api/v1/user/bind/verify" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"bind_id": "550e8400-e29b-41d4-a716-446655440000", "code": "123456"}'
+```

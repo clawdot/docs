@@ -1,0 +1,156 @@
+---
+title: "工具参考"
+description: "MCP 工具完整参数说明"
+---
+
+## 所有工具通用参数
+
+每个工具都需要 `user_token` 参数（商家搜索和下单等业务操作需要）：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `user_token` | string | 是 | 用户 Token（从绑定流程获取）|
+
+---
+
+## search_shops
+
+搜索附近商家。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `lat` | float | 是 | — | 纬度 |
+| `lng` | float | 是 | — | 经度 |
+| `user_token` | string | 是 | — | 用户 Token |
+| `keyword` | string | 否 | — | 搜索关键词 |
+| `offset` | integer | 否 | 0 | 分页偏移 |
+| `limit` | integer | 否 | 20 | 每页数量 |
+
+**返回：** `{"shops": [...]}`
+
+---
+
+## get_shop_detail
+
+获取商家详情和完整菜单。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `shop_id` | string | 是 | 商家 ID |
+| `lat` | float | 是 | 纬度 |
+| `lng` | float | 是 | 经度 |
+| `user_token` | string | 是 | 用户 Token |
+
+**返回：** `{"shop": {...}, "menu": [...]}`
+
+---
+
+## search_pois
+
+搜索兴趣点（POI）。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `lat` | float | 是 | 纬度 |
+| `lng` | float | 是 | 经度 |
+| `keyword` | string | 是 | 搜索关键词 |
+| `user_token` | string | 是 | 用户 Token |
+
+**返回：** `[{id, name, address, latitude, longitude, city, district}, ...]`
+
+---
+
+## select_address
+
+选中 POI（创建地址前必须调用）。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `poi_data` | object | 是 | 完整的 POI 对象（来自 `search_pois`）|
+| `user_token` | string | 是 | 用户 Token |
+
+**返回：** `"Address selected"`
+
+---
+
+## list_addresses
+
+获取已保存的收货地址。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `user_token` | string | 是 | 用户 Token |
+
+**返回：** `[{id, address, lat, lng}, ...]`
+
+---
+
+## create_address
+
+创建新的收货地址。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `poi_id` | string | 是 | — | POI ID |
+| `name` | string | 是 | — | 收件人姓名 |
+| `phone` | string | 是 | — | 收件人手机号 |
+| `detail` | string | 是 | — | 详细地址 |
+| `user_token` | string | 是 | — | 用户 Token |
+| `sex` | integer | 否 | 0 | 性别 |
+| `tag` | string | 否 | `""` | 标签 |
+
+**返回：** `"address-id-string"`
+
+---
+
+## preview_order
+
+预览订单并自动应用优惠券。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `shop_id` | string | 是 | 商家 ID |
+| `address_id` | string | 是 | 地址 ID |
+| `items_json` | string | 是 | 商品 JSON **字符串** |
+| `lat` | float | 是 | 纬度 |
+| `lng` | float | 是 | 经度 |
+| `user_token` | string | 是 | 用户 Token |
+| `note` | string | 否 | 备注 |
+
+<Warning>
+  `items_json` 必须是 JSON 字符串，不是数组。
+</Warning>
+
+**items_json 格式：**
+
+```json
+"[{\"item_id\": \"123456789\", \"sku_id\": \"987654321\", \"quantity\": 1, \"ingredients\": [{\"item_id\": \"11111\", \"sku_id\": \"22222\", \"package_id\": \"33333\", \"buy_amount\": 1}]}]"
+```
+
+**返回：** `{session_id, shop_name, items, packing_fee, delivery_fee, discount, total, estimated_delivery_time}`
+
+---
+
+## confirm_order
+
+确认下单。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | string | 是 | 预览返回的会话 ID |
+| `user_token` | string | 是 | 用户 Token |
+
+**返回：** `{order_id, status, shop_name, total_amount}`
+
+---
+
+## get_order
+
+查询订单状态。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `order_id` | string | 是 | 订单 ID |
+| `user_token` | string | 是 | 用户 Token |
+
+**返回：** `{order_id, status, shop_name, total_amount, created_at}`
