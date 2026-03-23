@@ -1,0 +1,112 @@
+---
+title: "构建 Agent"
+description: "如何基于 Clawdot 构建你自己的 Agent"
+---
+
+## 接入方式
+
+根据你的 Agent 平台选择接入方式：
+
+<Tabs>
+  <Tab title="MCP (Claude/Cursor)">
+    最简单的方式——直接在 MCP 客户端配置 Gateway 地址：
+
+    ```json
+    {
+      "mcpServers": {
+        "clawdot": {
+          "url": "https://gateway.clawdot.ai/mcp",
+          "headers": {
+            "Authorization": "Bearer clw_your_api_key"
+          }
+        }
+      }
+    }
+    ```
+
+    配置后，Claude 等 MCP 客户端即可直接调用 9 个外卖工具。
+  </Tab>
+  <Tab title="REST API (通用)">
+    适合任何编程语言和框架：
+
+    ```python
+    import httpx
+
+    client = httpx.AsyncClient(
+        base_url="https://gateway.clawdot.ai/api/v1",
+        headers={
+            "Authorization": "Bearer clw_your_api_key",
+            "X-User-Token": user_token,
+        }
+    )
+
+    # 搜索商家
+    resp = await client.get("/shops/search", params={
+        "lat": 39.9, "lng": 116.4, "keyword": "咖啡"
+    })
+    shops = resp.json()["shops"]
+    ```
+  </Tab>
+  <Tab title="OpenAI Function Calling">
+    将 Gateway API 注册为 OpenAI 的 function tools：
+
+    ```python
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search_shops",
+                "description": "搜索附近外卖商家",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "lat": {"type": "number"},
+                        "lng": {"type": "number"},
+                        "keyword": {"type": "string"}
+                    },
+                    "required": ["lat", "lng"]
+                }
+            }
+        }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+## 接入步骤
+
+<Steps>
+
+### 获取 API Key
+
+联系管理员创建 Agent，获取 `clw_` 前缀的 API Key。
+
+### 实现用户绑定
+
+引导用户完成 SMS 验证：
+
+1. 调用 `/user/bind/request` 发送验证码
+2. 调用 `/user/bind/verify` 获取 User Token
+3. 安全存储 User Token（90 天有效）
+
+### 实现核心流程
+
+最小可用流程：搜索 → 详情 → 预览 → 下单。
+
+### 处理边界情况
+
+- Token 过期 → 重新绑定
+- 商家关店 → 提示用户
+- 预览过期 → 重新预览
+- 限流 → 退避重试
+
+</Steps>
+
+## 最佳实践
+
+| 实践 | 说明 |
+|------|------|
+| 缓存地址 | 用户一般有固定的收货地址，缓存 `address_id` 减少交互 |
+| 默认规格 | 使用 `default_ingredients` 简化下单流程 |
+| 确认再下单 | 展示预览价格让用户确认，避免误下单 |
+| 优雅降级 | Gateway 不可用时给出友好提示，而非报错 |

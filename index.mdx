@@ -1,72 +1,53 @@
 ---
-title: "Clawdot Gateway"
-description: "AI Agent 到饿了么外卖 API 的桥接网关，支持 REST 和 MCP 双协议接入"
+title: "Clawdot"
+description: "AI 时代的本地生活 Agent 服务平台"
 ---
 
-## 让 AI Agent 帮你点外卖
+## AI Agent，连接本地生活
 
-Clawdot Gateway 将饿了么外卖能力封装为标准 API，让任何 AI Agent 都能完成从搜索商家、浏览菜单到下单的完整流程。
-
-<Columns cols={2}>
-  <Card
-    title="快速开始"
-    icon="rocket"
-    href="/quickstart"
-  >
-    3 步完成接入：注册 Agent、绑定用户、发起第一笔订单。
-  </Card>
-  <Card
-    title="架构概览"
-    icon="sitemap"
-    href="/architecture"
-  >
-    了解三层架构设计：Gateway → Services → Eleme Client。
-  </Card>
-  <Card
-    title="API 参考"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    完整的 REST API 端点文档，包含请求示例和响应格式。
-  </Card>
-  <Card
-    title="MCP 集成"
-    icon="plug"
-    href="/mcp/overview"
-  >
-    通过 MCP 协议接入，让 Claude 等 AI 直接调用外卖能力。
-  </Card>
-</Columns>
-
-## 核心能力
+Clawdot 为 AI Agent 提供本地生活服务能力。从外卖点餐到更多生活场景，让 AI 真正能帮用户办事。
 
 <Columns cols={3}>
-  <Card title="商家搜索" icon="magnifying-glass">
-    按关键词或默认分类搜索附近商家，支持 10 个品类并行搜索。
+  <Card title="外卖点餐" icon="utensils" href="/clawdot/food-delivery-agent">
+    搜索商家、浏览菜单、智能下单，全流程 AI 代办。
   </Card>
-  <Card title="菜单浏览" icon="utensils">
-    完整菜单含规格、属性、加料体系，预计算默认选项。
+  <Card title="Gateway API" icon="server" href="/gateway/introduction">
+    标准化 REST + MCP 双协议网关，开箱即用。
   </Card>
-  <Card title="智能下单" icon="cart-shopping">
-    两步下单（预览 + 确认），自动选择最优优惠券。
+  <Card title="Agent 生态" icon="robot" href="/clawdot/agents-overview">
+    开放的 Agent 接入体系，构建你自己的本地生活助手。
   </Card>
 </Columns>
 
-## 双协议支持
+## 为什么选择 Clawdot
+
+<Columns cols={2}>
+  <Card title="双协议支持" icon="plug">
+    REST API 和 MCP 协议双入口，适配所有 AI 平台——Claude、GPT、自研 Agent 均可接入。
+  </Card>
+  <Card title="开箱即用" icon="box-open">
+    Gateway 封装了平台 API 的复杂性：Token 管理、签名、ID 转换、优惠券优选，Agent 只需关注业务。
+  </Card>
+  <Card title="安全设计" icon="shield">
+    API Key + User Token 双层认证，用户数据 AES-256-GCM 加密存储，手机号哈希脱敏。
+  </Card>
+  <Card title="持续扩展" icon="arrow-up-right-dots">
+    从外卖开始，逐步覆盖更多本地生活场景——跑腿、生鲜、到店服务。
+  </Card>
+</Columns>
+
+## 快速开始
 
 <Tabs>
   <Tab title="REST API">
-    标准 RESTful 接口，适合任何 HTTP 客户端：
-
     ```bash
-    curl -X GET "https://your-gateway/api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡" \
+    # 搜索附近商家
+    curl -X GET "https://gateway.clawdot.ai/api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡" \
       -H "Authorization: Bearer clw_your_api_key" \
       -H "X-User-Token: your_user_token"
     ```
   </Tab>
   <Tab title="MCP Protocol">
-    Model Context Protocol 接入，AI Agent 原生调用：
-
     ```json
     {
       "tool": "search_shops",
@@ -80,3 +61,7 @@ Clawdot Gateway 将饿了么外卖能力封装为标准 API，让任何 AI Agent
     ```
   </Tab>
 </Tabs>
+
+<Card title="3 步完成接入" icon="rocket" href="/quickstart" horizontal>
+  注册 Agent → 绑定用户 → 开始点餐。
+</Card>

@@ -9,7 +9,7 @@ description: "Clawdot Gateway 的三层架构设计"
 graph LR
   REST["REST API\n/api/v1/*"] --> Services
   MCP["MCP Server\n/mcp"] --> Services
-  Services --> ElemeClient --> ElemeAPI["Eleme API"]
+  Services --> Client["外卖 Client"] --> API["外卖平台 API"]
   Services --> Models["Models\n(SQLAlchemy)"] --> MySQL
 ```
 
@@ -33,7 +33,7 @@ Clawdot Gateway 采用三层架构，REST 和 MCP 两个入口共享同一套服
   <Accordion title="Service 层 — 业务逻辑" icon="gears">
     **位置：** `src/services/`
 
-    核心业务逻辑所在，通过构造函数接收依赖（DB session, Eleme client）：
+    核心业务逻辑所在，通过构造函数接收依赖（DB session, 外卖 client）：
 
     - **AuthService** — Agent 注册、API Key 生成与验证
     - **UserService** — SMS 发送、验证码校验、用户绑定
@@ -42,15 +42,15 @@ Clawdot Gateway 采用三层架构，REST 和 MCP 两个入口共享同一套服
     - **OrderService** — 订单预览（含自动优惠券）、创建与查询
   </Accordion>
 
-  <Accordion title="Eleme Client 层 — API 封装" icon="cloud">
-    **位置：** `src/eleme/`
+  <Accordion title="外卖 Client 层 — API 封装" icon="cloud">
+    **位置：** `src/client/`
 
-    饿了么 API 的 HTTP 客户端封装：
+    外卖平台 API 的 HTTP 客户端封装：
 
     - **Token 管理** — `ensure_token` 自动刷新过期 Token
-    - **请求签名** — 按饿了么要求的签名算法
+    - **请求签名** — 按平台要求的签名算法
     - **UA 管理** — 不同端点使用不同 User-Agent（订单用 MTOPSDK 格式，搜索用 Rajax 格式）
-    - **错误处理** — 统一的饿了么 API 错误转换
+    - **错误处理** — 统一的平台 API 错误转换
   </Accordion>
 </AccordionGroup>
 
@@ -63,17 +63,17 @@ sequenceDiagram
   participant Agent
   participant Gateway as REST / MCP
   participant Shop as ShopService
-  participant Eleme as Eleme API
+  participant Platform as 外卖平台 API
 
   Agent->>Gateway: 搜索商家
   Gateway->>Shop: _search_default()
   par 10 个并行搜索
-    Shop->>Eleme: searchByKeyWords("推荐")
-    Shop->>Eleme: searchByKeyWords("快餐")
-    Shop->>Eleme: searchByKeyWords("咖啡")
-    Shop->>Eleme: ...（共 10 个品类）
+    Shop->>Platform: searchByKeyWords("推荐")
+    Shop->>Platform: searchByKeyWords("快餐")
+    Shop->>Platform: searchByKeyWords("咖啡")
+    Shop->>Platform: ...（共 10 个品类）
   end
-  Eleme-->>Shop: 各品类结果
+  Platform-->>Shop: 各品类结果
   Shop->>Shop: 按 encryptShopId 去重
   Shop-->>Gateway: ~50 家商店
   Gateway-->>Agent: 搜索结果
@@ -86,25 +86,25 @@ sequenceDiagram
   participant Agent
   participant Gateway as REST / MCP
   participant Order as OrderService
-  participant Eleme as Eleme API
+  participant Platform as 外卖平台 API
   participant Cache as 内存缓存
   participant DB as MySQL
 
   Agent->>Gateway: POST /orders/preview
   Gateway->>Order: preview()
-  Order->>Eleme: 第 1 次渲染（无优惠券）
-  Eleme-->>Order: 可用优惠券列表
+  Order->>Platform: 第 1 次渲染（无优惠券）
+  Platform-->>Order: 可用优惠券列表
   Order->>Order: 选择最优优惠券
-  Order->>Eleme: 第 2 次渲染（带优惠券）
-  Eleme-->>Order: 最终价格
+  Order->>Platform: 第 2 次渲染（带优惠券）
+  Platform-->>Order: 最终价格
   Order->>Cache: 缓存渲染结果（10 min TTL）
   Order-->>Agent: session_id + 价格明细
 
   Agent->>Gateway: POST /orders
   Gateway->>Order: create()
   Order->>Cache: 获取渲染数据
-  Order->>Eleme: 创建订单
-  Eleme-->>Order: order_id
+  Order->>Platform: 创建订单
+  Platform-->>Order: order_id
   Order->>DB: 保存订单记录
   Order-->>Agent: order_id + 状态
 ```
@@ -136,7 +136,7 @@ sequenceDiagram
     | id | int (PK) | 自增主键 |
     | agent_id | int (FK) | 关联 Agent |
     | phone_hash | varchar(64) | 手机号 SHA-256 |
-    | eleme_user_id | varchar(256) | AES-256-GCM 加密 |
+    | encrypted_user_id | varchar(256) | AES-256-GCM 加密 |
     | user_token | varchar(36) | UUID，唯一索引 |
     | token_expires_at | datetime | Token 过期时间 |
     | created_at / updated_at | datetime | 时间戳 |
@@ -147,7 +147,7 @@ sequenceDiagram
     | id | int (PK) | 自增主键 |
     | agent_id | int (FK) | 关联 Agent |
     | user_binding_id | int (FK) | 关联用户绑定 |
-    | eleme_order_id | varchar(64) | 饿了么订单 ID |
+    | platform_order_id | varchar(64) | 外卖订单 ID |
     | shop_name | varchar(200) | 商家名称 |
     | total_amount | decimal(10,2) | 订单总额 |
     | status | varchar(32) | 订单状态 |

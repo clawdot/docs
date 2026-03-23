@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Clawdot Gateway",
+  "name": "Clawdot",
   "colors": {
     "primary": "#6366F1",
     "light": "#818CF8",
@@ -11,30 +11,68 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Overview",
         "groups": [
           {
-            "group": "Getting Started",
+            "group": "Clawdot",
             "pages": [
               "index",
-              "quickstart",
-              "architecture"
+              "quickstart"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Clawdot",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "clawdot/what-is-clawdot",
+              "clawdot/how-it-works"
             ]
           },
           {
-            "group": "Core Concepts",
+            "group": "Agents",
             "pages": [
-              "guides/authentication",
-              "guides/order-flow",
-              "guides/ingredient-system",
-              "guides/error-handling"
+              "clawdot/agents-overview",
+              "clawdot/food-delivery-agent",
+              "clawdot/building-agents"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "clawdot/supported-services",
+              "clawdot/roadmap"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Gateway",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "gateway/introduction",
+              "gateway/architecture"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "gateway/authentication",
+              "gateway/order-flow",
+              "gateway/item-specs",
+              "gateway/error-handling"
             ]
           },
           {
             "group": "MCP Integration",
             "pages": [
-              "mcp/overview",
-              "mcp/tools"
+              "gateway/mcp-overview",
+              "gateway/mcp-tools"
             ]
           }
         ]
@@ -92,7 +130,7 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/clawdot/gateway",
+          "href": "https://github.com/clawdot",
           "icon": "github"
         }
       ]

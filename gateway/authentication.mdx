@@ -3,7 +3,7 @@ title: "认证机制"
 description: "API Key 和 User Token 双层认证体系"
 ---
 
-Clawdot Gateway 使用双层认证：**API Key** 标识 Agent 身份，**User Token** 标识饿了么用户身份。
+Clawdot Gateway 使用双层认证：**API Key** 标识 Agent 身份，**User Token** 标识外卖用户身份。
 
 ## 认证链
 
@@ -15,7 +15,7 @@ flowchart LR
   C -- 否 --> E["401 AUTH_INVALID"]
   D --> F["require_user()"]
   F --> G{"User Token\n有效?"}
-  G -- 是 --> H["(agent_id, eleme_user_id)"]
+  G -- 是 --> H["(agent_id, user_id)"]
   G -- 否 --> I["401 USER_TOKEN_INVALID"]
 ```
 
@@ -75,7 +75,7 @@ flowchart LR
   </Accordion>
 
   <Accordion title="安全设计" icon="shield">
-    Token 关联的饿了么用户 ID 以 **AES-256-GCM** 加密存储：
+    Token 关联的外卖用户 ID 以 **AES-256-GCM** 加密存储：
 
     - 加密密钥：环境变量 `ENCRYPTION_KEY`（base64 编码的 32 字节密钥）
     - 手机号：SHA-256 哈希存储（用于同一 Agent 下的去重）

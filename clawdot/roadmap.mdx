@@ -1,0 +1,55 @@
+---
+title: "Roadmap"
+description: "Clawdot 产品路线图"
+---
+
+## 阶段规划
+
+```mermaid
+gantt
+  title Clawdot Roadmap
+  dateFormat YYYY-Q
+  axisFormat %Y Q%q
+
+  section 外卖
+    Gateway 核心 API          :done, 2025-Q1, 2025-Q2
+    MCP 协议支持              :done, 2025-Q2, 2025-Q2
+    SMS 验证绑定              :done, 2025-Q2, 2025-Q3
+
+  section 平台能力
+    Agent 控制台               :active, 2025-Q3, 2025-Q4
+    Agent SDK                  :2025-Q4, 2026-Q1
+    多服务网关                  :2026-Q1, 2026-Q2
+
+  section 服务扩展
+    跑腿服务                   :2026-Q1, 2026-Q2
+    生鲜配送                   :2026-Q2, 2026-Q3
+    到店服务                   :2026-Q3, 2026-Q4
+```
+
+## 近期重点
+
+<AccordionGroup>
+  <Accordion title="Agent 控制台" icon="gauge-high">
+    Web 管理面板，提供：
+    - Agent 创建与密钥管理
+    - 用户绑定状态查看
+    - 订单记录与统计
+    - 用量监控与限流配置
+  </Accordion>
+
+  <Accordion title="Agent SDK" icon="toolbox">
+    面向开发者的 SDK，简化 Agent 开发：
+    - Python / TypeScript SDK
+    - 内置对话流程模板
+    - 错误处理与重试机制
+    - 测试工具与 Mock 服务
+  </Accordion>
+
+  <Accordion title="多服务网关" icon="diagram-project">
+    Gateway 架构升级，支持多种本地生活服务：
+    - 统一的服务抽象层
+    - 可插拔的服务适配器
+    - 跨服务的用户身份管理
+  </Accordion>
+</AccordionGroup>

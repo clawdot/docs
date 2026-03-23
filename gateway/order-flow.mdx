@@ -48,7 +48,7 @@ GET /api/v1/shops/E1234567890?lat=39.9&lng=116.4
 - **default_ingredients** — 预计算的默认选项（用于快速下单）
 
 <Note>
-  详细的规格/属性/加料体系说明见 [加料系统](/guides/ingredient-system)。
+  详细的规格/属性/加料体系说明见 [商品规格说明](/gateway/item-specs)。
 </Note>
 
 ### 准备收货地址
@@ -70,7 +70,7 @@ POST /api/v1/addresses
 ```
 
 <Warning>
-  必须先调用 `/addresses/select`，再调用 `/addresses`。否则饿了么会返回「未选中该地址」错误。
+  必须先调用 `/addresses/select`，再调用 `/addresses`。否则外卖平台会返回「未选中该地址」错误。
 </Warning>
 
 如果已有地址，直接查询：

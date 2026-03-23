@@ -1,0 +1,85 @@
+---
+title: "外卖 Agent"
+description: "Clawdot 的第一个场景：AI 外卖点餐助手"
+---
+
+## 概述
+
+外卖 Agent 是 Clawdot 的首个落地场景。它让 AI 能够完成从搜索商家到确认下单的完整外卖流程。
+
+## 能力矩阵
+
+| 能力 | 说明 | API |
+|------|------|-----|
+| 商家搜索 | 按关键词或位置搜索，支持 10 品类并行 | `search_shops` |
+| 菜单浏览 | 完整菜单含规格、属性、加料及默认选项 | `get_shop_detail` |
+| 地址管理 | POI 搜索、地址创建与列表管理 | `search_pois` / `create_address` |
+| 智能下单 | 预览 + 确认两步流程，自动选最优优惠券 | `preview_order` / `confirm_order` |
+| 订单追踪 | 查询订单状态 | `get_order` |
+
+## 典型对话场景
+
+```
+用户：帮我点杯咖啡
+
+Agent：我来帮你搜索附近的咖啡店。
+      → 调用 search_shops(keyword="咖啡")
+
+      找到 3 家：
+      1. 瑞幸咖啡(国贸店) - 配送费 ¥0，约 35 分钟
+      2. 星巴克(CBD店) - 配送费 ¥5，约 40 分钟
+      3. Manner Coffee - 配送费 ¥0，约 30 分钟
+
+      你想看哪家的菜单？
+
+用户：瑞幸吧
+
+Agent：→ 调用 get_shop_detail(shop_id)
+
+      瑞幸咖啡热销：
+      1. 生椰拿铁 ¥9.9（原价 ¥19）
+      2. 冰美式 ¥9.9
+      3. 厚乳拿铁 ¥13.9
+
+      要点什么？
+
+用户：一杯生椰拿铁，冰的
+
+Agent：→ 调用 preview_order(items, 使用 default_ingredients)
+
+      订单确认：
+      - 生椰拿铁 × 1（大杯，冰）
+      - 配送费 ¥0
+      - 优惠券减 ¥1.5
+      - 实付 ¥8.4
+
+      确认下单吗？
+
+用户：确认
+
+Agent：→ 调用 confirm_order(session_id)
+
+      已下单！预计 35 分钟送达。订单号：1234567890
+```
+
+## Agent 设计建议
+
+<AccordionGroup>
+  <Accordion title="使用默认规格" icon="bolt">
+    菜单中每个商品都有 `default_ingredients` 字段。除非用户明确要求定制（"大杯改中杯"、"加一份浓缩"），否则直接使用默认值即可。这避免了处理复杂的规格互斥逻辑。
+  </Accordion>
+
+  <Accordion title="预览后必须确认" icon="circle-check">
+    下单是两步流程：先 `preview_order` 拿到价格和 `session_id`，再 `confirm_order` 确认。务必在下单前展示价格让用户确认，避免误操作。
+  </Accordion>
+
+  <Accordion title="地址管理策略" icon="location-dot">
+    首次使用时引导用户创建地址（搜索 POI → 选中 → 创建），之后通过 `list_addresses` 复用已有地址。减少每次下单的交互步骤。
+  </Accordion>
+
+  <Accordion title="错误处理" icon="triangle-exclamation">
+    - `session_id` 10 分钟过期 → 重新 preview
+    - 商家关店 → 提示用户选择其他商家
+    - 限流 → 等待后重试，避免频繁下单
+  </Accordion>
+</AccordionGroup>
