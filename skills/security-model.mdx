@@ -1,0 +1,278 @@
+---
+title: "安全模型"
+description: "一对一绑定授权与数据安全"
+icon: "shield-check"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import Mermaid from '/components/Mermaid';
+import { Tabs, Tab } from '/components/Tabs';
+
+## 一对一绑定授权
+
+Skills 平台的安全基石是 **一对一绑定授权** 模式：每个 Agent 与其对应的用户形成专属的、不可交叉的绑定关系。这种设计天然隔离了不同 Agent 的数据和权限，无需复杂的中央权限管理系统。
+
+<Mermaid
+  chart={`
+    graph TB
+      subgraph Agent1["Agent A"]
+        K1["API Key A<br/>(clw_xxxxx)"]
+      end
+
+      subgraph Agent2["Agent B"]
+        K2["API Key B<br/>(clw_xxxxx)"]
+      end
+
+      subgraph User1["User 1"]
+        T1["User Token<br/>(UUID)"]
+      end
+
+      subgraph User2["User 2"]
+        T2["User Token<br/>(UUID)"]
+      end
+
+      K1 -->|绑定| T1
+      K2 -->|绑定| T2
+
+      T1 -->|隔离访问| D["本地生活数据<br/>订单、地址、支付"]
+      T2 -->|隔离访问| D
+
+      style Agent1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style Agent2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style User1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style User2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style K1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style K2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style T1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style T2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  `}
+/>
+
+**核心特点：**
+
+- **天然隔离**：每个 Agent 的用户数据只对该 Agent 可见，跨 Agent 访问被永久拦截
+- **无权限膨胀**：不存在 Admin、Super User 等特殊角色，权限明确且固定
+- **审计友好**：一对一关系清晰易追踪，便于日志审计和合规检查
+
+## 双层认证
+
+Skills 平台采用 **API Key + User Token** 的双层认证机制：
+
+1. **API Key** — 识别 Agent 身份，由 Agent 应用方保管
+2. **User Token** — 识别食品配送用户身份，通过 SMS 短信验证后绑定
+
+<Mermaid
+  chart={`
+    sequenceDiagram
+      participant A as Agent 应用
+      participant S as Skills 平台
+      participant DB as 数据库
+
+      A ->> S: 请求：API Key + User Token
+      S ->> DB: 验证 API Key（SHA-256）
+      DB -->> S: 校验通过
+      S ->> DB: 验证 User Token（AES-256）
+      DB -->> S: 校验通过，解密用户 ID
+      S ->> DB: 确认绑定关系（API Key == User Agent）
+      DB -->> S: 绑定有效，用户数据可访问
+      S -->> A: 返回业务数据
+  `}
+/>
+
+### API Key（Agent 识别）
+
+- **前缀**：`clw_` 开头
+- **长度**：32 字符（加前缀共 36 字符）
+- **存储**：在数据库中以 SHA-256 哈希存储，不保存明文
+- **颁发**：由 Agent 管理方在 Clawdot 控制台创建和管理
+- **使用**：在所有请求的 HTTP Header 中作为 `Authorization: Bearer {API_KEY}`
+
+### User Token（用户识别）
+
+- **格式**：UUID（RFC 4122）
+- **来源**：由用户通过 SMS 短信验证后获得，Agent 应用存储此 Token
+- **存储**：完整 Token 在数据库中以 AES-256-GCM 加密存储
+- **有效期**：90 天，过期后用户需重新 SMS 绑定
+- **使用**：在所有请求的 HTTP Header 中作为 `X-User-Token: {USER_TOKEN}`
+
+## 数据加密
+
+Skills 平台对所有敏感数据进行分层加密，确保即使数据库泄露也无法直接解密关键信息：
+
+<Tabs>
+  <Tab title="用户身份">
+    **用户 ID 加密**
+    - 算法：AES-256-GCM
+    - 密钥：由服务端安全生成和管理
+    - 场景：User Token 对应的用户 ID 在数据库中以密文存储
+    - 解密权限：仅绑定的 Agent 可解密其对应的用户数据
+  </Tab>
+
+  <Tab title="电话号码">
+    **电话号码去重/去识别**
+    - 算法：SHA-256（单向哈希）
+    - 用途：检测重复绑定、去识别存储
+    - 特点：单向哈希，无法反向解密
+    - 场景：SMS 验证后，电话号码以哈希形式存储
+  </Tab>
+
+  <Tab title="API Key">
+    **API Key 哈希**
+    - 算法：SHA-256（单向哈希）
+    - 用途：验证 Agent 请求合法性
+    - 特点：数据库中无法查看明文 Key
+    - 场景：每次请求时，服务端对传入的 Key 进行哈希后与数据库对比
+  </Tab>
+</Tabs>
+
+## Agent-User 隔离
+
+Skills 平台在数据访问层强制执行严格的隔离策略：
+
+```
+访问规则：
+┌─────────────────────────────────────────────┐
+│ Agent A 的 API Key + User Token 1           │
+│ → 只能访问 User 1 的数据                     │
+│ → 不能访问 User 2 的数据                     │
+│ → 不能访问 Agent B 的数据                   │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ Agent B 的 API Key + User Token 2           │
+│ → 只能访问 User 2 的数据                     │
+│ → 不能访问 User 1 的数据                     │
+│ → 不能访问 Agent A 的数据                   │
+└─────────────────────────────────────────────┘
+```
+
+**实现细节：**
+
+1. 每个请求都携带 API Key 和 User Token
+2. 服务端验证 API Key 对应的 Agent ID
+3. 服务端验证 User Token 对应的用户 ID
+4. 数据库查询条件：`WHERE agent_id = ? AND user_id = ?`
+5. 任何跨越这两个条件的查询都会被拒绝
+
+## User Token 生命周期
+
+<Mermaid
+  chart={`
+    graph LR
+      A["1. 用户请求绑定"] -->|SMS 验证码| B["2. SMS 验证"]
+      B -->|校验通过| C["3. 生成 Token"]
+      C -->|返回给 Agent 应用| D["4. 存储使用<br/>90 天有效期"]
+      D -->|30 天前预警| E["5. 过期前 2 个月<br/>提示重新绑定"]
+      E -->|过期| F["6. Token 失效<br/>需要 SMS 重新绑定"]
+
+      style A fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style B fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style C fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+      style E fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+      style F fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  `}
+/>
+
+**时间线：**
+
+| 事件 | 时间 | 描述 |
+|------|------|------|
+| Token 生成 | Day 0 | 用户成功 SMS 验证，获得 User Token |
+| 正常使用 | Day 1-60 | Token 有效，所有请求正常处理 |
+| 预警期 | Day 60-90 | 系统发送预警消息，提示用户即将过期 |
+| Token 过期 | Day 90 | Token 自动失效，新请求返回 401 Unauthorized |
+| 重新绑定 | Day 90+ | 用户需要重新发起 SMS 验证流程 |
+
+## 认证失败处理
+
+所有认证失败的请求都会返回适当的 HTTP 状态码和错误信息：
+
+<CardGroup cols={2}>
+  <Card title="400 Bad Request" icon="circle-x">
+    **缺少必要字段**
+    - 缺少 Authorization Header（API Key）
+    - 缺少 X-User-Token Header
+    - 字段格式不正确
+  </Card>
+
+  <Card title="401 Unauthorized" icon="lock">
+    **认证凭证无效**
+    - API Key 格式错误或不存在
+    - User Token 过期或不存在
+    - API Key 被禁用
+  </Card>
+
+  <Card title="403 Forbidden" icon="ban">
+    **无权限访问**
+    - API Key 与 User Token 未绑定
+    - API Key 对应的 Agent 被禁用
+    - User Token 对应的用户被禁用
+  </Card>
+
+  <Card title="429 Too Many Requests" icon="hourglass">
+    **速率限制**
+    - 在限制时间内发送过多请求
+    - 同一 Agent 触发频率限制
+    - 自动降级处理
+  </Card>
+</CardGroup>
+
+## 安全最佳实践
+
+<Tabs>
+  <Tab title="Agent 应用端">
+    - **保管 API Key**：将 API Key 存储在安全的环境变量或密钥管理系统中，不要提交到版本控制
+    - **保管 User Token**：使用客户端加密存储 User Token，涉及用户敏感数据
+    - **HTTPS only**：所有与 Skills API 的通信必须使用 HTTPS，禁止明文 HTTP
+    - **定期轮换**：定期更换 API Key 和 User Token，建立自动轮换机制
+    - **错误处理**：捕获 401/403 错误，提示用户重新认证或绑定
+  </Tab>
+
+  <Tab title="服务端">
+    - **验证所有请求**：不信任任何客户端声称的身份，总是验证 API Key 和 User Token
+    - **日志脱敏**：日志中不记录完整的 API Key 或 User Token，仅记录前缀或哈希
+    - **速率限制**：每个 Agent 有独立的速率限制，防止滥用
+    - **密钥轮换**：定期轮换数据库密钥，支持旧密钥的平滑过渡
+    - **审计日志**：记录所有认证尝试（成功和失败），便于合规检查
+  </Tab>
+
+  <Tab title="SMS 绑定流程">
+    - **防重放攻击**：验证码一次性使用，防止重复提交
+    - **限制尝试次数**：超过一定次数的失败验证后，锁定该电话号码一段时间
+    - **验证码过期**：生成的验证码 5-10 分钟后自动失效
+    - **号码验证**：验证电话号码格式，防止恶意输入
+    - **跨域检查**：防止跨域 SMS 验证请求
+  </Tab>
+</Tabs>
+
+## 常见问题
+
+<details>
+<summary>一个 User Token 可以在多个 Agent 中使用吗？</summary>
+
+**不可以**。User Token 绑定到特定的食品配送用户身份，但每个 Agent 应用方需要分别与该用户的 User Token 进行绑定。Skills 平台会校验 API Key 和 User Token 的绑定关系，确保跨越绑定的访问被拒绝。
+
+</details>
+
+<details>
+<summary>API Key 泄露了怎么办？</summary>
+
+立即在 Clawdot 控制台禁用该 API Key，系统将自动停止所有使用该 Key 的请求。然后生成新的 API Key，更新应用配置。数据库中存储的是 API Key 的 SHA-256 哈希，攻击者无法直接利用泄露的 Hash 值。
+
+</details>
+
+<details>
+<summary>User Token 过期后数据会丢失吗？</summary>
+
+**不会**。User Token 只是访问凭证，过期后用户需要重新通过 SMS 验证获得新 Token。数据本身永久存储在 Skills 平台的数据库中，不会因为 Token 过期而删除。
+
+</details>
+
+<details>
+<summary>支持 API Key 权限分级吗？</summary>
+
+Skills 平台不提供权限分级。每个 API Key 对其绑定的用户有完全权限。如果需要细粒度权限控制，建议在 Agent 应用层面实现。
+
+</details>

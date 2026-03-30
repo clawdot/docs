@@ -1,0 +1,278 @@
+---
+title: "Security Model"
+description: "One-to-one binding authorization and data security"
+icon: "shield-check"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import Mermaid from '/components/Mermaid';
+import { Tabs, Tab } from '/components/Tabs';
+
+## One-to-One Binding Authorization
+
+The security foundation of the Skills Platform is the **one-to-one binding authorization** model: each Agent and its corresponding user form an exclusive, non-overlapping binding relationship. This design naturally isolates the data and permissions of different Agents, eliminating the need for a complex centralized permission management system.
+
+<Mermaid
+  chart={`
+    graph TB
+      subgraph Agent1["Agent A"]
+        K1["API Key A<br/>(clw_xxxxx)"]
+      end
+
+      subgraph Agent2["Agent B"]
+        K2["API Key B<br/>(clw_xxxxx)"]
+      end
+
+      subgraph User1["User 1"]
+        T1["User Token<br/>(UUID)"]
+      end
+
+      subgraph User2["User 2"]
+        T2["User Token<br/>(UUID)"]
+      end
+
+      K1 -->|binding| T1
+      K2 -->|binding| T2
+
+      T1 -->|isolated access| D["Local life data<br/>Orders, addresses, payments"]
+      T2 -->|isolated access| D
+
+      style Agent1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style Agent2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style User1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style User2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style K1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style K2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      style T1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style T2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  `}
+/>
+
+**Core features:**
+
+- **Natural isolation**: Each Agent's user data is only visible to that Agent; cross-Agent access is permanently blocked
+- **No privilege creep**: No special roles like Admin or Super User; permissions are explicit and fixed
+- **Audit-friendly**: One-to-one relationships are clear and easy to trace, facilitating log auditing and compliance checks
+
+## Dual-Layer Authentication
+
+The Skills Platform uses a **API Key + User Token** dual-layer authentication mechanism:
+
+1. **API Key** — Identifies Agent identity, managed by the Agent application provider
+2. **User Token** — Identifies food delivery user identity, bound after SMS verification
+
+<Mermaid
+  chart={`
+    sequenceDiagram
+      participant A as Agent Application
+      participant S as Skills Platform
+      participant DB as Database
+
+      A ->> S: Request: API Key + User Token
+      S ->> DB: Verify API Key (SHA-256)
+      DB -->> S: Verification passed
+      S ->> DB: Verify User Token (AES-256)
+      DB -->> S: Verification passed, decrypt user ID
+      S ->> DB: Confirm binding relationship (API Key == User Agent)
+      DB -->> S: Binding valid, user data accessible
+      S -->> A: Return business data
+  `}
+/>
+
+### API Key (Agent Identification)
+
+- **Prefix**: Starts with `clw_`
+- **Length**: 32 characters (36 characters with prefix)
+- **Storage**: Stored as SHA-256 hash in database, plaintext never saved
+- **Issuance**: Created and managed by Agent provider in Clawdot console
+- **Usage**: In all requests' HTTP Header as `Authorization: Bearer {API_KEY}`
+
+### User Token (User Identification)
+
+- **Format**: UUID (RFC 4122)
+- **Source**: Obtained by users after SMS verification, stored by Agent application
+- **Storage**: Full Token encrypted with AES-256-GCM in database
+- **Validity**: 90 days; users must re-verify via SMS after expiration
+- **Usage**: In all requests' HTTP Header as `X-User-Token: {USER_TOKEN}`
+
+## Data Encryption
+
+The Skills Platform applies layered encryption to all sensitive data, ensuring that even if the database is breached, critical information cannot be directly decrypted:
+
+<Tabs>
+  <Tab title="User Identity">
+    **User ID Encryption**
+    - Algorithm: AES-256-GCM
+    - Key: Generated and managed securely by server
+    - Scenario: User ID corresponding to User Token stored as ciphertext in database
+    - Decryption Permission: Only the bound Agent can decrypt its corresponding user data
+  </Tab>
+
+  <Tab title="Phone Number">
+    **Phone Number De-duplication/De-identification**
+    - Algorithm: SHA-256 (one-way hash)
+    - Purpose: Detect duplicate bindings, de-identified storage
+    - Feature: One-way hash, cannot be decrypted in reverse
+    - Scenario: After SMS verification, phone number stored as hash
+  </Tab>
+
+  <Tab title="API Key">
+    **API Key Hashing**
+    - Algorithm: SHA-256 (one-way hash)
+    - Purpose: Verify legitimacy of Agent requests
+    - Feature: Database cannot view plaintext Key
+    - Scenario: Server hashes incoming Key during each request and compares with database
+  </Tab>
+</Tabs>
+
+## Agent-User Isolation
+
+The Skills Platform enforces strict isolation policies at the data access layer:
+
+```
+Access Rules:
+┌─────────────────────────────────────────────┐
+│ Agent A's API Key + User Token 1            │
+│ → Can only access User 1's data             │
+│ → Cannot access User 2's data               │
+│ → Cannot access Agent B's data              │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ Agent B's API Key + User Token 2            │
+│ → Can only access User 2's data             │
+│ → Cannot access User 1's data               │
+│ → Cannot access Agent A's data              │
+└─────────────────────────────────────────────┘
+```
+
+**Implementation Details:**
+
+1. Every request carries API Key and User Token
+2. Server verifies Agent ID corresponding to API Key
+3. Server verifies user ID corresponding to User Token
+4. Database query condition: `WHERE agent_id = ? AND user_id = ?`
+5. Any query crossing these two conditions is rejected
+
+## User Token Lifecycle
+
+<Mermaid
+  chart={`
+    graph LR
+      A["1. User requests binding"] -->|SMS verification code| B["2. SMS verification"]
+      B -->|verification passed| C["3. Generate token"]
+      C -->|return to Agent app| D["4. Store and use<br/>90-day validity"]
+      D -->|30 days before expiration alert| E["5. 2 months before expiration<br/>prompt re-binding"]
+      E -->|expiration| F["6. Token invalid<br/>SMS re-binding required"]
+
+      style A fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style B fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style C fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+      style E fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+      style F fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  `}
+/>
+
+**Timeline:**
+
+| Event | Time | Description |
+|-------|------|-------------|
+| Token generated | Day 0 | User successfully SMS verified, received User Token |
+| Normal use | Day 1-60 | Token valid, all requests processed normally |
+| Warning period | Day 60-90 | System sends warning messages, alerts user of upcoming expiration |
+| Token expired | Day 90 | Token auto-disabled, new requests return 401 Unauthorized |
+| Re-binding | Day 90+ | User must initiate SMS verification process again |
+
+## Authentication Failure Handling
+
+All failed authentication requests return appropriate HTTP status codes and error messages:
+
+<CardGroup cols={2}>
+  <Card title="400 Bad Request" icon="circle-x">
+    **Missing required fields**
+    - Missing Authorization Header (API Key)
+    - Missing X-User-Token Header
+    - Incorrect field format
+  </Card>
+
+  <Card title="401 Unauthorized" icon="lock">
+    **Invalid authentication credentials**
+    - API Key format error or does not exist
+    - User Token expired or does not exist
+    - API Key disabled
+  </Card>
+
+  <Card title="403 Forbidden" icon="ban">
+    **No permission to access**
+    - API Key and User Token not bound
+    - Agent corresponding to API Key disabled
+    - User corresponding to User Token disabled
+  </Card>
+
+  <Card title="429 Too Many Requests" icon="hourglass">
+    **Rate limiting**
+    - Too many requests sent within limited time
+    - Same Agent triggered frequency limit
+    - Automatic degradation handling
+  </Card>
+</CardGroup>
+
+## Security Best Practices
+
+<Tabs>
+  <Tab title="Agent Application Side">
+    - **Protect API Key**: Store API Key in secure environment variables or key management system, never commit to version control
+    - **Protect User Token**: Use client-side encryption to store User Token, involves user sensitive data
+    - **HTTPS only**: All communication with Skills API must use HTTPS, prohibit plaintext HTTP
+    - **Regular rotation**: Regularly rotate API Key and User Token, establish automatic rotation mechanism
+    - **Error handling**: Catch 401/403 errors, prompt users to re-authenticate or re-bind
+  </Tab>
+
+  <Tab title="Server Side">
+    - **Verify all requests**: Never trust client-claimed identity, always verify API Key and User Token
+    - **Log sanitization**: Do not record complete API Key or User Token in logs, only record prefix or hash
+    - **Rate limiting**: Each Agent has independent rate limiting to prevent abuse
+    - **Key rotation**: Periodically rotate database keys, support smooth transition of old keys
+    - **Audit log**: Record all authentication attempts (successful and failed) for compliance checks
+  </Tab>
+
+  <Tab title="SMS Binding Flow">
+    - **Replay attack prevention**: Verification code one-time use, prevent duplicate submission
+    - **Attempt limiting**: Lock phone number for a period after exceeding certain failed verification attempts
+    - **Code expiration**: Generated verification codes auto-expire after 5-10 minutes
+    - **Phone number validation**: Validate phone number format, prevent malicious input
+    - **Cross-domain check**: Prevent cross-domain SMS verification requests
+  </Tab>
+</Tabs>
+
+## FAQ
+
+<details>
+<summary>Can one User Token be used in multiple Agents?</summary>
+
+**No**. User Token is bound to the specific food delivery user identity, but each Agent application provider needs to separately bind with that user's User Token. The Skills Platform verifies the binding relationship between API Key and User Token, ensuring cross-binding access is rejected.
+
+</details>
+
+<details>
+<summary>What if API Key is leaked?</summary>
+
+Immediately disable that API Key in the Clawdot console; the system will automatically stop all requests using that Key. Then generate a new API Key and update application configuration. The database stores SHA-256 hash of the API Key, so attackers cannot directly leverage the leaked Hash value.
+
+</details>
+
+<details>
+<summary>Will data be lost if User Token expires?</summary>
+
+**No**. User Token is just an access credential; after expiration, users need to re-verify via SMS to get a new Token. The data itself is permanently stored in the Skills Platform database and will not be deleted due to Token expiration.
+
+</details>
+
+<details>
+<summary>Does it support API Key permission levels?</summary>
+
+The Skills Platform does not provide permission levels. Each API Key has complete permissions for all its bound users. If fine-grained permission control is needed, it is recommended to implement it at the Agent application layer, or contact us to discuss the Super Agent solution.
+
+</details>

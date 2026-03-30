@@ -8,14 +8,14 @@ description: "POST /auth/agents — 创建新的 Agent 并获取 API Key"
 创建一个新的 Agent，返回唯一的 API Key。
 
 <Warning>
-  此接口使用 **Admin Secret** 认证，不是 API Key。API Key 仅在创建时返回一次。
+  此接口使用 **Admin Secret** 认证，不是 API Key。API Key 仅在创建时返回一次，请妥善保管。
 </Warning>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `X-Admin-Secret` | 是 | 管理员密钥（环境变量 `ADMIN_SECRET`）|
+| `X-Admin-Secret` | 是 | 管理员密钥 |
 | `Content-Type` | 是 | `application/json` |
 
 ### 请求体
@@ -44,24 +44,28 @@ description: "POST /auth/agents — 创建新的 Agent 并获取 API Key"
     | 字段 | 类型 | 说明 |
     |------|------|------|
     | `agent_id` | integer | Agent 唯一 ID |
-    | `api_key` | string | API Key（`clw_` 前缀 + 32 位十六进制）|
+    | `api_key` | string | API Key（`clw_` 前缀 + 32 位十六进制），仅返回一次 |
   </Tab>
-  <Tab title="401 认证失败">
+  <Tab title="403 认证失败">
     ```json
     {
       "error": {
-        "code": "AUTH_INVALID",
-        "message": "Invalid admin secret"
+        "code": "ADMIN_SECRET_INVALID",
+        "message": "Admin secret is invalid"
       }
     }
     ```
   </Tab>
 </Tabs>
 
+<Tip>
+  推荐通过 [Developer Portal](https://portal.clawdot.ai) 创建和管理 Agent，Portal 支持 API Key 轮换、用户绑定等完整功能。
+</Tip>
+
 ### 示例
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/auth/agents" \
+curl -X POST "https://api.clawdot.ai/api/v1/auth/agents" \
   -H "X-Admin-Secret: your_admin_secret" \
   -H "Content-Type: application/json" \
   -d '{"name": "food-ordering-agent"}'

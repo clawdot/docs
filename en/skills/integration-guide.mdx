@@ -1,0 +1,643 @@
+---
+title: "Integration Guide"
+description: "Three ways to integrate local life skills into your Agent"
+icon: "code"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import { Tabs, Tab } from '/components/Tabs';
+import { Info, Warning } from '/components/Callout';
+
+## Quick Start
+
+The Skills Platform provides three integration methods to meet different Agent platform integration needs. Choose the method that works best for you and complete the steps one by one.
+
+<CardGroup cols={3}>
+  <Card title="MCP" icon="plug" href="#mcp-protocol">
+    Suitable for client applications that support MCP like Claude Desktop and Cursor. Simple configuration, automatic tool discovery.
+  </Card>
+
+  <Card title="REST API" icon="link">
+    Universal HTTP interface, supports any programming language. Suitable for self-built Agents, DingTalk, Kimi and other platform integrations.
+  </Card>
+
+  <Card title="OpenAI Function Calling" icon="robot">
+    Directly register Gateway API as OpenAI function tool, suitable for OpenAI-compatible models and platforms.
+  </Card>
+</CardGroup>
+
+## MCP Protocol
+
+MCP (Model Context Protocol) is the standard protocol released by Anthropic, enabling client applications like Claude Desktop and Cursor to easily integrate with the Skills Platform.
+
+### Step 1: Get API Key
+
+Visit [Clawdot Console](https://console.clawdot.com), go to **Agent Management** page:
+
+1. Click **Create New Agent**
+2. Enter Agent name and description
+3. System auto-generates API Key (starting with `clw_`)
+4. Copy API Key to a safe location
+
+<Info>
+API Key is only displayed once at creation. If lost, you need to regenerate it in the console.
+</Info>
+
+### Step 2: Configure MCP Server
+
+Edit Claude Desktop configuration file (`~/.claude-desktop/config.json`):
+
+```json
+{
+  "mcpServers": {
+    "clawdot-gateway": {
+      "command": "npx",
+      "args": [
+        "@clawdot/mcp-gateway@latest",
+        "--gateway-url",
+        "https://api.clawdot.com/gateway",
+        "--api-key",
+        "clw_your_api_key_here"
+      ]
+    }
+  }
+}
+```
+
+**Configuration Parameters:**
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `--gateway-url` | API endpoint of Skills Platform Gateway | `https://api.clawdot.com/gateway` |
+| `--api-key` | Your API Key | `clw_abc123def456...` |
+
+<Warning>
+Do not commit API Key to version control. Use environment variables to manage sensitive information:
+
+```json
+{
+  "mcpServers": {
+    "clawdot-gateway": {
+      "command": "npx",
+      "args": [
+        "@clawdot/mcp-gateway@latest",
+        "--gateway-url",
+        "https://api.clawdot.com/gateway",
+        "--api-key",
+        "${CLAWDOT_API_KEY}"
+      ],
+      "env": {
+        "CLAWDOT_API_KEY": "clw_your_api_key_here"
+      }
+    }
+  }
+}
+```
+</Warning>
+
+### Step 3: User Binding
+
+When users use your Agent for the first time, execute the user binding process:
+
+```python
+# Step 3a: Request SMS verification code
+POST /api/v1/auth/sms/request
+Content-Type: application/json
+
+{
+  "phone": "+86 138 0000 0000"
+}
+
+# Response example
+{
+  "request_id": "req_abc123",
+  "expires_in": 600  // verification code valid for 10 minutes
+}
+```
+
+```python
+# Step 3b: After user enters verification code, verify and get User Token
+POST /api/v1/auth/sms/verify
+Content-Type: application/json
+
+{
+  "request_id": "req_abc123",
+  "code": "123456"
+}
+
+# Response example
+{
+  "user_token": "550e8400-e29b-41d4-a716-446655440000",
+  "expires_in": 7776000  // 90-day validity period (seconds)
+}
+```
+
+### Step 4: Call Gateway Skills
+
+Through the MCP protocol, your Agent can auto-discover and call all Gateway skills. Claude Desktop displays all available skills in the toolbar.
+
+**Example conversation:**
+
+> User: I want to order food nearby
+>
+> Claude: I can help you search for nearby restaurants. First, please tell me your location or address.
+>
+> User: No. 1 Zhongguancun Avenue
+>
+> Claude: [Calling Gateway skill `search_shops`] Searching for restaurants near Zhongguancun Avenue...
+>
+> ... returns recommendation list
+
+---
+
+## REST API
+
+Suitable for advanced scenarios requiring full control, or integration with platforms like DingTalk and Kimi.
+
+### Step 1: Get API Key
+
+Same as MCP Step 1.
+
+### Step 2: User Binding
+
+Same as MCP Step 3.
+
+### Step 3: API Call Format
+
+All REST API requests need to include identity credentials in the Header:
+
+```bash
+curl -X POST https://api.clawdot.com/gateway/search \
+  -H "Authorization: Bearer clw_your_api_key_here" \
+  -H "X-User-Token: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "fruit delivery",
+    "location": "No. 1 Zhongguancun Avenue",
+    "limit": 10
+  }'
+```
+
+**Header Information:**
+
+| Header | Description | Required |
+|--------|-------------|----------|
+| `Authorization: Bearer {API_KEY}` | Identify Agent identity | Yes |
+| `X-User-Token: {USER_TOKEN}` | Identify user identity | Yes |
+| `Content-Type: application/json` | Request type | Yes |
+
+### Step 4: Common API Endpoints
+
+<Tabs>
+  <Tab title="Search Shops">
+    **Search local shops (food delivery, supermarkets, convenience stores, etc.)**
+
+    ```bash
+    POST /api/v1/gateway/shops/search
+    ```
+
+    **Request body:**
+    ```json
+    {
+      "query": "food delivery",
+      "location": "No. 1 Zhongguancun Avenue",
+      "latitude": 39.9854,
+      "longitude": 116.3055,
+      "radius": 5,
+      "limit": 20,
+      "offset": 0
+    }
+    ```
+
+    **Response example:**
+    ```json
+    {
+      "shops": [
+        {
+          "id": "shop_123456",
+          "name": "Delicious Food Delivery",
+          "category": "food delivery",
+          "rating": 4.8,
+          "distance": 1.2,
+          "delivery_time": 30,
+          "min_order": 15,
+          "delivery_fee": 5
+        }
+      ],
+      "total": 45,
+      "has_more": true
+    }
+    ```
+  </Tab>
+
+  <Tab title="Get Shop Details">
+    **Get details of a single shop including menu and business hours**
+
+    ```bash
+    GET /api/v1/gateway/shops/{shop_id}
+    ```
+
+    **Path parameters:**
+    - `shop_id`: Shop ID, e.g. `shop_123456`
+
+    **Response example:**
+    ```json
+    {
+      "id": "shop_123456",
+      "name": "Delicious Food Delivery",
+      "description": "Zhejiang cuisine, fresh ingredients",
+      "rating": 4.8,
+      "reviews_count": 3250,
+      "opening_hours": {
+        "monday": "09:00-21:00",
+        "tuesday": "09:00-21:00",
+        "wednesday": "09:00-21:00",
+        "thursday": "09:00-21:00",
+        "friday": "09:00-21:00",
+        "saturday": "09:00-22:00",
+        "sunday": "09:00-22:00"
+      },
+      "categories": [
+        {
+          "id": "cat_001",
+          "name": "Signature dishes",
+          "items": [
+            {
+              "id": "item_001",
+              "name": "Chili hand-torn noodles",
+              "price": 12,
+              "description": "Traditional Sichuan snack",
+              "image_url": "https://...",
+              "available": true
+            }
+          ]
+        }
+      ]
+    }
+    ```
+  </Tab>
+
+  <Tab title="Create Order">
+    **Create new order**
+
+    ```bash
+    POST /api/v1/gateway/orders
+    ```
+
+    **Request body:**
+    ```json
+    {
+      "shop_id": "shop_123456",
+      "items": [
+        {
+          "item_id": "item_001",
+          "quantity": 2,
+          "notes": "not spicy"
+        },
+        {
+          "item_id": "item_002",
+          "quantity": 1,
+          "notes": ""
+        }
+      ],
+      "delivery_address": "No. 1 Zhongguancun Avenue",
+      "contact_phone": "+86 138 0000 0000",
+      "payment_method": "alipay",
+      "coupon_code": "WELCOME20",
+      "remarks": "Please ring doorbell"
+    }
+    ```
+
+    **Response example:**
+    ```json
+    {
+      "order_id": "order_abc123",
+      "shop_id": "shop_123456",
+      "status": "confirmed",
+      "items": [...],
+      "subtotal": 35,
+      "delivery_fee": 5,
+      "discount": 7,
+      "total": 33,
+      "estimated_delivery_time": 35,
+      "tracking_url": "https://track.clawdot.com/order_abc123"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Query Order">
+    **Query order status and details**
+
+    ```bash
+    GET /api/v1/gateway/orders/{order_id}
+    ```
+
+    **Path parameters:**
+    - `order_id`: Order ID, e.g. `order_abc123`
+
+    **Response example:**
+    ```json
+    {
+      "order_id": "order_abc123",
+      "status": "delivering",
+      "shop_name": "Delicious Food Delivery",
+      "items": [...],
+      "total": 33,
+      "created_at": "2026-03-29T10:00:00Z",
+      "estimated_delivery_time": 35,
+      "delivery_status": {
+        "phase": "delivering",
+        "driver_name": "Xiaowang",
+        "driver_phone": "+86 138 xxxx xxxx",
+        "last_location_update": "2026-03-29T10:20:00Z"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Step 5: Error Handling
+
+Handle common HTTP error responses:
+
+```python
+import requests
+
+try:
+    response = requests.post(
+        "https://api.clawdot.com/gateway/shops/search",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "X-User-Token": user_token,
+            "Content-Type": "application/json"
+        },
+        json={"query": "food delivery", "location": "Zhongguancun"}
+    )
+
+    if response.status_code == 401:
+        # API Key or User Token invalid
+        print("Authentication failed, check credentials")
+    elif response.status_code == 403:
+        # Permission denied (API Key and User Token not bound)
+        print("Permission denied, please re-bind user")
+    elif response.status_code == 429:
+        # Rate limit triggered
+        print("Request too frequent, please retry later")
+    else:
+        data = response.json()
+        print(data)
+
+except requests.RequestException as e:
+    print(f"Network error: {e}")
+```
+
+---
+
+## OpenAI Function Calling
+
+Suitable for Agent frameworks using OpenAI API or compatible API (e.g. LangChain, LlamaIndex).
+
+### Step 1: Get API Key
+
+Same as above.
+
+### Step 2: User Binding
+
+Same as above.
+
+### Step 3: Register Function Tools
+
+Register Gateway API as OpenAI Function Calling tools:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-...")
+
+# Register Gateway skills as function tools
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_shops",
+            "description": "Search local shops (food delivery, supermarkets, convenience stores, etc.)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search keyword, e.g.: food delivery, fruit, fast food"
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "Location address"
+                    },
+                    "radius": {
+                        "type": "number",
+                        "description": "Search radius (kilometers), default 5 km"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of results, default 20",
+                        "minimum": 1,
+                        "maximum": 100
+                    }
+                },
+                "required": ["query", "location"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_shop_detail",
+            "description": "Get shop details and menu",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shop_id": {
+                        "type": "string",
+                        "description": "Shop ID"
+                    }
+                },
+                "required": ["shop_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_order",
+            "description": "Create new order",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shop_id": {
+                        "type": "string",
+                        "description": "Shop ID"
+                    },
+                    "items": {
+                        "type": "array",
+                        "description": "Order items list",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item_id": {"type": "string"},
+                                "quantity": {"type": "integer"},
+                                "notes": {"type": "string"}
+                            }
+                        }
+                    },
+                    "delivery_address": {
+                        "type": "string",
+                        "description": "Delivery address"
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "enum": ["alipay", "wechat", "card"],
+                        "description": "Payment method"
+                    }
+                },
+                "required": ["shop_id", "items", "delivery_address"]
+            }
+        }
+    }
+]
+
+# Call ChatCompletion API
+messages = [
+    {"role": "user", "content": "I want to order food in Zhongguancun"}
+]
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=messages,
+    tools=tools,
+    tool_choice="auto"
+)
+
+# Handle function calls
+for tool_call in response.tool_calls:
+    if tool_call.function.name == "search_shops":
+        # Call Clawdot Gateway API
+        # ...
+```
+
+### Step 4: Function Implementation
+
+```python
+import requests
+import json
+
+def call_gateway_api(endpoint, params, api_key, user_token):
+    """Helper function to call Clawdot Gateway API"""
+    url = f"https://api.clawdot.com/gateway/{endpoint}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-User-Token": user_token,
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, json=params, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+def execute_tool(tool_name, tool_args, api_key, user_token):
+    """Execute function tool"""
+    if tool_name == "search_shops":
+        result = call_gateway_api(
+            "shops/search",
+            {
+                "query": tool_args["query"],
+                "location": tool_args["location"],
+                "radius": tool_args.get("radius", 5),
+                "limit": tool_args.get("limit", 20)
+            },
+            api_key, user_token
+        )
+        return json.dumps(result, ensure_ascii=False)
+
+    elif tool_name == "get_shop_detail":
+        result = call_gateway_api(
+            f"shops/{tool_args['shop_id']}",
+            {},
+            api_key, user_token
+        )
+        return json.dumps(result, ensure_ascii=False)
+
+    elif tool_name == "create_order":
+        result = call_gateway_api(
+            "orders",
+            {
+                "shop_id": tool_args["shop_id"],
+                "items": tool_args["items"],
+                "delivery_address": tool_args["delivery_address"],
+                "payment_method": tool_args.get("payment_method", "alipay")
+            },
+            api_key, user_token
+        )
+        return json.dumps(result, ensure_ascii=False)
+```
+
+---
+
+## Comparison and Selection
+
+| Dimension | MCP | REST API | Function Calling |
+|-----------|-----|----------|------------------|
+| **Applicable Platforms** | Claude Desktop, Cursor | Universal (any language/framework) | OpenAI API, compatible frameworks |
+| **Configuration Complexity** | Very low (JSON config) | Medium (need to handle HTTP) | Medium (need to define Schema) |
+| **Tool Discovery** | Automatic | Manual | Manual |
+| **Learning Cost** | Low | Medium | Medium |
+| **Production Ready** | Yes | Yes | Yes |
+| **Response Speed** | Fast | Fast | Fast |
+
+**Recommendation:**
+
+- **MCP**: Already using Claude Desktop or Cursor, need simplest integration
+- **REST API**: Self-built Agent system, need full control and custom logic
+- **Function Calling**: Using OpenAI API, want to minimize integration code
+
+---
+
+## Troubleshooting
+
+<details>
+<summary>Not receiving SMS verification code</summary>
+
+1. Check phone number format, ensure it is valid Chinese mainland number
+2. Check spam folder, some phones auto-filter
+3. Wait 1-2 minutes, SMS may be delayed
+4. Request expired (10 minutes), click "Get verification code" again
+5. If persistent failure, contact technical support
+
+</details>
+
+<details>
+<summary>API call returns 401 Unauthorized</summary>
+
+- API Key does not exist or is disabled, check console
+- API Key format error, should start with `clw_`
+- Header spelling error, should be `Authorization: Bearer ...`, case-sensitive
+- User Token expired (90 days), need to re-verify via SMS
+
+</details>
+
+<details>
+<summary>API call returns 403 Forbidden</summary>
+
+- API Key and User Token not bound (from different Agents)
+- Agent disabled, check console status
+- User Token disabled, need to re-bind
+
+</details>
+
+<details>
+<summary>MCP fails to load</summary>
+
+- Check `~/.claude-desktop/config.json` JSON syntax
+- Ensure API Key is correct, no `Bearer ` prefix included
+- Restart Claude Desktop
+- View logs: `tail -f ~/.claude-desktop/logs/*.log`
+
+</details>

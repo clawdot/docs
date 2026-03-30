@@ -1,0 +1,67 @@
+---
+title: "API Overview"
+description: "Clawdot Gateway REST API Documentation"
+---
+
+## Base URL
+
+```
+https://your-gateway/api/v1
+```
+
+## Authentication
+
+All endpoints (except Agent registration) require API Key authentication. Most business endpoints also require a User Token.
+
+```bash
+# API Key authentication
+Authorization: Bearer clw_your_api_key
+
+# User Token authentication (required for business endpoints)
+X-User-Token: your_user_token
+```
+
+See [Authentication Mechanism](/gateway/authentication) for details.
+
+## Endpoint Groups
+
+<Columns cols={2}>
+  <Card title="Auth" icon="key" href="/api-reference/auth/register-agent">
+    Agent registration and API Key retrieval.
+  </Card>
+  <Card title="User Binding" icon="user-plus" href="/api-reference/user/bind-request">
+    SMS verification to bind food delivery users.
+  </Card>
+  <Card title="Shops" icon="store" href="/api-reference/shops/search">
+    Shop search and menu queries.
+  </Card>
+  <Card title="Addresses" icon="location-dot" href="/api-reference/addresses/search-pois">
+    POI search and address management.
+  </Card>
+  <Card title="Orders" icon="receipt" href="/api-reference/orders/preview">
+    Order preview, creation, and queries.
+  </Card>
+</Columns>
+
+## Unified Error Format
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error description"
+  }
+}
+```
+
+See [Error Handling](/gateway/error-handling) for details.
+
+## Rate Limiting
+
+| Operation | Limit |
+|------|------|
+| Place order (`POST /orders`) | 10 requests/minute/Agent |
+| Other endpoints | 60 requests/minute/Agent |
+| SMS sending | 60 second cooldown/phone number |
+
+Exceeding limits returns `429` status code and `RATE_LIMITED` error code.

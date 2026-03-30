@@ -8,7 +8,7 @@ description: "POST /orders — 使用预览的 session_id 确认下单"
 使用预览返回的 `session_id` 确认创建订单。
 
 <Warning>
-  此接口有**速率限制**：每个 Agent 每分钟最多 10 次。`session_id` 是一次性的，用后即失效。
+  此接口有 **速率限制**：每个 Agent 每分钟最多 10 次。`session_id` 是一次性的，用后即失效。
 </Warning>
 
 ### 请求头
@@ -23,13 +23,13 @@ description: "POST /orders — 使用预览的 session_id 确认下单"
 
 ```json
 {
-  "session_id": "abc-def-ghi"
+  "session_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `session_id` | string | 是 | 从 `/orders/preview` 获取的会话 ID |
+| `session_id` | string | 是 | 从 `/orders/preview` 获取的会话 ID，一次性使用，10 分钟过期 |
 
 ### 响应
 
@@ -37,53 +37,64 @@ description: "POST /orders — 使用预览的 session_id 确认下单"
   <Tab title="200 成功">
     ```json
     {
-      "order_id": "1234567890",
+      "order_id": "12345678901234",
       "status": "created",
-      "shop_name": "瑞幸咖啡(国贸店)",
-      "total_amount": 8.4
+      "shop_name": "瑞幸咖啡(人民广场店)",
+      "total_amount": 15.0,
+      "payment_link": "https://h5.ele.me/..."
     }
     ```
 
     | 字段 | 类型 | 说明 |
     |------|------|------|
-    | `order_id` | string | 外卖订单 ID |
-    | `status` | string | 订单状态 |
+    | `order_id` | string | 饿了么订单号 |
+    | `status` | string | 订单状态，创建后为 `"created"` |
     | `shop_name` | string | 商家名称 |
-    | `total_amount` | float | 订单总额 |
+    | `total_amount` | float | 实付金额（元） |
+    | `payment_link` | string \| 无 | 付款链接（仅当服务端配置了 `ELEME_JWT_SECRET` 时返回） |
   </Tab>
   <Tab title="500 下单失败">
     ```json
     {
       "error": {
         "code": "ORDER_FAILED",
-        "message": "Session expired or order creation failed"
+        "message": "Preview session expired or not found. Please preview again."
       }
     }
     ```
 
     常见原因：
-    - `session_id` 已过期（>10 分钟）
-    - `session_id` 已被使用
-    - 外卖平台 API 返回错误
+    - `session_id` 已过期（超过 10 分钟）
+    - `session_id` 已被使用过
+    - 饿了么 API 返回错误
   </Tab>
   <Tab title="429 限流">
     ```json
     {
       "error": {
         "code": "RATE_LIMITED",
-        "message": "Too many order requests"
+        "message": "Too many requests"
       }
     }
     ```
   </Tab>
 </Tabs>
 
+### 容错机制
+
+如果下单时优惠券已失效（饿了么返回"优惠信息变更"），系统会自动：
+
+1. 重新渲染订单（不带优惠券）
+2. 使用新的渲染结果重试下单
+
+整个重试过程对调用方透明。
+
 ### 示例
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/orders" \
+curl -X POST "https://api.clawdot.ai/api/v1/orders" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-User-Token: your_user_token" \
   -H "Content-Type: application/json" \
-  -d '{"session_id": "abc-def-ghi"}'
+  -d '{"session_id": "550e8400-e29b-41d4-a716-446655440000"}'
 ```

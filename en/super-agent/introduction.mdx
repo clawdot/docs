@@ -1,0 +1,145 @@
+---
+title: "Super Agent"
+description: "Your Super Agent"
+---
+
+## What is Super Agent?
+
+Super Agent is a C-facing product built by Clawdot for consumer users. It is not a general chatbot, but a **truly action-oriented intelligent assistant**.
+
+Each Super Agent instance is an independent network node, exclusively serving one user:
+
+<Mermaid>
+graph LR
+  A["👤 User"]
+  B["🤖 Super Agent<br/>Instance"]
+  C["🍽️ Food Delivery"]
+  D["📍 Shop Reservation"]
+  E["🚗 Ride-hailing"]
+  F["✨ Recommendations"]
+  G["💬 Social Memory"]
+  H["⚙️ Clawdot"]
+
+  A -->|One-to-One| B
+  B -->|One-to-Many| C
+  B -->|One-to-Many| D
+  B -->|One-to-Many| E
+  B -->|One-to-Many| F
+  B -->|One-to-Many| G
+  B -->|Connects| H
+  H -.->|Merchant Network| C
+  H -.->|Merchant Network| D
+  H -.->|Ride Service| E
+
+  style B fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style A fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+  style C fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style E fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style F fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style G fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style H fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+</Mermaid>
+
+## Full-Featured Skills · One-to-Many
+
+Super Agent has **full-featured skills** —— each instance is equipped with a complete capability matrix:
+
+| Capability | Status | Description |
+|------|------|------|
+| 🍽️ Food Delivery | ✅ Live | Search merchants, browse menu, smart ordering, order tracking |
+| 📅 Shop Reservation | 🔜 Coming Soon | Search reservation slots, select time, confirm reservation |
+| 🚗 Ride-hailing | 🔜 Coming Soon | Location identification, route planning, ride service |
+| ✨ Recommendations | 🔜 Coming Soon | AI-powered recommendations based on user preferences |
+| 💬 Social Memory | 🔜 Coming Soon | Remember user habits, taste preferences, common addresses |
+
+The one-to-many relationship is embodied in: each Super Agent can connect to multiple food delivery platforms, reservation systems, and ride services.
+
+## Difference from Regular Chatbots
+
+<CardGroup cols={2}>
+  <Card title="🤖 Regular Chatbot" icon="robot">
+    Can only **talk**, not **act**
+
+    - Answer questions
+    - Generate text
+    - Retrieve information
+
+    Cannot affect external systems
+  </Card>
+  <Card title="🦾 Super Agent" icon="wand-magic-sparkles">
+    Can **both talk and act**
+
+    - Call APIs to execute operations
+    - Connect merchants and services
+    - Complete real transactions
+
+    Is a true assistant for users
+  </Card>
+</CardGroup>
+
+## Core Features
+
+<Tabs>
+  <Tab title="Exclusive Service" icon="user-shield">
+    Each user owns an independent Super Agent instance, a dedicated AI assistant serving you, remembering all your preferences and history.
+  </Tab>
+
+  <Tab title="Intelligent Decision-Making" icon="brain">
+    Based on natural language understanding and deep learning, the Agent can understand user intent, learn user preferences, and make optimal decisions.
+  </Tab>
+
+  <Tab title="Multi-Channel Integration" icon="plug">
+    Through Clawdot Gateway, connect all local life service merchants. One Agent, infinite possibilities.
+  </Tab>
+
+  <Tab title="Trustworthy Transactions" icon="shield-check">
+    Based on Clawdot's security framework, all transactions are traceable, verifiable, and accountable.
+  </Tab>
+</Tabs>
+
+## Quick Start
+
+<CardGroup cols={3}>
+  <Card
+    title="How It Works"
+    icon="gears"
+    href="/super-agent/how-it-works"
+  >
+    Understand how Super Agent connects Clawdot Gateway and the merchant network
+  </Card>
+
+  <Card
+    title="Food Delivery"
+    icon="utensils"
+    href="/super-agent/food-delivery"
+  >
+    Deep dive into the complete workflow and best practices for food delivery ordering
+  </Card>
+
+  <Card
+    title="Capabilities Overview"
+    icon="sparkles"
+    href="/super-agent/capabilities"
+  >
+    View all current and planned Super Agent capabilities
+  </Card>
+</CardGroup>
+
+## Scenario Value
+
+Super Agent brings value to different types of users:
+
+<AccordionGroup>
+  <Accordion title="Regular Consumers" icon="person">
+    Have a private assistant 24/7 helping you order food, make reservations, and arrange transportation. No need to switch between apps repeatedly—one Agent handles all services.
+  </Accordion>
+
+  <Accordion title="Merchants" icon="store">
+    Through the Clawdot network, reach more orders initiated through Super Agent. AI assistants enhance user experience and increase repeat purchases.
+  </Accordion>
+
+  <Accordion title="Platforms" icon="building">
+    Build trustworthy AI transaction infrastructure. Each Super Agent is a reliable, auditable transaction node.
+  </Accordion>
+</AccordionGroup>

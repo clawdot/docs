@@ -1,11 +1,11 @@
 ---
 title: "发送验证码"
-description: "POST /user/bind/request — 向手机号发送 SMS 验证码"
+description: "POST /user/bind/request — 动态绑定用户：发送 SMS 验证码"
 ---
 
 ## POST /user/bind/request
 
-向指定手机号发送 SMS 验证码，开始用户绑定流程。
+动态绑定用户第一步：向指定手机号发送 SMS 验证码。用户收到验证码后，调用 [验证绑定](/api-reference/user/bind-verify) 完成绑定。
 
 ### 请求头
 
@@ -24,7 +24,7 @@ description: "POST /user/bind/request — 向手机号发送 SMS 验证码"
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `phone` | string | 是 | 中国大陆手机号（11 位）|
+| `phone` | string | 是 | 中国大陆手机号（需在饿了么注册） |
 
 ### 响应
 
@@ -38,14 +38,14 @@ description: "POST /user/bind/request — 向手机号发送 SMS 验证码"
 
     | 字段 | 类型 | 说明 |
     |------|------|------|
-    | `bind_id` | string | 绑定会话 ID（UUID），用于验证步骤 |
+    | `bind_id` | string | 绑定会话 ID（UUID），用于 [验证步骤](/api-reference/user/bind-verify) |
   </Tab>
   <Tab title="429 冷却中">
     ```json
     {
       "error": {
         "code": "SMS_COOLDOWN",
-        "message": "Please wait 60 seconds before resending"
+        "message": "SMS sent too recently, wait 60 seconds"
       }
     }
     ```
@@ -57,12 +57,12 @@ description: "POST /user/bind/request — 向手机号发送 SMS 验证码"
 - 验证码通过阿里云短信服务（DySMS）发送
 - 每个手机号有 **60 秒冷却期**
 - 验证码 **10 分钟** 内有效
-- `bind_id` 用于下一步的 [验证接口](/api-reference/user/bind-verify)
+- 手机号必须已在饿了么注册
 
 ### 示例
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/user/bind/request" \
+curl -X POST "https://api.clawdot.ai/api/v1/user/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"phone": "13800138000"}'

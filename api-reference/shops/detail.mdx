@@ -5,7 +5,7 @@ description: "GET /shops/{shop_id} — 获取商家信息和完整菜单"
 
 ## GET /shops/{shop_id}
 
-获取指定商家的详细信息和完整菜单（含规格、属性、加料）。
+获取指定商家的详细信息和完整菜单（含规格、属性、配料信息）。
 
 ### 请求头
 
@@ -18,45 +18,90 @@ description: "GET /shops/{shop_id} — 获取商家信息和完整菜单"
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `shop_id` | string | 商家 ID（E 前缀，来自搜索结果）|
+| `shop_id` | string | 商家 ID（来自搜索结果的 `id` 字段），ID 类型自动检测 |
 
 ### 查询参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `lat` | float | 是 | 纬度 |
-| `lng` | float | 是 | 经度 |
+| `lat` | float | 是 | 配送位置纬度 |
+| `lng` | float | 是 | 配送位置经度 |
 
 ### 响应
 
 ```json
 {
   "shop": {
-    "id": "E1234567890123",
-    "name": "瑞幸咖啡(国贸店)",
-    "address": "国贸大厦B1层",
-    "business_hours": "06:00 - 23:00",
-    "status": "open",
-    "_tb_shop_id": "internal-id"
+    "id": "E15074238835124929109",
+    "name": "瑞幸咖啡(人民广场店)",
+    "address": "上海市黄浦区人民大道200号",
+    "business_hours": "周一至周日 08:00-22:00",
+    "announcement": "满30减5"
   },
   "menu": [
     {
       "category": "经典咖啡",
       "items": [
         {
-          "item_id": "123456789",
-          "sku_id": "987654321",
+          "item_id": "670685166551",
+          "sku_id": "5014584502270",
           "name": "生椰拿铁",
           "description": "椰浆+浓缩咖啡",
           "image": "https://image.url/item.jpg",
-          "price": 9.9,
-          "original_price": 19.0,
-          "sold_count": "已售1000+",
+          "price": 16.0,
+          "original_price": 29.0,
+          "sold_count": "月售 2000+",
           "in_stock": true,
-          "specs": [...],
-          "attrs": [...],
-          "ingredients": [...],
-          "default_ingredients": [...]
+          "specs": [
+            {
+              "name": "规格",
+              "options": ["大杯", "中杯"]
+            }
+          ],
+          "attrs": [
+            {
+              "name": "温度",
+              "options": ["冰", "热"]
+            },
+            {
+              "name": "糖度",
+              "options": ["标准糖", "半糖", "无糖"]
+            }
+          ],
+          "ingredients": [
+            {
+              "group_name": "浓缩份数",
+              "required": true,
+              "default_id": "ig_0_0",
+              "options": [
+                {
+                  "id": "ig_0_0",
+                  "name": "标准(1份浓缩)",
+                  "price": 0.0,
+                  "item_id": "670685166551",
+                  "sku_id": "5014584502270",
+                  "package_id": "1234567890",
+                  "excludes": ["ig_1_1"]
+                },
+                {
+                  "id": "ig_0_1",
+                  "name": "加浓(2份浓缩)",
+                  "price": 3.0,
+                  "item_id": "670685166552",
+                  "sku_id": "5014584502271",
+                  "package_id": "1234567891"
+                }
+              ]
+            }
+          ],
+          "default_ingredients": [
+            {
+              "item_id": "670685166551",
+              "sku_id": "5014584502270",
+              "package_id": "1234567890",
+              "buy_amount": 1
+            }
+          ]
         }
       ]
     }
@@ -64,35 +109,50 @@ description: "GET /shops/{shop_id} — 获取商家信息和完整菜单"
 }
 ```
 
-### 商家状态
+### 店铺信息
 
-| 状态值 | 说明 |
-|--------|------|
-| `open` | 营业中 |
-| `busy` | 繁忙（可能配送较慢）|
-| `closed` | 已关店 |
-| `booking` | 预订中 |
-| `closing_soon` | 即将关店 |
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 店铺 ID（与搜索结果一致） |
+| `name` | string | 店铺名称 |
+| `address` | string | 店铺地址 |
+| `business_hours` | string | 营业时间描述 |
+| `announcement` | string | 店铺公告 |
 
-### 菜单字段说明
+### 菜单项字段
 
-每个菜品包含四个定制维度，详见 [商品规格说明](/gateway/item-specs)：
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `item_id` | string | 商品 ID（Taobao ID），**下单必需** |
+| `sku_id` | string | SKU ID（Taobao ID），**下单必需** |
+| `name` | string | 商品名称 |
+| `price` | float | 当前价格（元） |
+| `original_price` | float \| null | 原价（元），无折扣时为 null |
+| `sold_count` | string | 销量文本（如 "月售 2000+"） |
+| `in_stock` | boolean | 是否有货 |
+| `specs` | array | 规格选项组（如杯型），下单时每组选一个值 |
+| `attrs` | array | 属性选项组（如温度、糖度），下单时每组选一个值 |
+| `ingredients` | array | 配料选项组（完整结构，含互斥规则） |
+| `default_ingredients` | array | **预计算的默认配料选择**，可直接用于快速下单 |
 
-| 字段 | 说明 |
-|------|------|
-| `specs` | 规格选项（影响价格，如大杯/中杯）|
-| `attrs` | 属性选项（不影响价格，如冰/热）|
-| `ingredients` | 加料选项（含互斥规则）|
-| `default_ingredients` | 预计算默认选择（Agent 快速下单用）|
+### 配料互斥规则（`excludes`）
+
+部分配料选项之间存在互斥关系。每个选项的 `excludes` 字段列出了不兼容的其他选项 ID。
+
+**选择逻辑：**
+1. 维护一个 `excluded_ids` 集合（初始为空）
+2. 对每个配料组，仅展示 `id` 不在 `excluded_ids` 中的选项
+3. 用户选择一个选项后，将其 `excludes` 中的所有 ID 加入 `excluded_ids`
+4. 重新过滤剩余组的可选项
 
 <Tip>
-  `item_id` 和 `sku_id` 是下单时必需的 Taobao ID。不要与搜索结果中的商家 `id` 混淆。
+  **AI Agent 快速下单**：直接使用 `default_ingredients` 字段，无需理解配料互斥规则。详见 [商品规格说明](/gateway/item-specs)。
 </Tip>
 
 ### 示例
 
 ```bash
-curl -X GET "https://your-gateway/api/v1/shops/E1234567890?lat=39.9&lng=116.4" \
+curl -X GET "https://api.clawdot.ai/api/v1/shops/E15074238835124929109?lat=31.23&lng=121.47" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-User-Token: your_user_token"
 ```

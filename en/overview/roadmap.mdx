@@ -1,0 +1,278 @@
+---
+title: "Roadmap"
+description: "Clawdot product roadmap"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import { Accordion, AccordionGroup } from '/components/Accordion';
+
+## Four-Layer Architecture Roadmap
+
+Below is the complete development plan for Clawdot's four-layer architecture, from now through next year, covering all key iterations:
+
+```mermaid
+gantt
+  title Clawdot Four-Layer Architecture Roadmap
+  dateFormat YYYY-Q
+  axisFormat %Y Q%q
+
+  section Layer 1: Super Agent
+    Super Agent Core                      :done, 2025-Q1, 2025-Q2
+    Multi-modal Input (Voice/Text)        :active, 2025-Q3, 2025-Q4
+    Social Memory & Recommendations       :2025-Q4, 2026-Q1
+    Scenario Expansion (Ride/Booking)     :2026-Q1, 2026-Q2
+    Cross-domain Orchestration            :2026-Q2, 2026-Q3
+
+  section Layer 2: Skills Platform
+    Core Skills SDK & Authentication      :active, 2025-Q3, 2025-Q4
+    Dingtalk Agent Integration            :2025-Q4, 2026-Q1
+    Kimi/QCloud Agent Integration         :2026-Q1, 2026-Q2
+    Skills Marketplace & Review System    :2026-Q2, 2026-Q3
+    Fine-grained Skill Permission Control :2026-Q3, 2026-Q4
+
+  section Layer 3: Gateway
+    Gateway Core API (Food Delivery)      :done, 2025-Q1, 2025-Q2
+    MCP Protocol Support                  :done, 2025-Q2, 2025-Q2
+    Proxy Cold Start (Ele.me/Meituan)     :done, 2025-Q2, 2025-Q3
+    Independent Merchant Agent Support    :active, 2025-Q3, 2025-Q4
+    Standard Protocol Docs & Certification :2025-Q4, 2026-Q1
+    Multi-Service Expansion (Ride/Booking) :2026-Q1, 2026-Q2
+    Protocol Standardization v1.0         :2026-Q2, 2026-Q3
+    Amap/WeChat Ecosystem Integration     :2026-Q3, 2026-Q4
+
+  section Layer 4: Service SDK
+    Open Source SDK (Core)                :2025-Q4, 2026-Q1
+    ISV Certification System              :2026-Q1, 2026-Q2
+    SDK Ecosystem Examples & Docs         :2026-Q2, 2026-Q3
+    Performance Optimization & Enterprise :2026-Q3, 2026-Q4
+
+  section Strategy Phases
+    Phase 1: Proxy Cold Start             :crit, 2025-Q1, 2025-Q3
+    Phase 2: SDK+Skills Ecosystem         :crit, 2025-Q3, 2026-Q2
+    Phase 3: Protocol Standardization + Release :crit, 2026-Q2, 2026-Q4
+```
+
+## Development Phase Details
+
+### Phase 1: Now (Cold Start) - 2025 Q1 ~ Q3
+
+<CardGroup cols={3}>
+  <Card
+    title="Super Agent Core"
+    icon="✨"
+    description="Launch the first version, supporting food delivery ordering, menu search, ordering, payment and other core features"
+  />
+  <Card
+    title="Gateway API"
+    icon="🌐"
+    description="Complete core APIs for food delivery domain, supporting menu, ordering, tracking and other standard protocols"
+  />
+  <Card
+    title="Proxy Cold Start"
+    icon="⚡"
+    description="Automatically proxy Ele.me, Meituan merchants, zero wait for rapid coverage of millions of merchants"
+  />
+</CardGroup>
+
+**Phase objectives**:
+- Verify the viability of Super Agent business model
+- Accumulate first batch of seed users
+- Establish partnership foundation with top platforms (Ele.me, Meituan)
+- Form initial network effects
+
+---
+
+### Phase 2: This Year (Ecosystem Expansion) - 2025 Q3 ~ 2026 Q2
+
+#### Layer 2: Skills Platform Opening
+
+<AccordionGroup>
+  <Accordion title="Skills SDK Release" defaultOpen>
+    - Release core Skills SDK (Python/TypeScript)
+    - Define interface specifications for restricted skills
+    - Establish one-to-one authorization binding mechanism
+    - Complete security isolation design
+  </Accordion>
+
+  <Accordion title="Personal Agent Integration">
+    - Dingtalk Agent: Enterprise scenario integration
+    - Kimi Agent: Knowledge Q&A assistant integration
+    - QCloud Agent: Tencent Cloud ecosystem integration
+    - Other third-party Agents: Standard onboarding process
+  </Accordion>
+
+  <Accordion title="Skills Marketplace Building">
+    - Establish skills application marketplace
+    - Build skill review and listing process
+    - Establish skill developer feedback mechanism
+    - Support skill version management and upgrades
+  </Accordion>
+</AccordionGroup>
+
+#### Layer 3: Gateway Multi-Service Expansion
+
+<AccordionGroup>
+  <Accordion title="Independent Merchant Agent Support">
+    - Support top merchants (Chagee, HeyTea, etc.) to build their own Agents
+    - Provide merchant Agent onboarding guidelines
+    - Support merchant customization capabilities
+    - Establish merchant Agent incentive system
+  </Accordion>
+
+  <Accordion title="Standard Protocol Documentation">
+    - Publish Gateway Protocol v1.0 specification
+    - Complete protocol definitions for menu, ordering, booking, etc.
+    - Publish example code and integration guides
+    - Establish protocol feedback and iteration mechanism
+  </Accordion>
+
+  <Accordion title="Scenario Expansion">
+    - Ride-hailing: Integrate Amap/Didi protocol
+    - In-store booking: Hair salons, beauty, KTV booking protocol
+    - Fresh grocery delivery: Farmer's market, supermarket, fresh delivery protocol
+  </Accordion>
+</AccordionGroup>
+
+#### Layer 4: ISV SDK Open Source
+
+<AccordionGroup>
+  <Accordion title="SDK Open Source Release">
+    - Release open source SDK (GitHub)
+    - Provide SaaS, POS, ERP integration examples
+    - Establish ISV developer community
+    - Support ISV commercialization pathways
+  </Accordion>
+</AccordionGroup>
+
+**Phase objectives**:
+- Attract developers and ISVs to participate
+- Expand breadth and depth of merchant onboarding
+- Expand from single food delivery scenario to multi-service
+- Establish foundation of open ecosystem
+
+---
+
+### Phase 3: Next Year (Network Release) - 2026 Q2 ~ Q4
+
+#### Protocol Standardization
+
+<AccordionGroup>
+  <Accordion title="Protocol v1.0 Finalization" defaultOpen>
+    - Release official Clawdot protocol standard
+    - Support dual protocols: REST + MCP
+    - Complete protocol definitions for all local life services
+    - Establish protocol version management mechanism
+  </Accordion>
+
+  <Accordion title="Industry Influence">
+    - Become the de facto local life API layer standard
+    - Lead industry standardization discussions
+    - Gain regulatory and industry organization recognition
+    - Establish international protocol version
+  </Accordion>
+</AccordionGroup>
+
+#### Critical Network Scale Achievement
+
+<AccordionGroup>
+  <Accordion title="Flywheel Self-starts">
+    - Node count reaches critical mass (tens of millions)
+    - Network effects fully manifest
+    - New nodes proactively join without external push
+    - Developer ecosystem self-drives growth
+  </Accordion>
+
+  <Accordion title="Ecosystem Autonomous Expansion">
+    - ISVs proactively build value-added services
+    - Developer community leads product innovation
+    - Merchant competition drives service quality improvement
+    - User experience creates positive feedback loop
+  </Accordion>
+</AccordionGroup>
+
+**Phase objectives**:
+- Achieve transformation from platform to infrastructure
+- Establish self-sustaining network effects
+- Fully open ecosystem participation
+- Become the standard setter for AI-driven local life
+
+---
+
+## Near-term Focus (Q3-Q4 2025)
+
+Three core tasks this quarter:
+
+<AccordionGroup>
+  <Accordion title="Multi-modal Super Agent" icon="🎤" defaultOpen>
+    **Goal**: Go beyond text, support voice, images, video and other input types
+
+    **Work items**:
+    - Voice recognition and voice interaction
+    - Image recognition and image-based search (photo-based merchant search, dish search)
+    - Video content understanding (recommend merchants from livestream watching)
+    - Multi-modal input context fusion
+
+    **Expected benefits**:
+    - Significant user experience improvement
+    - Coverage of more use scenarios
+    - Clear competitive advantage
+  </Accordion>
+
+  <Accordion title="Skills Platform & Authorization System" icon="🔐">
+    **Goal**: Complete Skills Platform MVP, support first batch of Personal Agent integration
+
+    **Work items**:
+    - Complete Skills SDK design and initial implementation
+    - Establish one-to-one authorization binding mechanism
+    - Complete security isolation design review
+    - Integrate Dingtalk Agent (first partner)
+
+    **Expected benefits**:
+    - Reduce developer integration barrier
+    - Validate Personal Agent market demand
+    - Build confidence for open ecosystem
+  </Accordion>
+
+  <Accordion title="Independent Merchant Agent Support" icon="🏪">
+    **Goal**: Establish independent merchant Agent onboarding channel, serve top chain merchants
+
+    **Work items**:
+    - Define merchant Agent onboarding specification
+    - Provide merchant Agent development guidelines
+    - Implement pilot onboarding of 2-3 top merchants (e.g., Chagee)
+    - Establish merchant support and incentive system
+
+    **Expected benefits**:
+    - Prove Gateway's merchant appeal
+    - Gain endorsement from top merchants
+    - Demonstration effect drives more merchant participation
+  </Accordion>
+</AccordionGroup>
+
+## Key Milestones
+
+| Date | Milestone | Impact |
+|------|--------|------|
+| **2025-Q2** | Proxy Cold Start Launch | Rapidly cover millions of merchants |
+| **2025-Q3** | Skills SDK Open Source | Ecosystem entry point |
+| **2025-Q4** | Dingtalk Agent Integration Complete | Enterprise ecosystem breakthrough |
+| **2026-Q1** | ISV SDK Open Source Release | ISV ecosystem launch |
+| **2026-Q2** | Protocol v1.0 Finalization | Standard voice formation |
+| **2026-Q3** | Network Nodes > 10 Million | Flywheel self-start critical point |
+| **2026-Q4** | Ecosystem Self-drives Growth | Infrastructure status confirmed |
+
+---
+
+## Technical Debt and Optimization Tasks
+
+Beyond new feature development, we also focus on system stability and performance:
+
+- **Performance optimization**: Optimize gateway routing, reduce P99 latency to below 500ms
+- **Capacity planning**: Support infrastructure expansion for 10x user growth
+- **Reliability**: Establish 99.95% availability target
+- **Monitoring and alerts**: Improve distributed tracing and alert system
+- **Documentation**: Update API docs, best practices, and incident handling guides
+
+---
+
+**Want to stay updated?** Subscribe to our [product update newsletter](/updates) or participate in discussions in [GitHub Issues](https://github.com/clawdot/roadmap).

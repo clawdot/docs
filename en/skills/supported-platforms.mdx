@@ -1,0 +1,775 @@
+---
+title: "Supported Platforms"
+description: "Agent platforms integrated with Skills"
+icon: "grid"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import { Tabs, Tab } from '/components/Tabs';
+import { Info } from '/components/Callout';
+
+## Integrated Platforms
+
+Clawdot Skills Platform supports a wide range of AI Agent applications and frameworks. Below are verified and production-ready integration solutions.
+
+<CardGroup cols={2}>
+  <Card title="DingTalk Agent" href="#dingtalk-agent" icon="bell">
+    Enterprise-grade AI assistant, integrated into DingTalk workflows and app center.
+  </Card>
+
+  <Card title="Kimi Agent" icon="brain">
+    Moonshot's Kimi AI Agent platform, supports Function Calling and custom tools.
+  </Card>
+
+  <Card title="QCloud Agent" icon="cloud">
+    Tencent Cloud AI assistant, supports cloud-native deployment and enterprise management.
+  </Card>
+
+  <Card title="Claude Desktop (MCP)" href="#claude-desktop-mcp" icon="desktop">
+    Anthropic's official client, supports MCP protocol for local and remote models.
+  </Card>
+
+  <Card title="Cursor" icon="edit">
+    AI code editor for developers, supports MCP integration.
+  </Card>
+
+  <Card title="Custom Agent" icon="wrench">
+    Self-developed Agent application using REST API, suitable for custom requirements.
+  </Card>
+</CardGroup>
+
+---
+
+## DingTalk Agent
+
+DingTalk Agent is the most common AI assistant form in enterprise scenarios, can be integrated into DingTalk app store to provide local life services to employees and users.
+
+### Quick Start
+
+<Tabs>
+  <Tab title="Integration Steps">
+    1. **Register DingTalk Developer Account**
+       - Visit [DingTalk Open Platform](https://open.dingtalk.com)
+       - Create enterprise application
+
+    2. **Create Agent**
+       Create dedicated Agent in Clawdot console, record API Key
+
+    3. **Configure WebHook**
+       In DingTalk app settings, configure Clawdot Skills API as message processing endpoint
+
+    4. **Implement Message Handling**
+       Implement logic on your server for DingTalk message interaction
+
+    5. **Publish Application**
+       Publish through DingTalk app store for organization users or public use
+  </Tab>
+
+  <Tab title="Code Example">
+    ```python
+    from flask import Flask, request
+    import requests
+    import hmac
+    import hashlib
+    import base64
+    import time
+    import json
+    import os
+
+    app = Flask(__name__)
+
+    DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
+    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
+    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+
+    def sign_message(timestamp, secret):
+        """DingTalk message signature verification"""
+        message = f"{timestamp}\n{secret}".encode('utf-8')
+        sign = hmac.new(
+            secret.encode('utf-8'),
+            message,
+            hashlib.sha256
+        ).digest()
+        return base64.b64encode(sign).decode('utf-8')
+
+    @app.route("/webhook/dingtalk", methods=["POST"])
+    def handle_dingtalk_message():
+        """Handle DingTalk WebHook message"""
+        timestamp = request.headers.get("X-Dingtalk-Timestamp")
+        sign = request.headers.get("X-Dingtalk-Sign")
+
+        # Verify message integrity
+        expected_sign = sign_message(timestamp, DINGTALK_BOT_SECRET)
+        if sign != expected_sign:
+            return {"code": 401, "message": "Unauthorized"}, 401
+
+        data = request.json
+        conversation_id = data.get("conversationId")
+        sender_id = data.get("senderId")
+        text = data.get("text", {}).get("content", "").strip()
+
+        # Extract user intent
+        if "food delivery" in text or "order food" in text:
+            # Search shops
+            shops = search_shops_for_dingtalk(text, sender_id)
+            reply = format_shop_list_for_dingtalk(shops)
+        elif "order" in text or "query" in text:
+            # Query order
+            order = get_order_for_dingtalk(sender_id)
+            reply = format_order_for_dingtalk(order)
+        else:
+            reply = "Hi, I can help you query food delivery, supermarkets and other local life services."
+
+        # Send reply to DingTalk
+        send_dingtalk_message(conversation_id, reply)
+
+        return {"code": 0, "message": "ok"}, 200
+
+    def search_shops_for_dingtalk(query, user_id):
+        """Call Clawdot API to search shops"""
+        user_token = get_user_token(user_id)  # Get that user's token
+
+        url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
+        headers = {
+            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
+            "X-User-Token": user_token
+        }
+        payload = {
+            "query": query,
+            "location": "Zhongguancun",  # Should get from user location service
+            "limit": 5
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        return response.json().get("shops", [])
+
+    def format_shop_list_for_dingtalk(shops):
+        """Format shop list as DingTalk card"""
+        cards = []
+        for shop in shops:
+            cards.append({
+                "title": shop["name"],
+                "actionURL": f"https://your-app.com/shop/{shop['id']}",
+                "content": f"Rating: {shop['rating']}⭐ | Distance: {shop['distance']}km | Delivery fee: ¥{shop['delivery_fee']}"
+            })
+        return {"cards": cards}
+
+    def send_dingtalk_message(conversation_id, content):
+        """Send message to DingTalk"""
+        # DingTalk API implementation
+        pass
+
+    def get_user_token(user_id):
+        """Get user's User Token from database"""
+        # Implement user token storage and retrieval logic
+        pass
+
+    if __name__ == "__main__":
+        app.run(port=5000)
+    ```
+  </Tab>
+
+  <Tab title="Best Practices">
+    - **Async processing**: Use message queue (e.g. RabbitMQ) to handle long API calls, avoid WebHook timeout
+    - **Cache results**: Cache shop lists and menu data to reduce API calls
+    - **Error degradation**: When Clawdot API unavailable, show cached results or friendly error message
+    - **Rate limiting**: Add rate limit for same user to prevent duplicate requests
+    - **Logging**: Log all WebHook requests for debugging
+  </Tab>
+</Tabs>
+
+---
+
+## Kimi Agent
+
+Moonshot's Kimi is a leading domestic large language model supporting Agent development and Function Calling.
+
+### Quick Start
+
+<Tabs>
+  <Tab title="Integration Steps">
+    1. **Register Kimi Developer**
+       - Visit [Kimi Open Platform](https://kimi.moonshot.cn)
+       - Create application and get API Key
+
+    2. **Create Clawdot Agent**
+       Create Agent in Clawdot console, record API Key
+
+    3. **Define Function Schema**
+       Register Clawdot Gateway API as Function Calling tool in Kimi app
+
+    4. **Test Integration**
+       Send request using Kimi API, verify Function Calling works
+
+    5. **Deploy Online**
+       Publish Agent to Kimi app store
+  </Tab>
+
+  <Tab title="Code Example">
+    ```python
+    import requests
+    import json
+    import os
+
+    KIMI_API_KEY = os.getenv("KIMI_API_KEY")
+    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
+    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+
+    def call_kimi_with_function_calling(user_message, user_token):
+        """Use Kimi API with Function Calling"""
+
+        # Define available Functions (Clawdot Gateway API)
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_shops",
+                    "description": "Search local shops (food delivery, supermarkets, convenience stores, etc.)",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search keyword"
+                            },
+                            "location": {
+                                "type": "string",
+                                "description": "Location address"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Number of results"
+                            }
+                        },
+                        "required": ["query", "location"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_shop_detail",
+                    "description": "Get shop menu and detailed information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shop_id": {
+                                "type": "string",
+                                "description": "Shop ID"
+                            }
+                        },
+                        "required": ["shop_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_order",
+                    "description": "Create food delivery order",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shop_id": {"type": "string"},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "item_id": {"type": "string"},
+                                        "quantity": {"type": "integer"}
+                                    }
+                                }
+                            },
+                            "delivery_address": {"type": "string"}
+                        },
+                        "required": ["shop_id", "items", "delivery_address"]
+                    }
+                }
+            }
+        ]
+
+        # Call Kimi API
+        url = "https://api.moonshot.cn/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {KIMI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "moonshot-v1-8k",
+            "messages": [
+                {"role": "user", "content": user_message}
+            ],
+            "tools": tools,
+            "tool_choice": "auto"
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        result = response.json()
+
+        # Handle Function Calling response
+        if result.get("choices"):
+            choice = result["choices"][0]
+            if choice.get("finish_reason") == "tool_calls":
+                for tool_call in choice.get("tool_calls", []):
+                    function_name = tool_call["function"]["name"]
+                    function_args = json.loads(tool_call["function"]["arguments"])
+
+                    # Call Clawdot Gateway API
+                    function_result = call_clawdot_function(
+                        function_name,
+                        function_args,
+                        user_token
+                    )
+
+                    print(f"Function: {function_name}")
+                    print(f"Result: {function_result}")
+
+        return result
+
+    def call_clawdot_function(function_name, args, user_token):
+        """Call Clawdot Gateway API"""
+
+        headers = {
+            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
+            "X-User-Token": user_token,
+            "Content-Type": "application/json"
+        }
+
+        if function_name == "search_shops":
+            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
+            response = requests.post(
+                url,
+                json=args,
+                headers=headers
+            )
+            return response.json()
+
+        elif function_name == "get_shop_detail":
+            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/{args['shop_id']}"
+            response = requests.get(url, headers=headers)
+            return response.json()
+
+        elif function_name == "create_order":
+            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/orders"
+            response = requests.post(
+                url,
+                json=args,
+                headers=headers
+            )
+            return response.json()
+
+    # Usage example
+    user_message = "I want to order food in Zhongguancun"
+    user_token = "550e8400-e29b-41d4-a716-446655440000"
+
+    result = call_kimi_with_function_calling(user_message, user_token)
+    ```
+  </Tab>
+
+  <Tab title="Best Practices">
+    - **Function timeout handling**: Set reasonable timeout to avoid Kimi API waiting too long
+    - **Smart retry**: Use exponential backoff for temporary failures
+    - **Cache Schema**: Cache Function Schema to reduce repeated calls
+    - **Monitor cost**: Track API call costs and usage
+  </Tab>
+</Tabs>
+
+---
+
+## QCloud Agent (Tencent Cloud)
+
+Tencent Cloud provides enterprise-grade AI Agent service supporting cloud-native deployment and complete management console.
+
+### Quick Start
+
+<Tabs>
+  <Tab title="Integration Steps">
+    1. **Register Tencent Cloud Account**
+       - Visit [Tencent Cloud AI](https://cloud.tencent.com/product/ai)
+       - Apply for Agent service permission
+
+    2. **Create Agent Application**
+       - Create new Agent app in Tencent Cloud console
+       - Configure basic info and permissions
+
+    3. **Create Clawdot Agent**
+       Create dedicated Agent in Clawdot console
+
+    4. **Configure Integration**
+       Configure Clawdot Skills Platform API endpoint in Tencent Cloud Agent
+
+    5. **Deploy and Test**
+       Deploy Agent to Tencent Cloud environment, run integration tests
+
+    6. **Publish Online**
+       Publish through Tencent Cloud app store
+  </Tab>
+
+  <Tab title="Best Practices">
+    - **Resource management**: Allocate cloud resources reasonably, monitor costs
+    - **Logging and monitoring**: Use Tencent Cloud's logging and monitoring service to track Agent status
+    - **Disaster recovery**: Configure cross-region backup and failover
+    - **Security protection**: Enable Tencent Cloud's DDoS protection and WAF
+  </Tab>
+</Tabs>
+
+---
+
+## Claude Desktop (MCP)
+
+Claude Desktop is Anthropic's official client with native support for MCP (Model Context Protocol).
+
+### Quick Start
+
+<Tabs>
+  <Tab title="Installation and Configuration">
+    **1. Install Claude Desktop**
+    - Download [Claude Desktop](https://claude.ai/download)
+    - Follow instructions to complete installation and login
+
+    **2. Create Clawdot Agent**
+    Create Agent in Clawdot console and get API Key
+
+    **3. Configure MCP Server**
+    Edit `~/.claude-desktop/config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "clawdot-skills": {
+          "command": "node",
+          "args": [
+            "/path/to/mcp-gateway/dist/index.js",
+            "--gateway-url",
+            "https://api.clawdot.com/gateway",
+            "--api-key",
+            "clw_your_api_key_here"
+          ]
+        }
+      }
+    }
+    ```
+
+    **4. Restart Claude Desktop**
+    - Close Claude Desktop
+    - Reopen, wait for MCP server connection
+    - Check toolbar for available Gateway skills
+
+    **5. Start Using**
+    - Mention food delivery, supermarkets in conversation
+    - Claude auto-calls corresponding Gateway skills
+  </Tab>
+
+  <Tab title="MCP Server Implementation">
+    If you want to implement MCP server yourself, here's a simplified example:
+
+    ```typescript
+    import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+    import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+    import {
+      CallToolRequestSchema,
+      ListToolsRequestSchema,
+      Tool
+    } from "@modelcontextprotocol/sdk/types.js";
+    import axios from "axios";
+
+    const apiKey = process.env.CLAWDOT_API_KEY;
+    const gatewayUrl = process.env.CLAWDOT_GATEWAY_URL;
+
+    class ClawdotMCP {
+      private server: Server;
+
+      constructor() {
+        this.server = new Server(
+          {
+            name: "clawdot-skills",
+            version: "1.0.0"
+          },
+          {
+            capabilities: {
+              tools: {}
+            }
+          }
+        );
+
+        this.setupHandlers();
+      }
+
+      private setupHandlers() {
+        this.server.setRequestHandler(
+          ListToolsRequestSchema,
+          async () => ({
+            tools: [
+              {
+                name: "search_shops",
+                description: "Search local shops (food delivery, supermarkets, etc.)",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    query: { type: "string" },
+                    location: { type: "string" }
+                  },
+                  required: ["query", "location"]
+                }
+              },
+              {
+                name: "get_shop_detail",
+                description: "Get shop menu",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    shop_id: { type: "string" }
+                  },
+                  required: ["shop_id"]
+                }
+              },
+              {
+                name: "create_order",
+                description: "Create order",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    shop_id: { type: "string" },
+                    items: { type: "array" }
+                  },
+                  required: ["shop_id", "items"]
+                }
+              }
+            ]
+          })
+        );
+
+        this.server.setRequestHandler(
+          CallToolRequestSchema,
+          async (request) => {
+            const { name, arguments: args } = request.params;
+
+            switch (name) {
+              case "search_shops":
+                return await this.searchShops(args);
+              case "get_shop_detail":
+                return await this.getShopDetail(args);
+              case "create_order":
+                return await this.createOrder(args);
+              default:
+                return { isError: true, content: [{ type: "text", text: "Unknown tool" }] };
+            }
+          }
+        );
+      }
+
+      private async searchShops(args: any) {
+        const response = await axios.post(
+          `${gatewayUrl}/api/v1/gateway/shops/search`,
+          args,
+          {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+
+      private async getShopDetail(args: any) {
+        const response = await axios.get(
+          `${gatewayUrl}/api/v1/gateway/shops/${args.shop_id}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`
+            }
+          }
+        );
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+
+      private async createOrder(args: any) {
+        const response = await axios.post(
+          `${gatewayUrl}/api/v1/gateway/orders`,
+          args,
+          {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+
+      async start() {
+        const transport = new StdioServerTransport();
+        await this.server.connect(transport);
+      }
+    }
+
+    const mcp = new ClawdotMCP();
+    mcp.start();
+    ```
+  </Tab>
+
+  <Tab title="Best Practices">
+    - **Tool discovery caching**: Claude caches MCP tool list, restart needed for updates
+    - **Error handling**: Return clear error messages to help Claude understand issues
+    - **Streaming responses**: Support streaming results for long-running operations
+    - **Privacy protection**: Don't record user input, follow privacy policy
+  </Tab>
+</Tabs>
+
+---
+
+## Cursor
+
+Cursor is an AI code editor for developers supporting MCP integration.
+
+### Quick Start
+
+Configuration is similar to Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "clawdot": {
+      "command": "node",
+      "args": [
+        "path/to/mcp-gateway",
+        "--api-key",
+        "clw_your_key"
+      ]
+    }
+  }
+}
+```
+
+In Cursor, use `Cmd+K` (Mac) or `Ctrl+K` (Windows/Linux) to open command palette and call Gateway skills.
+
+<Info>
+Cursor integration is basically same as Claude Desktop, main difference is use case (code editing vs general conversation).
+</Info>
+
+---
+
+## Custom Agent
+
+If your Agent platform is not in the above list, you can integrate using **REST API**.
+
+### REST API Integration
+
+Refer to [Integration Guide - REST API](/skills/integration-guide#rest-api) section.
+
+**Quick Example:**
+
+```javascript
+const axios = require('axios');
+
+const CLAWDOT_API_KEY = process.env.CLAWDOT_API_KEY;
+const USER_TOKEN = process.env.USER_TOKEN;
+
+async function searchShops(query, location) {
+  const response = await axios.post(
+    'https://api.clawdot.com/api/v1/gateway/shops/search',
+    { query, location },
+    {
+      headers: {
+        'Authorization': `Bearer ${CLAWDOT_API_KEY}`,
+        'X-User-Token': USER_TOKEN,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  return response.data;
+}
+
+// Usage
+searchShops('food delivery', 'Zhongguancun').then(data => {
+  console.log('Search results:', data.shops);
+});
+```
+
+---
+
+## Coming Soon
+
+The following platforms are in development or testing, coming soon:
+
+<CardGroup cols={2}>
+  <Card title="Google Vertex AI" icon="cloud" disabled>
+    Google Cloud's AI agent service, integration coming soon.
+  </Card>
+
+  <Card title="AWS Bedrock Agents" icon="cloud" disabled>
+    AWS managed AI service, supports custom Agents.
+  </Card>
+
+  <Card title="LangChain Integration" icon="link" disabled>
+    Integration through LangChain's Tool/Agent framework.
+  </Card>
+
+  <Card title="More Enterprise Agent Platforms" icon="building" disabled>
+    Support for other commercial AI Agent platforms, stay tuned.
+  </Card>
+</CardGroup>
+
+---
+
+## Platform Comparison
+
+| Platform | Integration | Difficulty | Enterprise | Developer-Friendly | Community Active |
+|----------|-------------|-----------|-----------|-------------------|------------------|
+| DingTalk | REST API / WebHook | Medium | ✓ | High | High |
+| Kimi | Function Calling | Low | ✓ | High | Medium |
+| QCloud | REST API | Medium | ✓ | Medium | Medium |
+| Claude Desktop | MCP | Low | - | High | High |
+| Cursor | MCP | Low | - | High | Medium |
+| Custom Agent | REST API | Medium | ✓ | High | - |
+
+---
+
+## FAQ
+
+<details>
+<summary>What if my Agent platform is not in the list?</summary>
+
+You can:
+1. Use REST API to integrate yourself (refer to [Integration Guide](/skills/integration-guide))
+2. Contact us at support@clawdot.com to request new platform integration
+3. Contribute MCP server implementation (open source project)
+
+</details>
+
+<details>
+<summary>Are API Keys the same across different platforms?</summary>
+
+Yes, Clawdot generates unique API Key for each Agent application. You can use the same API Key across multiple platforms, but recommend creating different Agents for different platforms for better monitoring and management.
+
+</details>
+
+<details>
+<summary>How to safely manage API Key in production?</summary>
+
+Best practices:
+- Use environment variables or secret management service (e.g. HashiCorp Vault, AWS Secrets Manager)
+- Don't hardcode API Key in code
+- Regularly rotate API Keys
+- Limit API Key usage scope (e.g. by IP, by User Token)
+
+</details>
+
+<details>
+<summary>What's the difference between MCP and REST API?</summary>
+
+**MCP**:
+- Standardized protocol, automatic tool discovery
+- Suitable for deep integration with large models
+- Simple configuration, no need to handle HTTP manually
+
+**REST API**:
+- Universal HTTP interface, complete control
+- Suitable for custom apps and enterprise systems
+- Slightly higher learning cost, more flexibility
+
+</details>

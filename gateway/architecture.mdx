@@ -1,7 +1,38 @@
 ---
 title: "架构概览"
-description: "Clawdot Gateway 的三层架构设计"
+description: "Clawdot Gateway 的三层架构设计和商户接入模式"
 ---
+
+## Gateway 在 Clawdot 中的位置
+
+Clawdot 采用 4 层架构，Gateway 位于第 3 层，是**协议层 + 发现层**：
+
+```
+┌─────────────────────────────────────────────┐
+│  第 4 层 - 应用层                            │
+│  AI Agent / 用户应用 / 第三方集成             │
+└──────────────┬──────────────────────────────┘
+               │ 标准协议
+┌──────────────▼──────────────────────────────┐
+│  第 3 层 - Gateway（协议层 + 发现层）        │
+│  ├─ 标准协议定义（菜单、订单、预约等）       │
+│  ├─ 商户发现和路由                          │
+│  └─ 协议版本管理和演进                      │
+└──────────────┬──────────────────────────────┘
+               │ 内部 REST/MCP
+┌──────────────▼──────────────────────────────┐
+│  第 2 层 - Gateway 内部服务                  │
+│  ├─ ShopService / OrderService / 等         │
+│  ├─ 协议适配（Proxy 转换逻辑）               │
+│  └─ 数据和认证管理                          │
+└──────────────┬──────────────────────────────┘
+               │ HTTP / 内部 API
+┌──────────────▼──────────────────────────────┐
+│  第 1 层 - 商户层                            │
+│  ├─ Proxy（代理饿了么/美团/高德）            │
+│  └─ 独立商户 Agent（自建系统）               │
+└─────────────────────────────────────────────┘
+```
 
 ## 整体架构
 
@@ -9,48 +40,143 @@ description: "Clawdot Gateway 的三层架构设计"
 graph LR
   REST["REST API\n/api/v1/*"] --> Services
   MCP["MCP Server\n/mcp"] --> Services
-  Services --> Client["外卖 Client"] --> API["外卖平台 API"]
+  Services --> ProxyClient["Proxy Client<br/>转换层"]
+  Services --> MerchantAgent["商户 Agent<br/>独立实现"]
+  ProxyClient --> Platform1["美团 API"]
+  ProxyClient --> Platform2["饿了么 API"]
   Services --> Models["Models\n(SQLAlchemy)"] --> MySQL
+
+  style Services fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style ProxyClient fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style MerchantAgent fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
 ```
 
-Clawdot Gateway 采用三层架构，REST 和 MCP 两个入口共享同一套服务层和业务逻辑。
+Clawdot Gateway 采用三层内部架构，REST 和 MCP 两个入口共享同一套服务层。Gateway 通过**标准协议**统一管理两种商户类型：
+- **Proxy 层** — 代理饿了么、美团、高德等平台商户
+- **独立 Agent** — 大型商户自建实现
 
-## 层级说明
+## 商户接入模式
+
+在详细介绍内部三层架构之前，先理解 Gateway 如何管理两种商户类型：
+
+<Tabs>
+  <Tab title="Proxy 层（冷启动）">
+    **目标：** 快速覆盖已有平台商户
+
+    ```mermaid
+    graph TB
+      Agent["AI Agent"]
+      Gateway["Gateway"]
+      Proxy["Proxy 转换层"]
+      Platform["美团/饿了么"]
+      Merchant["平台商户<br/>无需改动"]
+
+      Agent -->|标准协议| Gateway
+      Gateway -->|转换为平台 API| Proxy
+      Proxy -->|美团 API / 饿了么 API| Platform
+      Platform -->|订单| Merchant
+
+      style Proxy fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+    ```
+
+    **工作流程：**
+    1. Agent 使用标准协议调用 Gateway
+    2. Gateway 的 Proxy Client 负责转换请求格式
+    3. Proxy 将请求转换为相应平台的 API 调用
+    4. 平台响应被转换回标准协议格式
+    5. 返回给 Agent
+
+    **优势：**
+    - 商户无需做任何改动
+    - 快速覆盖大量商户
+    - Clawdot 完整掌握数据
+  </Tab>
+
+  <Tab title="独立 Agent（生态）">
+    **目标：** 大型商户深度集成和自主
+
+    ```mermaid
+    graph TB
+      Agent["AI Agent"]
+      Gateway["Gateway"]
+      Merchant["商户 Agent<br/>直接实现标准协议"]
+
+      Agent -->|标准协议| Gateway
+      Gateway -->|标准协议| Merchant
+      Merchant -->|业务处理| MerchantSystem["商户内部系统"]
+
+      style Merchant fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+    ```
+
+    **工作流程：**
+    1. Agent 使用标准协议调用 Gateway
+    2. Gateway 查找对应的商户 Agent
+    3. 直接转发请求到商户的实现
+    4. 商户处理业务逻辑
+    5. 返回标准协议格式的响应
+
+    **要求：**
+    - 商户必须实现标准协议所有接口
+    - 需要通过 Clawdot 的审核和测试
+    - 承诺 SLA 和安全要求
+
+    **优势：**
+    - 商户完全控制业务逻辑
+    - 可以实现深度定制
+    - 支持未来的生态扩展
+  </Tab>
+</Tabs>
+
+## 内部三层架构
+
+### 层级说明
 
 <AccordionGroup>
   <Accordion title="Gateway 层 — 入口与路由" icon="door-open">
     **位置：** `src/gateway/`
 
-    负责协议适配和输入验证，不包含业务逻辑。
+    负责协议适配、商户路由和输入验证，不包含业务逻辑。
 
     - **REST routers** — FastAPI 路由，处理 HTTP 请求/响应序列化
     - **MCP tools** — 9 个 MCP 工具定义，将 MCP 调用转换为服务层调用
+    - **Merchant router** — 根据商户 ID 或 shop_id 查询商户类型，决定转发到 Proxy 或独立 Agent
     - **Auth middleware** — `require_agent()` 和 `require_user()` 依赖注入
 
     两个入口的区别仅在参数传递方式：REST 使用 Header，MCP 使用参数。
   </Accordion>
 
-  <Accordion title="Service 层 — 业务逻辑" icon="gears">
+  <Accordion title="Service 层 — 业务逻辑与路由" icon="gears">
     **位置：** `src/services/`
 
-    核心业务逻辑所在，通过构造函数接收依赖（DB session, 外卖 client）：
+    核心业务逻辑所在，通过构造函数接收依赖（DB session, Proxy Client, 商户注册表）：
 
     - **AuthService** — Agent 注册、API Key 生成与验证
     - **UserService** — SMS 发送、验证码校验、用户绑定
-    - **ShopService** — 商家搜索（含并行多品类搜索）、菜单获取（含规格/属性/加料解析）
+    - **ShopService** — 商家搜索（含并行多品类搜索）、菜单获取
+      - 对于 Proxy 商户 — 通过 Proxy Client 调用
+      - 对于独立 Agent — 直接调用商户的 API
     - **AddressService** — POI 搜索、地址选择与创建
-    - **OrderService** — 订单预览（含自动优惠券）、创建与查询
+    - **OrderService** — 订单预览、创建与查询
+      - 支持两种商户的下单逻辑
+    - **MerchantRegistry** — 商户注册表，记录每个商户的类型和接入方式
   </Accordion>
 
-  <Accordion title="外卖 Client 层 — API 封装" icon="cloud">
+  <Accordion title="Client 层 — API 封装与适配" icon="cloud">
     **位置：** `src/client/`
 
-    外卖平台 API 的 HTTP 客户端封装：
+    支持三类 API 的 HTTP 客户端封装：
 
+    **Proxy Client（平台 API 封装）：**
     - **Token 管理** — `ensure_token` 自动刷新过期 Token
-    - **请求签名** — 按平台要求的签名算法
+    - **请求签名** — 按美团/饿了么的签名算法
     - **UA 管理** — 不同端点使用不同 User-Agent（订单用 MTOPSDK 格式，搜索用 Rajax 格式）
-    - **错误处理** — 统一的平台 API 错误转换
+    - **错误处理** — 统一的平台 API 错误转换为标准协议错误码
+
+    **Merchant HTTP Client（独立商户 Agent 调用）：**
+    - **API Key 管理** — 商户的 API 认证凭证
+    - **请求签名** — 按商户的安全要求签名（如果需要）
+    - **超时和重试** — 处理商户 API 的不稳定性
+    - **错误处理** — 将商户错误转换为标准协议格式
   </Accordion>
 </AccordionGroup>
 
@@ -58,60 +184,148 @@ Clawdot Gateway 采用三层架构，REST 和 MCP 两个入口共享同一套服
 
 ### 典型搜索请求
 
+#### 场景 1：Proxy 商户搜索
+
 ```mermaid
 sequenceDiagram
   participant Agent
   participant Gateway as REST / MCP
   participant Shop as ShopService
-  participant Platform as 外卖平台 API
+  participant Proxy as Proxy Client
+  participant Platform as 美团/饿了么 API
 
-  Agent->>Gateway: 搜索商家
+  Agent->>Gateway: 搜索商家（shop_id 来自代理商户）
   Gateway->>Shop: _search_default()
+  Shop->>Shop: 检查 shop_id 类型（Proxy）
   par 10 个并行搜索
-    Shop->>Platform: searchByKeyWords("推荐")
-    Shop->>Platform: searchByKeyWords("快餐")
-    Shop->>Platform: searchByKeyWords("咖啡")
-    Shop->>Platform: ...（共 10 个品类）
+    Shop->>Proxy: searchByKeyWords("推荐")
+    Shop->>Proxy: searchByKeyWords("快餐")
+    Shop->>Proxy: ...
   end
-  Platform-->>Shop: 各品类结果
+  Proxy->>Platform: 平台 API 调用
+  Platform-->>Proxy: 平台响应
+  Proxy->>Proxy: 转换为标准协议格式
+  Proxy-->>Shop: 标准格式结果
   Shop->>Shop: 按 encryptShopId 去重
   Shop-->>Gateway: ~50 家商店
   Gateway-->>Agent: 搜索结果
 ```
 
+#### 场景 2：独立商户搜索
+
+```mermaid
+sequenceDiagram
+  participant Agent
+  participant Gateway as REST / MCP
+  participant Shop as ShopService
+  participant MerchantClient as Merchant HTTP Client
+  participant Merchant as 商户 Agent
+
+  Agent->>Gateway: 搜索商家（商户 ID）
+  Gateway->>Shop: search_by_merchant()
+  Shop->>Shop: 查询商户注册表
+  Shop->>MerchantClient: 调用商户 API
+  MerchantClient->>Merchant: GET /search（标准协议）
+  Merchant->>Merchant: 业务逻辑处理
+  Merchant-->>MerchantClient: 标准协议响应
+  MerchantClient-->>Shop: 返回结果
+  Shop-->>Gateway: 搜索结果
+  Gateway-->>Agent: 搜索结果
+```
+
 ### 典型下单请求
+
+#### 场景 1：Proxy 商户下单
 
 ```mermaid
 sequenceDiagram
   participant Agent
   participant Gateway as REST / MCP
   participant Order as OrderService
+  participant Proxy as Proxy Client
   participant Platform as 外卖平台 API
   participant Cache as 内存缓存
   participant DB as MySQL
 
   Agent->>Gateway: POST /orders/preview
   Gateway->>Order: preview()
-  Order->>Platform: 第 1 次渲染（无优惠券）
-  Platform-->>Order: 可用优惠券列表
+  Order->>Order: 检查商户类型（Proxy）
+  Order->>Proxy: 第 1 次渲染（无优惠券）
+  Proxy->>Platform: 平台 API 调用
+  Platform-->>Proxy: 可用优惠券列表
+  Proxy->>Proxy: 转换为标准格式
+  Proxy-->>Order: 标准响应
   Order->>Order: 选择最优优惠券
-  Order->>Platform: 第 2 次渲染（带优惠券）
-  Platform-->>Order: 最终价格
+  Order->>Proxy: 第 2 次渲染（带优惠券）
+  Proxy->>Platform: 平台 API 调用
+  Platform-->>Proxy: 最终价格
+  Proxy-->>Order: 标准响应
   Order->>Cache: 缓存渲染结果（10 min TTL）
   Order-->>Agent: session_id + 价格明细
 
   Agent->>Gateway: POST /orders
   Gateway->>Order: create()
   Order->>Cache: 获取渲染数据
-  Order->>Platform: 创建订单
-  Platform-->>Order: order_id
+  Order->>Proxy: 创建订单
+  Proxy->>Platform: 平台 API 调用
+  Platform-->>Proxy: order_id
+  Proxy-->>Order: 标准响应
   Order->>DB: 保存订单记录
+  Order-->>Agent: order_id + 状态
+```
+
+#### 场景 2：独立商户下单
+
+```mermaid
+sequenceDiagram
+  participant Agent
+  participant Gateway as REST / MCP
+  participant Order as OrderService
+  participant MerchantClient as Merchant HTTP Client
+  participant Merchant as 商户 Agent
+  participant MerchantDB as 商户 DB
+
+  Agent->>Gateway: POST /orders/preview
+  Gateway->>Order: preview()
+  Order->>Order: 检查商户类型（独立）
+  Order->>MerchantClient: 调用商户 API
+  MerchantClient->>Merchant: POST /orders/preview（标准协议）
+  Merchant->>MerchantDB: 查询库存和价格
+  MerchantDB-->>Merchant: 数据
+  Merchant-->>MerchantClient: 标准响应（包含优惠券）
+  MerchantClient-->>Order: 返回结果
+  Order-->>Agent: session_id + 价格明细
+
+  Agent->>Gateway: POST /orders
+  Gateway->>Order: create()
+  Order->>MerchantClient: 创建订单
+  MerchantClient->>Merchant: POST /orders（标准协议）
+  Merchant->>MerchantDB: 保存订单
+  MerchantDB-->>Merchant: 订单 ID
+  Merchant-->>MerchantClient: 标准响应
+  MerchantClient-->>Order: 返回结果
+  Order->>Order: 保存订单记录（完整交互日志）
   Order-->>Agent: order_id + 状态
 ```
 
 ## 数据库模型
 
 <Tabs>
+  <Tab title="merchants">
+    | 字段 | 类型 | 说明 |
+    |------|------|------|
+    | id | int (PK) | 自增主键 |
+    | name | varchar(200) | 商户名称 |
+    | merchant_type | enum | Proxy / Independent |
+    | platform | varchar(50) | 所属平台（美团/饿了么/高德，仅限 Proxy） |
+    | platform_shop_id | varchar(100) | 平台的 shop_id（仅限 Proxy） |
+    | api_endpoint | varchar(500) | API 端点（仅限 Independent） |
+    | api_key | varchar(256) | API Key（加密存储，仅限 Independent） |
+    | is_active | boolean | 是否启用 |
+    | verified_at | datetime | 验证通过时间（仅限 Independent） |
+    | created_at / updated_at | datetime | 时间戳 |
+  </Tab>
+
   <Tab title="agents">
     | 字段 | 类型 | 说明 |
     |------|------|------|
@@ -147,10 +361,13 @@ sequenceDiagram
     | id | int (PK) | 自增主键 |
     | agent_id | int (FK) | 关联 Agent |
     | user_binding_id | int (FK) | 关联用户绑定 |
-    | platform_order_id | varchar(64) | 外卖订单 ID |
+    | merchant_id | int (FK) | 关联商户（新增） |
+    | merchant_order_id | varchar(64) | 商户订单 ID |
     | shop_name | varchar(200) | 商家名称 |
     | total_amount | decimal(10,2) | 订单总额 |
     | status | varchar(32) | 订单状态 |
+    | merchant_type | enum | Proxy / Independent |
+    | raw_request | JSON | 原始请求（用于审计） |
     | raw_response | JSON | 原始响应 |
     | created_at / updated_at | datetime | 时间戳 |
   </Tab>

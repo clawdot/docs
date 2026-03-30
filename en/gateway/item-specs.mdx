@@ -1,0 +1,163 @@
+---
+title: "Item Specifications"
+description: "Understanding the three-layer customization system of specs, attributes, and ingredients"
+---
+
+## Overview
+
+Food delivery item customization is divided into three layers:
+
+| Layer | English | Example | Purpose |
+|---|---|---|---|
+| Specs | specs | Large / Medium / Small cup | Base options affecting price |
+| Attributes | attrs | Iced / Hot / Room Temperature | Preference options not affecting price |
+| Ingredients | ingredients | Add extra shot / Swap oat milk | Can affect price, have exclusion rules |
+
+## Specs — Specifications
+
+Each item may have one or multiple specification dimensions:
+
+```json
+{
+  "specs": [
+    {
+      "name": "Specification",
+      "options": ["Large cup", "Medium cup", "Small cup"]
+    }
+  ]
+}
+```
+
+Selecting different specs changes the `item_id` and `sku_id`. Just pass the corresponding spec ID when ordering.
+
+## Attrs — Attributes
+
+Customization options not affecting price:
+
+```json
+{
+  "attrs": [
+    {
+      "name": "Temperature",
+      "options": ["Iced", "Hot"]
+    },
+    {
+      "name": "Sweetness",
+      "options": ["Normal", "Half sweet", "Less sweet", "No sugar"]
+    }
+  ]
+}
+```
+
+## Ingredients — Extra Ingredients
+
+Most complex customization layer, including **exclusion rules**:
+
+```json
+{
+  "ingredients": [
+    {
+      "group_name": "Shot",
+      "required": true,
+      "options": [
+        {
+          "id": "ig_0_0",
+          "name": "Standard Shot",
+          "price": 0.0,
+          "item_id": "11111",
+          "sku_id": "22222",
+          "package_id": "33333"
+        },
+        {
+          "id": "ig_0_1",
+          "name": "Double Shot",
+          "price": 2.0,
+          "item_id": "11112",
+          "sku_id": "22223",
+          "package_id": "33334",
+          "excludes": ["ig_1_0", "ig_1_1"]
+        }
+      ],
+      "default_id": "ig_0_0"
+    },
+    {
+      "group_name": "Extraction Method",
+      "required": false,
+      "options": [
+        {
+          "id": "ig_1_0",
+          "name": "Hot Brew",
+          "price": 0.0,
+          "item_id": "21111",
+          "sku_id": "32222",
+          "package_id": "43333"
+        },
+        {
+          "id": "ig_1_1",
+          "name": "Cold Brew",
+          "price": 3.0,
+          "item_id": "21112",
+          "sku_id": "32223",
+          "package_id": "43334"
+        }
+      ],
+      "default_id": "ig_1_0"
+    }
+  ]
+}
+```
+
+### Exclusion Rules
+
+Each option's `excludes` array lists which option IDs are **incompatible** with it:
+
+```
+Select "Double Shot" (ig_0_1) → excludes: ["ig_1_0", "ig_1_1"]
+→ All options in "Extraction Method" group are excluded
+→ That group becomes unselectable
+```
+
+ID format is `ig_{group_index}_{option_index}`, stable and predictable.
+
+<Warning>
+  Exclusion rules are **one-way**: A excluding B doesn't mean B excludes A. Need to check each selected option's exclusion list individually.
+</Warning>
+
+### Typical Scenarios
+
+**Starbucks Chain Exclusion:**
+```
+Shot → Extraction Method → Quantity
+Select "Double Shot" excludes entire "Extraction Method" group
+Options in "Extraction Method" may further exclude certain "Quantity" options
+```
+
+**Mutual Exclusion:**
+```
+Swap Sugar ↔ Sweetness
+Select "Swap Sugar" excludes all sweetness options
+Select any sweetness excludes "Swap Sugar" option
+```
+
+## Default Ingredients — Defaults
+
+For AI Agent quick ordering convenience, menu returns pre-computed `default_ingredients`:
+
+```json
+{
+  "default_ingredients": [
+    {
+      "item_id": "11111",
+      "sku_id": "22222",
+      "package_id": "33333",
+      "buy_amount": 1
+    }
+  ]
+}
+```
+
+This is the result of system automatically selecting the first non-conflicting option from each required group. Agent can directly pass this field to order endpoint without understanding exclusion logic.
+
+<Tip>
+  For most ordering scenarios, directly using `default_ingredients` is the simplest approach. Only need manual selection when user explicitly requests customization.
+</Tip>

@@ -1,0 +1,79 @@
+---
+title: "Clawdot"
+description: "Local life AI service platform"
+---
+
+## AI Era Local Life Infrastructure
+
+A network of Super Agents, learning in one go the complete skill set for food ordering, transportation, booking, and recommendations.
+
+<Columns cols={3}>
+  <Card title="Super Agent" icon="wand-magic-sparkles" href="/super-agent/introduction">
+    Provide each user with a dedicated AI agent, mastering the complete skill set of food delivery, booking, transportation, recommendations, and social memory.
+  </Card>
+  <Card title="Skills Platform" icon="puzzle-piece" href="/skills/introduction">
+    A skills platform for Agent integration with platforms like Dingtalk, Kimi, and QCloud, with one-to-one binding and natural security isolation.
+  </Card>
+  <Card title="Gateway" icon="server" href="/gateway/introduction">
+    Protocol layer connecting local merchants, standardizing menu queries, order fulfillment, booking management, and other services.
+  </Card>
+</Columns>
+
+## Why Choose Clawdot
+
+<Columns cols={2}>
+  <Card title="Network Effects" icon="circle-nodes">
+    More nodes → Greater network value → Stronger protocol voice → More nodes join. Building a strong network flywheel for local life services.
+  </Card>
+  <Card title="Dual Protocol Support" icon="plug">
+    REST API and MCP protocol dual entry points, adapting to all AI platforms — Claude, GPT, and custom Agents can all integrate.
+  </Card>
+  <Card title="Out of the Box" icon="box-open">
+    Proxy cold start automatically covers Ele.me, Meituan, and Amap merchants, ready to run without development.
+  </Card>
+  <Card title="Security Design" icon="shield">
+    One-to-one binding authorization with natural security isolation. Dual-layer authentication with API Key + User Token, user data encrypted with AES-256-GCM.
+  </Card>
+</Columns>
+
+## Quick Example
+
+<Tabs>
+  <Tab title="REST API">
+    ```bash
+    # Search nearby shops
+    curl -X GET "https://gateway.clawdot.ai/api/v1/shops/search?lat=39.9&lng=116.4&keyword=coffee" \
+      -H "Authorization: Bearer clw_your_api_key" \
+      -H "X-User-Token: your_user_token"
+    ```
+  </Tab>
+  <Tab title="MCP Protocol">
+    ```json
+    {
+      "tool": "search_shops",
+      "arguments": {
+        "lat": 39.9,
+        "lng": 116.4,
+        "keyword": "coffee",
+        "user_token": "your_user_token"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Start Building
+
+Choose your role:
+
+<Columns cols={3}>
+  <Card title="I'm a User/Developer" icon="user" href="/super-agent/introduction">
+    Learn how Super Agent works for you.
+  </Card>
+  <Card title="I'm a Skill Developer" icon="code" href="/skills/integration-guide">
+    Integrate local life skills into your Agent.
+  </Card>
+  <Card title="I'm a Merchant" icon="shop" href="/gateway/merchant-onboarding">
+    Connect your merchant services to the Clawdot network.
+  </Card>
+</Columns>

@@ -1,11 +1,11 @@
 ---
 title: "验证绑定"
-description: "POST /user/bind/verify — 验证 SMS 码并获取 User Token"
+description: "POST /user/bind/verify — 动态绑定用户：验证 SMS 码并获取 User Token"
 ---
 
 ## POST /user/bind/verify
 
-验证 SMS 验证码，完成用户绑定并返回 User Token。
+动态绑定用户第二步：验证 SMS 验证码，完成用户绑定并返回 User Token。
 
 ### 请求头
 
@@ -26,7 +26,7 @@ description: "POST /user/bind/verify — 验证 SMS 码并获取 User Token"
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `bind_id` | string | 是 | 从 `/user/bind/request` 获取的绑定会话 ID |
-| `code` | string | 是 | 用户收到的 6 位验证码 |
+| `code` | string | 是 | 用户收到的 6 位 SMS 验证码 |
 
 ### 响应
 
@@ -35,13 +35,13 @@ description: "POST /user/bind/verify — 验证 SMS 码并获取 User Token"
     ```json
     {
       "user_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "expires_at": "2026-06-22T12:34:56.789Z"
+      "expires_at": "2026-06-28T12:00:00+00:00"
     }
     ```
 
     | 字段 | 类型 | 说明 |
     |------|------|------|
-    | `user_token` | string | User Token（UUID），用于后续所有业务接口 |
+    | `user_token` | string | User Token（UUID），用于后续所有业务接口的 `X-User-Token` header |
     | `expires_at` | string | Token 过期时间（ISO 8601），默认 90 天 |
   </Tab>
   <Tab title="400 验证失败">
@@ -49,7 +49,17 @@ description: "POST /user/bind/verify — 验证 SMS 码并获取 User Token"
     {
       "error": {
         "code": "SMS_CODE_INVALID",
-        "message": "Invalid or expired verification code"
+        "message": "Verification code is invalid or expired"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="409 绑定冲突">
+    ```json
+    {
+      "error": {
+        "code": "BINDING_LIMIT_REACHED",
+        "message": "This agent can only bind one user. Unbind the current user first or upgrade to superagent."
       }
     }
     ```
@@ -58,14 +68,15 @@ description: "POST /user/bind/verify — 验证 SMS 码并获取 User Token"
 
 ### 说明
 
-- 验证成功后，系统会查询外卖平台获取用户 ID 并加密存储
-- 同一 Agent + 手机号只保留一个绑定（重复绑定会更新 Token）
+- 验证成功后，系统查询饿了么获取用户 ID 并加密存储
+- 同一 Agent + 手机号重复绑定会更新 Token（而非创建新绑定）
+- **普通 Agent 只能绑定一个手机号**，绑定不同手机号返回 `BINDING_LIMIT_REACHED`。需要绑定多个用户请升级为 Superagent
 - Token 过期后需重新执行绑定流程
 
 ### 示例
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/user/bind/verify" \
+curl -X POST "https://api.clawdot.ai/api/v1/user/bind/verify" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"bind_id": "550e8400-e29b-41d4-a716-446655440000", "code": "123456"}'

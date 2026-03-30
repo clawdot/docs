@@ -18,11 +18,11 @@ description: "GET /shops/search — 按位置和关键词搜索附近商家"
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `lat` | float | 是 | — | 纬度 |
-| `lng` | float | 是 | — | 经度 |
-| `keyword` | string | 否 | — | 搜索关键词 |
+| `lat` | float | 是 | — | 配送位置纬度 |
+| `lng` | float | 是 | — | 配送位置经度 |
+| `keyword` | string | 否 | — | 搜索关键词（如 "咖啡"、"星巴克"、"麦当劳"） |
 | `offset` | integer | 否 | 0 | 分页偏移 |
-| `limit` | integer | 否 | 20 | 每页数量（最大 20）|
+| `limit` | integer | 否 | 20 | 每页数量 |
 
 ### 响应
 
@@ -30,22 +30,24 @@ description: "GET /shops/search — 按位置和关键词搜索附近商家"
 {
   "shops": [
     {
-      "id": "E1234567890123",
-      "name": "瑞幸咖啡(国贸店)",
+      "id": "E15074238835124929109",
+      "name": "瑞幸咖啡(人民广场店)",
       "brand_name": "瑞幸咖啡",
       "image": "https://image.url/shop.jpg",
-      "delivery_fee": 0.0,
+      "distance": "1.2km",
+      "rating": "4.8",
+      "delivery_fee": 3.0,
       "delivery_time_minutes": 35,
-      "min_order_amount": 10.0,
+      "min_order_amount": 0.0,
       "is_ad": false,
       "items": [
         {
           "name": "生椰拿铁",
-          "price": 9.9,
-          "original_price": 19.0,
+          "price": 16.0,
+          "original_price": 29.0,
           "description": "椰浆+浓缩咖啡",
           "image": "https://image.url/item.jpg",
-          "packing_fee": 0.0,
+          "packing_fee": 1.0,
           "item_type": "NORMAL"
         }
       ]
@@ -54,6 +56,20 @@ description: "GET /shops/search — 按位置和关键词搜索附近商家"
 }
 ```
 
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | **统一店铺 ID**（encryptShopId），用于获取详情和下单 |
+| `name` | string | 店铺名称 |
+| `brand_name` | string | 品牌名称 |
+| `image` | string | 店铺图片 URL |
+| `distance` | string | 距配送位置的距离 |
+| `rating` | string | 评分 |
+| `delivery_fee` | float | 配送费（元） |
+| `delivery_time_minutes` | integer | 预计配送时间（分钟） |
+| `min_order_amount` | float | 起送金额（元） |
+| `is_ad` | boolean | 是否为广告 |
+| `items` | array | 推荐商品预览（**仅展示用，不可直接用于下单**） |
+
 ### 搜索行为
 
 <Tabs>
@@ -61,22 +77,28 @@ description: "GET /shops/search — 按位置和关键词搜索附近商家"
     传入 `keyword` 时，执行单次精确搜索，最多返回 5 家商家。
 
     ```bash
-    GET /shops/search?lat=39.9&lng=116.4&keyword=星巴克
+    GET /shops/search?lat=31.23&lng=121.47&keyword=星巴克
     ```
   </Tab>
   <Tab title="默认分类搜索">
-    不传 `keyword` 时，系统并行搜索 10 个默认品类：
+    不传 `keyword` 时，系统**并行搜索** 10 个默认品类：
 
     > 推荐、快餐、炒菜、西餐、轻食、甜品、奶茶、咖啡、粥、烧烤
 
-    结果按 `id` 自动去重，返回约 50 家商家（约 1.3 秒）。
+    结果按店铺 `id` 自动去重，返回约 **50 家商家**（耗时约 1.3 秒）。
+
+    零售类店铺（`isRetailShop`）会自动过滤。
   </Tab>
 </Tabs>
+
+<Tip>
+  搜索结果中的 `items` 仅用于展示预览。要获取可下单的完整菜单（含 `item_id`、`sku_id`），请调用 [商家详情](/api-reference/shops/detail) 接口。
+</Tip>
 
 ### 示例
 
 ```bash
-curl -X GET "https://your-gateway/api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡" \
+curl -X GET "https://api.clawdot.ai/api/v1/shops/search?lat=31.23&lng=121.47&keyword=咖啡" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-User-Token: your_user_token"
 ```

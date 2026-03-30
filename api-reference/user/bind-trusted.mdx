@@ -1,0 +1,89 @@
+---
+title: "受信任绑定"
+description: "POST /user/bind/trusted — 跳过 SMS 直接绑定用户"
+---
+
+## POST /user/bind/trusted
+
+跳过 SMS 验证，直接绑定用户。仅限管理员调用（需额外的 Admin Secret 认证）。
+
+<Warning>
+  此接口需要同时提供 **API Key** 和 **Admin Secret** 两个认证凭据。
+</Warning>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-Admin-Secret` | 是 | 管理员密钥 |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "phone": "13800138000"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `phone` | string | 是 | 中国大陆手机号（需在饿了么注册） |
+
+### 响应
+
+<Tabs>
+  <Tab title="200 成功">
+    ```json
+    {
+      "user_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "expires_at": "2026-06-28T12:00:00+00:00",
+      "is_new": true
+    }
+    ```
+
+    | 字段 | 类型 | 说明 |
+    |------|------|------|
+    | `user_token` | string | User Token（UUID） |
+    | `expires_at` | string | 过期时间（ISO 8601），默认 90 天 |
+    | `is_new` | boolean | `true` = 新建绑定；`false` = 已有未过期绑定，直接返回现有 token |
+  </Tab>
+  <Tab title="404 用户未注册">
+    ```json
+    {
+      "error": {
+        "code": "ELEME_USER_NOT_FOUND",
+        "message": "Phone not registered on Eleme"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="409 绑定冲突">
+    ```json
+    {
+      "error": {
+        "code": "BINDING_LIMIT_REACHED",
+        "message": "This agent can only bind one user. Unbind the current user first or upgrade to superagent."
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 说明
+
+- 如果该 Agent + 手机号已有未过期绑定，直接返回现有 token（`is_new: false`）
+- 如果已有绑定但已过期，刷新过期时间并返回（`is_new: false`）
+- 如果没有绑定，创建新绑定（`is_new: true`）
+- 普通 Agent 只能绑定一个手机号，绑定不同手机号会返回 `BINDING_LIMIT_REACHED`
+
+### 示例
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/user/bind/trusted" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Admin-Secret: your_admin_secret" \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "13800138000"}'
+```

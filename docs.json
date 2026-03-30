@@ -1,164 +1,249 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Clawdot",
-  "colors": {
-    "primary": "#E8503A",
-    "light": "#F06B55",
-    "dark": "#D14430"
-  },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Overview",
-        "groups": [
-          {
-            "group": "Clawdot",
-            "pages": [
-              "index",
-              "quickstart"
-            ]
-          }
+    "$schema": "https://mintlify.com/docs.json",
+    "theme": "mint",
+    "name": "Clawdot虾点·文档中心",
+    "colors": {
+        "primary": "#E8593C",
+        "light": "#F5A89A",
+        "dark": "#D14430"
+    },
+    "favicon": "/favicon.png",
+    "icons": {
+        "library": "lucide"
+    },
+    "background": {
+        "decoration": "gradient",
+        "color": {
+            "light": "#FFF9F5",
+            "dark": "#0F172A"
+        }
+    },
+    "navigation": {
+        "global": {},
+        "languages": [
+            {
+                "language": "cn",
+                "default": true,
+                "tabs": [
+                    {
+                        "tab": "Overview 概览",
+                        "groups": [
+                            {
+                                "group": "Clawdot 虾点",
+                                "pages": [
+                                    "index",
+                                    "overview/architecture",
+                                    "quickstart",
+                                    "overview/roadmap"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Clawdot虾点 Agent",
+                        "groups": [
+                            {
+                                "group": "超级服务员",
+                                "pages": [
+                                    "super-agent/introduction",
+                                    "super-agent/how-it-works"
+                                ]
+                            },
+                            {
+                                "group": "服务场景",
+                                "pages": [
+                                    "super-agent/food-delivery",
+                                    "super-agent/capabilities"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Skills 技能开放",
+                        "groups": [
+                            {
+                                "group": "概览",
+                                "pages": [
+                                    "skills/introduction",
+                                    "skills/security-model"
+                                ]
+                            },
+                            {
+                                "group": "接入指南",
+                                "pages": [
+                                    "skills/takeout",
+                                    "skills/dine-in",
+                                    "skills/more-services"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "API Reference",
+                        "groups": [
+                            {
+                                "group": "概览",
+                                "pages": [
+                                    "api-reference/introduction"
+                                ]
+                            },
+                            {
+                                "group": "RESTful API",
+                                "pages": [
+                                    "api-reference/shops/search",
+                                    "api-reference/shops/detail",
+                                    "api-reference/addresses/search",
+                                    "api-reference/addresses/select",
+                                    "api-reference/orders/preview",
+                                    "api-reference/orders/create",
+                                    "api-reference/orders/get"
+                                ]
+                            },
+                            {
+                                "group": "MCP Server",
+                                "pages": [
+                                    "api-reference/mcp/overview",
+                                    "api-reference/mcp/tools"
+                                ]
+                            },
+                            {
+                                "group": "高级功能",
+                                "pages": [
+                                    "api-reference/user/bind-request",
+                                    "api-reference/user/bind-verify"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "language": "en",
+                "tabs": [
+                    {
+                        "tab": "Overview",
+                        "groups": [
+                            {
+                                "group": "Clawdot",
+                                "pages": [
+                                    "en/index",
+                                    "en/overview/architecture",
+                                    "en/quickstart",
+                                    "en/overview/roadmap"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Super Agent",
+                        "groups": [
+                            {
+                                "group": "Super Agent",
+                                "pages": [
+                                    "en/super-agent/introduction",
+                                    "en/super-agent/how-it-works"
+                                ]
+                            },
+                            {
+                                "group": "Use Cases",
+                                "pages": [
+                                    "en/super-agent/food-delivery",
+                                    "en/super-agent/capabilities"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Skills Platform",
+                        "groups": [
+                            {
+                                "group": "Overview",
+                                "pages": [
+                                    "en/skills/introduction",
+                                    "en/skills/security-model"
+                                ]
+                            },
+                            {
+                                "group": "Integration Guide",
+                                "pages": [
+                                    "en/skills/integration-guide",
+                                    "en/skills/building-agents",
+                                    "en/skills/supported-platforms"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "API Reference",
+                        "groups": [
+                            {
+                                "group": "Overview",
+                                "pages": [
+                                    "en/api-reference/introduction"
+                                ]
+                            },
+                            {
+                                "group": "RESTful API",
+                                "pages": [
+                                    "en/api-reference/shops/search",
+                                    "en/api-reference/shops/detail",
+                                    "en/api-reference/addresses/search",
+                                    "en/api-reference/addresses/select",
+                                    "en/api-reference/orders/preview",
+                                    "en/api-reference/orders/create",
+                                    "en/api-reference/orders/get"
+                                ]
+                            },
+                            {
+                                "group": "MCP Server",
+                                "pages": [
+                                    "en/api-reference/mcp/overview",
+                                    "en/api-reference/mcp/tools"
+                                ]
+                            },
+                            {
+                                "group": "Advanced",
+                                "pages": [
+                                    "en/api-reference/user/bind-request",
+                                    "en/api-reference/user/bind-verify"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
         ]
-      },
-      {
-        "tab": "Clawdot",
-        "groups": [
-          {
-            "group": "Introduction",
-            "pages": [
-              "clawdot/what-is-clawdot",
-              "clawdot/how-it-works"
-            ]
-          },
-          {
-            "group": "Agents",
-            "pages": [
-              "clawdot/agents-overview",
-              "clawdot/food-delivery-agent",
-              "clawdot/building-agents"
-            ]
-          },
-          {
-            "group": "Platform",
-            "pages": [
-              "clawdot/supported-services",
-              "clawdot/roadmap"
-            ]
-          }
+    },
+    "logo": {
+        "light": "/logo/light.png",
+        "dark": "/logo/dark.png"
+    },
+    "navbar": {
+        "links": [
+            {
+                "type": "github",
+                "href": "https://github.com/clawdot"
+            }
+        ],
+        "primary": {
+            "type": "button",
+            "label": "申请 API",
+            "href": "https://portal.clawdot.ai"
+        }
+    },
+    "contextual": {
+        "options": [
+            "copy",
+            "view",
+            "chatgpt",
+            "claude",
+            "cursor",
+            "mcp"
         ]
-      },
-      {
-        "tab": "Gateway",
-        "groups": [
-          {
-            "group": "Overview",
-            "pages": [
-              "gateway/introduction",
-              "gateway/architecture"
-            ]
-          },
-          {
-            "group": "Guides",
-            "pages": [
-              "gateway/authentication",
-              "gateway/order-flow",
-              "gateway/item-specs",
-              "gateway/error-handling"
-            ]
-          },
-          {
-            "group": "MCP Integration",
-            "pages": [
-              "gateway/mcp-overview",
-              "gateway/mcp-tools"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "groups": [
-          {
-            "group": "Overview",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Auth",
-            "pages": [
-              "api-reference/auth/register-agent"
-            ]
-          },
-          {
-            "group": "User Binding",
-            "pages": [
-              "api-reference/user/bind-request",
-              "api-reference/user/bind-verify"
-            ]
-          },
-          {
-            "group": "Shops",
-            "pages": [
-              "api-reference/shops/search",
-              "api-reference/shops/detail"
-            ]
-          },
-          {
-            "group": "Addresses",
-            "pages": [
-              "api-reference/addresses/search-pois",
-              "api-reference/addresses/select",
-              "api-reference/addresses/list",
-              "api-reference/addresses/create"
-            ]
-          },
-          {
-            "group": "Orders",
-            "pages": [
-              "api-reference/orders/preview",
-              "api-reference/orders/create",
-              "api-reference/orders/get"
-            ]
-          }
-        ]
-      }
-    ],
-    "global": {}
-  },
-  "logo": {
-    "light": "/logo/light.png",
-    "dark": "/logo/dark.png",
-    "text": "Clawdot Docs"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "GitHub",
-        "href": "https://github.com/clawdot"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Get API Key",
-      "href": "/quickstart"
+    },
+    "footer": {
+        "socials": {
+            "github": "https://github.com/clawdot"
+        }
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "cursor",
-      "mcp"
-    ]
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/clawdot"
-    }
-  }
 }

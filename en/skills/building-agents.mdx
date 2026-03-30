@@ -1,0 +1,682 @@
+---
+title: "Building Agents"
+description: "Build a complete local life Agent from scratch"
+icon: "hammer"
+---
+
+import { Card, CardGroup, Step, Steps } from '/components/Card';
+import { Tabs, Tab } from '/components/Tabs';
+import { Info, Warning, Check } from '/components/Callout';
+
+## Overview
+
+This guide will walk you through using the Clawdot Skills Platform to build a complete local life Agent from scratch. By following best practices and handling edge cases, you will be able to create a robust, user-friendly application.
+
+## Architecture Design
+
+A complete local life Agent consists of the following modules:
+
+```
+┌─────────────────────────────────────────────┐
+│         User Interaction Layer (Agent App)  │
+│  Claude Desktop / Kimi / DingTalk / Custom  │
+└────────────────────┬────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────┐
+│        Business Logic Layer (Your Code)     │
+│  • User binding mgmt    • Order workflow    │
+│  • Local caching        • Error handling    │
+└────────────────────┬────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────┐
+│     Clawdot Skills API (Gateway)            │
+│  • Shop search      • Order creation        │
+│  • Menu queries     • Payment processing    │
+│  • Logistics track  • Coupon management     │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## Step 1: Get API Key
+
+<Steps>
+  <Step title="Register Clawdot Account">
+    Visit [Clawdot Console](https://console.clawdot.com), register using email or phone number.
+  </Step>
+
+  <Step title="Create New Agent">
+    Click **Agent Management** → **Create New Agent**, fill in:
+    - Name: Your Agent app name (e.g. `MyFoodBot`)
+    - Description: Brief description (e.g. `AI food delivery assistant`)
+    - Platform: Choose integration method (REST API, MCP, etc.)
+  </Step>
+
+  <Step title="Copy API Key">
+    System generates API Key (starting with `clw_`), **displayed only once**, immediately copy and save to secure location.
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Save API Key to `.env` file or environment variable:
+
+    ```bash
+    export CLAWDOT_API_KEY="clw_your_api_key_here"
+    ```
+
+    <Warning>
+    Do not commit API Key to Git repository. Use `.gitignore` to exclude `.env` file.
+    </Warning>
+  </Step>
+</Steps>
+
+---
+
+## Step 2: Implement User Binding
+
+User binding is the key step in establishing the 1:1 relationship between Agent and user. After SMS verification, users can use the returned User Token to call APIs.
+
+### Binding Flow
+
+```python
+import requests
+import os
+
+api_key = os.getenv("CLAWDOT_API_KEY")
+base_url = "https://api.clawdot.com"
+
+# Step 2a: Request SMS verification code
+def request_verification_code(phone: str) -> str:
+    """
+    Request SMS verification code
+    Return: request_id (for subsequent verification)
+    """
+    url = f"{base_url}/api/v1/auth/sms/request"
+    payload = {"phone": phone}
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+
+    data = response.json()
+    print(f"Code sent, valid for {data['expires_in']} seconds")
+    return data["request_id"]  # Return to user, wait for code input
+
+
+# Step 2b: Verify code, get User Token
+def verify_and_bind_user(request_id: str, code: str) -> str:
+    """
+    Verify SMS code, get User Token
+    Return: user_token (required for subsequent API calls)
+    """
+    url = f"{base_url}/api/v1/auth/sms/verify"
+    payload = {"request_id": request_id, "code": code}
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    if response.status_code == 400:
+        # Code error or expired
+        raise ValueError("Code incorrect or expired, please re-request")
+    elif response.status_code == 401:
+        raise ValueError("Request ID invalid, please re-request code")
+
+    response.raise_for_status()
+
+    data = response.json()
+    user_token = data["user_token"]
+
+    # Store user_token (for subsequent API calls)
+    # Recommend using secure local storage or session management
+    print(f"User binding successful! User Token: {user_token[:20]}...")
+    return user_token
+```
+
+### Complete Interactive Binding UI Flow
+
+```python
+def bind_user_interactive():
+    """
+    Interactive user binding (Agent conversation flow)
+    """
+    print("Welcome to Local Life Agent, please bind your account")
+    print("=" * 50)
+
+    # Step 1: Get user phone number
+    phone = input("Enter your phone number (+86 format): ").strip()
+
+    if not phone.startswith("+86"):
+        phone = "+86" + phone
+
+    # Step 2: Request verification code
+    try:
+        request_id = request_verification_code(phone)
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+
+    # Step 3: User enters verification code
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        code = input(f"\nEnter verification code ({max_attempts - attempt} attempts left): ").strip()
+
+        try:
+            user_token = verify_and_bind_user(request_id, code)
+            print("\nBinding successful! You can now use local life services.")
+            return user_token
+        except ValueError as e:
+            print(f"Verification failed: {e}")
+
+    print("\nToo many attempts, please retry later or re-request code")
+    return None
+
+
+# Usage example
+user_token = bind_user_interactive()
+if user_token:
+    # Save user_token for later use
+    # e.g. store to file or database
+    pass
+```
+
+<Info>
+User Token validity is 90 days. Recommend prompting user to re-bind when Token is about to expire (30 days remaining).
+</Info>
+
+---
+
+## Step 3: Core Business Flow
+
+Implement complete workflow from search, browse, order to payment.
+
+### Phase 1: Search Shops
+
+```python
+def search_shops(query: str, location: str, user_token: str):
+    """
+    Search nearby shops
+    """
+    url = f"{base_url}/api/v1/gateway/shops/search"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-User-Token": user_token,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "query": query,
+        "location": location,
+        "limit": 20
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+
+    shops = response.json()["shops"]
+    return shops
+
+
+# Usage example
+shops = search_shops("food delivery", "No. 1 Zhongguancun Avenue", user_token)
+
+for shop in shops[:5]:  # Show top 5
+    print(f"""
+    【{shop['name']}】
+    Rating: {shop['rating']}⭐ ({shop['reviews_count']} reviews)
+    Distance: {shop['distance']} km
+    Delivery time: {shop['delivery_time']} minutes
+    Min order: ¥{shop['min_order']} | Delivery fee: ¥{shop['delivery_fee']}
+    """)
+```
+
+### Phase 2: View Menu Details
+
+```python
+def get_shop_detail(shop_id: str, user_token: str):
+    """
+    Get shop menu and detailed information
+    """
+    url = f"{base_url}/api/v1/gateway/shops/{shop_id}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-User-Token": user_token
+    }
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+# Usage example
+shop = get_shop_detail("shop_123456", user_token)
+
+print(f"Shop: {shop['name']}")
+print(f"Business hours: {shop['opening_hours']}")
+
+for category in shop["categories"]:
+    print(f"\n【{category['name']}】")
+    for item in category["items"]:
+        status = "✓ Available" if item["available"] else "✗ Out of stock"
+        print(f"  {item['name']} - ¥{item['price']} {status}")
+        print(f"    {item['description']}")
+```
+
+### Phase 3: Pre-Order Confirmation
+
+<Check title="Best Practice - Confirm Before Ordering">
+Always show order summary and request confirmation before creating order to avoid mistakes.
+</Check>
+
+```python
+def confirm_order_with_user(shop: dict, items: list, delivery_address: str):
+    """
+    Show order summary to user and request confirmation
+    """
+    print("\n" + "=" * 50)
+    print("📋 Order Confirmation")
+    print("=" * 50)
+
+    print(f"\nShop: {shop['name']}")
+    print(f"Delivery time: ~{shop['delivery_time']} minutes")
+
+    total_price = 0
+    print("\nItems ordered:")
+    for item in items:
+        price = item["price"] * item["quantity"]
+        total_price += price
+        print(f"  • {item['name']} x{item['quantity']} = ¥{price}")
+
+    delivery_fee = shop.get("delivery_fee", 0)
+    print(f"\nDelivery fee: ¥{delivery_fee}")
+    print(f"Total: ¥{total_price + delivery_fee}")
+    print(f"Delivery address: {delivery_address}")
+
+    print("\n" + "-" * 50)
+    confirm = input("Confirm order? (Y/n) ").strip().lower()
+
+    return confirm != "n"
+```
+
+### Phase 4: Create Order
+
+```python
+def create_order(
+    shop_id: str,
+    items: list,
+    delivery_address: str,
+    contact_phone: str,
+    user_token: str,
+    coupon_code: str = None
+):
+    """
+    Create food delivery order
+    """
+    url = f"{base_url}/api/v1/gateway/orders"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-User-Token": user_token,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "shop_id": shop_id,
+        "items": items,
+        "delivery_address": delivery_address,
+        "contact_phone": contact_phone,
+        "payment_method": "alipay",
+        "remarks": "Please ring doorbell"
+    }
+
+    if coupon_code:
+        payload["coupon_code"] = coupon_code
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+
+    order = response.json()
+
+    print(f"\n✓ Order created")
+    print(f"Order ID: {order['order_id']}")
+    print(f"Total: ¥{order['total']}")
+    print(f"Estimated delivery: {order['estimated_delivery_time']} minutes")
+    print(f"Tracking URL: {order['tracking_url']}")
+
+    return order
+
+
+# Usage example
+order = create_order(
+    shop_id="shop_123456",
+    items=[
+        {"item_id": "item_001", "quantity": 2, "notes": "not spicy"},
+        {"item_id": "item_002", "quantity": 1, "notes": ""}
+    ],
+    delivery_address="No. 1 Zhongguancun Avenue, Floor 19",
+    contact_phone="+86 138 0000 0000",
+    user_token=user_token,
+    coupon_code="WELCOME20"
+)
+```
+
+---
+
+## Step 4: Handle Edge Cases
+
+Robust Agents gracefully handle edge cases and provide friendly error messages.
+
+### Error Handling
+
+```python
+def safe_api_call(func, *args, **kwargs):
+    """
+    Wrap API call, handle errors uniformly
+    """
+    try:
+        return func(*args, **kwargs)
+    except requests.exceptions.Timeout:
+        print("❌ Network timeout, check connection")
+        return None
+    except requests.exceptions.ConnectionError:
+        print("❌ Cannot connect to server, retry later")
+        return None
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code
+
+        if status_code == 400:
+            print("❌ Request parameter error, check input")
+        elif status_code == 401:
+            print("❌ API Key or User Token invalid, please re-bind")
+        elif status_code == 403:
+            print("❌ Permission denied, ensure account is activated")
+        elif status_code == 429:
+            print("❌ Request too frequent, retry later")
+        elif status_code == 500:
+            print("❌ Server error, retry later")
+        else:
+            print(f"❌ API error ({status_code}): {e}")
+
+        return None
+    except Exception as e:
+        print(f"❌ Unknown error: {e}")
+        return None
+
+
+# Usage
+shops = safe_api_call(search_shops, "food delivery", "Zhongguancun", user_token)
+```
+
+### User Token Expiration Handling
+
+```python
+def get_valid_user_token(stored_token: str, phone: str) -> str:
+    """
+    Check and update User Token (if expired)
+    """
+    # Should store token generation time, check if close to 90 days
+    # For simplicity, recommend re-binding every 60 days
+
+    # If token expired, return None for re-binding
+    is_expired = check_token_expiry(stored_token)
+
+    if is_expired:
+        print("User binding expired, please re-bind")
+        new_token = bind_user_interactive()
+        return new_token
+
+    return stored_token
+```
+
+### Shop Closed Handling
+
+```python
+def handle_shop_closed_error(shop_id: str):
+    """
+    Handle shop closed scenario
+    """
+    print(f"❌ Shop temporarily closed or stopped operating")
+    print("Please choose another shop or try later")
+    # Recommend returning search results to let user choose another shop
+```
+
+### Order Query with Retry
+
+```python
+def get_order_with_retry(order_id: str, user_token: str, max_retries: int = 3):
+    """
+    Query order with retry mechanism
+    """
+    for attempt in range(max_retries):
+        try:
+            url = f"{base_url}/api/v1/gateway/orders/{order_id}"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "X-User-Token": user_token
+            }
+            response = requests.get(url, headers=headers, timeout=5)
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.Timeout:
+            if attempt < max_retries - 1:
+                print(f"Query timeout, retrying... ({attempt + 1}/{max_retries})")
+            else:
+                print("❌ Cannot get order info, retry later")
+                return None
+```
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Cache Address Info" icon="database">
+    Store user's common addresses to avoid re-entering. Can cache locally or store in database.
+
+    ```python
+    addresses = {
+        "home": "No. 1 Zhongguancun Avenue, Floor 19",
+        "office": "No. 2 Zhongguancun Avenue, Floor 12"
+    }
+    ```
+  </Card>
+
+  <Card title="Use Default Settings" icon="sliders">
+    Remember user's common options (payment method, delivery preferences, etc.) to speed up ordering.
+
+    ```python
+    default_settings = {
+        "payment_method": "alipay",
+        "remarks": "Please ring doorbell"
+    }
+    ```
+  </Card>
+
+  <Card title="Logging and Monitoring" icon="chart-line">
+    Record critical operations (API calls, order creation, etc.) for debugging and monitoring.
+
+    ```python
+    import logging
+
+    logging.info(f"Order created: {order_id}")
+    logging.error(f"API error: {error_msg}")
+    ```
+  </Card>
+
+  <Card title="Rate Limit Handling" icon="throttle">
+    Respect API rate limits, avoid frequent requests. Use exponential backoff retry.
+
+    ```python
+    import time
+
+    for attempt in range(5):
+        try:
+            # API call
+        except RateLimitError:
+            time.sleep(2 ** attempt)  # exponential backoff
+    ```
+  </Card>
+
+  <Card title="Validate User Input" icon="shield-check">
+    Validate all user input (phone, address, quantity, etc.) to prevent malicious input.
+
+    ```python
+    import re
+
+    def validate_phone(phone: str) -> bool:
+        return re.match(r"^\+?86\d{10}$", phone) is not None
+    ```
+  </Card>
+
+  <Card title="Graceful Degradation" icon="minimize">
+    Provide alternatives when API features are unavailable (show cached results or notify user).
+
+    ```python
+    if api_available:
+        shops = search_shops(...)
+    else:
+        shops = load_cached_shops()
+    ```
+  </Card>
+</CardGroup>
+
+---
+
+## Complete Example Code
+
+A complete local life Agent example:
+
+```python
+import os
+import requests
+from typing import List, Dict, Optional
+
+class LocalLifeAgent:
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv("CLAWDOT_API_KEY")
+        self.base_url = "https://api.clawdot.com"
+        self.user_token = None
+        self.user_phone = None
+
+    def bind_user(self, phone: str) -> bool:
+        """User binding process"""
+        try:
+            # Request code
+            request_id = self._request_verification(phone)
+            # Input code
+            code = input("Enter verification code: ")
+            # Verify and get token
+            self.user_token = self._verify_code(request_id, code)
+            self.user_phone = phone
+            return True
+        except Exception as e:
+            print(f"Binding failed: {e}")
+            return False
+
+    def search_and_order(self, query: str, location: str) -> Optional[Dict]:
+        """Search shops and order"""
+        if not self.user_token:
+            print("Please bind user account first")
+            return None
+
+        # Search shops
+        shops = self._search_shops(query, location)
+        if not shops:
+            print("No matching shops found")
+            return None
+
+        # Show results
+        for i, shop in enumerate(shops[:5], 1):
+            print(f"{i}. {shop['name']} - Rating {shop['rating']}⭐")
+
+        # User selects
+        choice = int(input("Select shop (1-5): ")) - 1
+        shop = shops[choice]
+
+        # Get menu
+        shop_detail = self._get_shop_detail(shop['id'])
+        print(f"\n{shop_detail['name']} Menu:")
+
+        # Build order
+        items = []
+        for category in shop_detail['categories']:
+            print(f"\n【{category['name']}】")
+            for item in category['items']:
+                print(f"  {item['name']} - ¥{item['price']}")
+
+        # Create order
+        order = self._create_order(shop['id'], items, location)
+        return order
+
+    def _search_shops(self, query: str, location: str) -> List[Dict]:
+        """Search shops"""
+        url = f"{self.base_url}/api/v1/gateway/shops/search"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "X-User-Token": self.user_token
+        }
+        response = requests.post(url, json={"query": query, "location": location}, headers=headers)
+        return response.json().get("shops", [])
+
+    def _get_shop_detail(self, shop_id: str) -> Dict:
+        """Get shop details"""
+        url = f"{self.base_url}/api/v1/gateway/shops/{shop_id}"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "X-User-Token": self.user_token
+        }
+        response = requests.get(url, headers=headers)
+        return response.json()
+
+    def _create_order(self, shop_id: str, items: List[Dict], location: str) -> Dict:
+        """Create order"""
+        url = f"{self.base_url}/api/v1/gateway/orders"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "X-User-Token": self.user_token,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "shop_id": shop_id,
+            "items": items,
+            "delivery_address": location,
+            "contact_phone": self.user_phone
+        }
+        response = requests.post(url, json=payload, headers=headers)
+        return response.json()
+
+    def _request_verification(self, phone: str) -> str:
+        """Request SMS verification code"""
+        url = f"{self.base_url}/api/v1/auth/sms/request"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        response = requests.post(url, json={"phone": phone}, headers=headers)
+        return response.json()["request_id"]
+
+    def _verify_code(self, request_id: str, code: str) -> str:
+        """Verify SMS code"""
+        url = f"{self.base_url}/api/v1/auth/sms/verify"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        response = requests.post(
+            url,
+            json={"request_id": request_id, "code": code},
+            headers=headers
+        )
+        return response.json()["user_token"]
+
+
+# Usage example
+if __name__ == "__main__":
+    agent = LocalLifeAgent()
+
+    # Bind user
+    if agent.bind_user("+86 138 0000 0000"):
+        # Search and order
+        order = agent.search_and_order("food delivery", "No. 1 Zhongguancun Avenue")
+        if order:
+            print(f"\nOrder created: {order['order_id']}")
+```
+
+---
+
+## Next Steps
+
+- See [API Reference](/api/gateway) for complete API documentation
+- Read [Security Model](/skills/security-model) to learn data protection best practices
+- Explore [Supported Platforms](/skills/supported-platforms) to integrate with your Agent app

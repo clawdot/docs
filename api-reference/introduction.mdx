@@ -1,47 +1,71 @@
 ---
 title: "API 概览"
-description: "Clawdot Gateway REST API 接口说明"
+description: "Clawdot Gateway REST API 与 MCP 接口说明"
 ---
 
 ## Base URL
 
 ```
-https://your-gateway/api/v1
+https://api.clawdot.ai/api/v1
+```
+
+MCP Streamable HTTP 端点：
+
+```
+https://api.clawdot.ai/mcp/mcp
 ```
 
 ## 认证
 
-所有接口（除 Agent 注册外）需要 API Key 认证。大部分业务接口还需要 User Token。
+Gateway 提供三种认证方式，适用于不同场景：
 
-```bash
-# API Key 认证
-Authorization: Bearer clw_your_api_key
+<Tabs>
+  <Tab title="API Key（REST / MCP）">
+    所有 `/api/v1/*` 和 MCP 请求需要 Agent API Key：
 
-# User Token 认证（业务接口需要）
-X-User-Token: your_user_token
-```
+    ```bash
+    Authorization: Bearer clw_<32位hex>
+    ```
+
+    API Key 通过 Portal 创建 Agent 时生成，格式为 `clw_` + 32 位随机 hex。
+  </Tab>
+  <Tab title="User Token（REST）">
+    操作用户资源的接口（店铺、地址、订单等）额外需要 User Token：
+
+    ```bash
+    X-User-Token: <uuid>
+    ```
+
+    User Token 通过 [用户绑定流程](/api-reference/user/bind-request) 获取，默认有效期 90 天。
+  </Tab>
+  <Tab title="MCP user_token 参数">
+    MCP 工具不使用 header，而是在每个 tool 调用中传入 `user_token` 参数。
+  </Tab>
+</Tabs>
 
 详见 [认证机制](/gateway/authentication)。
 
 ## 接口分组
 
+### REST API
+
 <Columns cols={2}>
-  <Card title="Auth" icon="key" href="/api-reference/auth/register-agent">
-    Agent 注册，获取 API Key。
-  </Card>
-  <Card title="User Binding" icon="user-plus" href="/api-reference/user/bind-request">
-    SMS 验证绑定外卖用户。
-  </Card>
   <Card title="Shops" icon="store" href="/api-reference/shops/search">
     商家搜索和菜单查询。
   </Card>
-  <Card title="Addresses" icon="location-dot" href="/api-reference/addresses/search-pois">
-    POI 搜索和地址管理。
+  <Card title="Addresses" icon="location-dot" href="/api-reference/addresses/search">
+    地址搜索与保存。
   </Card>
   <Card title="Orders" icon="receipt" href="/api-reference/orders/preview">
     订单预览、创建和查询。
   </Card>
 </Columns>
+
+### MCP 工具
+
+<Card title="MCP Tools" icon="plug" href="/api-reference/mcp/overview">
+  7 个 MCP 工具，与 REST API 共享服务层，专为 AI Agent 集成设计。
+</Card>
 
 ## 统一错误格式
 
@@ -54,9 +78,32 @@ X-User-Token: your_user_token
 }
 ```
 
+### 错误码列表
+
+| 错误码 | HTTP | 说明 |
+|--------|------|------|
+| `AUTH_REQUIRED` | 401 | 缺少 API Key |
+| `AUTH_INVALID` | 401 | API Key 无效或已禁用 |
+| `USER_TOKEN_REQUIRED` | 401 | 缺少 User Token |
+| `USER_TOKEN_INVALID` | 401 | User Token 无效或已过期 |
+| `BINDING_LIMIT_REACHED` | 409 | 普通 Agent 只能绑定一个用户 |
+| `RATE_LIMITED` | 429 | 请求频率超限 |
+| `SMS_COOLDOWN` | 429 | 短信发送冷却中（60 秒） |
+| `QUOTA_EXCEEDED` | 429 | 每日配额用尽 |
+| `SMS_CODE_INVALID` | 400 | 验证码无效或过期 |
+| `SHOP_NOT_FOUND` | 404 | 未找到店铺 |
+| `ADDRESS_NOT_FOUND` | 404 | 地址不存在或不属于当前 Agent |
+| `ELEME_USER_NOT_FOUND` | 404 | 手机号未注册饿了么 |
+| `ORDER_FAILED` | 500 | 订单创建失败 |
+| `ELEME_ERROR` | 502 | 饿了么 API 错误 |
+
 详见 [错误处理](/gateway/error-handling)。
 
-## 限流
+## 速率限制与配额
+
+### 速率限制
+
+基于 Redis 滑动窗口，按 Agent 维度：
 
 | 操作 | 限制 |
 |------|------|
@@ -64,4 +111,12 @@ X-User-Token: your_user_token
 | 其他接口 | 60 次/分钟/Agent |
 | SMS 发送 | 60 秒冷却/手机号 |
 
-超过限制返回 `429` 状态码和 `RATE_LIMITED` 错误码。
+超限返回 `429 RATE_LIMITED`。
+
+### 每日配额（按开发者层级）
+
+| 层级 | 请求/分钟 | 请求/天 | 订单/天 |
+|------|-----------|---------|---------|
+| Free | 30 | 1,000 | 10 |
+| Pro | 120 | 50,000 | 500 |
+| Platform | 600 | 500,000 | 5,000 |

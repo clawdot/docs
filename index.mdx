@@ -1,67 +1,46 @@
 ---
-title: "Clawdot"
-description: "AI 时代的本地生活 Agent 服务平台"
+title: "概览"
+description: "clawdot 虾点 — AI 时代的本地生活服务网络"
 ---
 
-## AI Agent，连接本地生活
+<Frame>
+  <img src="/logo/light.png" alt="clawdot 虾点" style={{ display: 'block', margin: '0 auto', maxWidth: '480px', width: '100%' }} />
+</Frame>
 
-Clawdot 为 AI Agent 提供本地生活服务能力。从外卖点餐到更多生活场景，让 AI 真正能帮用户办事。
+## 想干什么，虾点一下
 
-<Columns cols={3}>
-  <Card title="外卖点餐" icon="utensils" href="/clawdot/food-delivery-agent">
-    搜索商家、浏览菜单、智能下单，全流程 AI 代办。
-  </Card>
-  <Card title="Gateway API" icon="server" href="/gateway/introduction">
-    标准化 REST + MCP 双协议网关，开箱即用。
-  </Card>
-  <Card title="Agent 生态" icon="robot" href="/clawdot/agents-overview">
-    开放的 Agent 接入体系，构建你自己的本地生活助手。
-  </Card>
-</Columns>
+clawdot 虾点是 AI 时代的本地生活服务网络。
 
-## 为什么选择 Clawdot
+你只需要跟 Agent 说出你想要什么——"今晚想吃点清淡的"、"明天出差帮我安排一下"、"周末带孩子去个有意思的地方"——你的 Agent 理解你、记得你、帮你搞定一切。
+
+服务者只需要把手艺做好。做了二十年湘菜的师傅不需要学会拍短视频，他的 Agent 会让好手艺自然触达需要它的人。
+
+这张网不属于任何公司或组织。**虾点属于生活中的每一个人。**
+
+---
+
+## 虾点的四大板块
 
 <Columns cols={2}>
-  <Card title="双协议支持" icon="plug">
-    REST API 和 MCP 协议双入口，适配所有 AI 平台——Claude、GPT、自研 Agent 均可接入。
+  <Card title="Super Agent · 超级服务员" icon="sparkles" href="/super-agent/introduction">
+    *你只需要表达需求，像跟一个懂你的朋友说话一样自然。*
+
+    你的专属 AI 生活管家。一个 Agent，搞定吃、行、玩、生活——理解你、记得你、为你行动。
   </Card>
-  <Card title="开箱即用" icon="box-open">
-    Gateway 封装了平台 API 的复杂性：Token 管理、签名、ID 转换、优惠券优选，Agent 只需关注业务。
+  <Card title="Skills · 开放能力生态" icon="puzzle" href="/skills/introduction">
+    *每一个服务都可以成为 Agent 的一项 Skill。*
+
+    吃、行、玩、生活，能力无限扩展。任何 Agent 都可以调用，任何开发者都可以贡献。
   </Card>
-  <Card title="安全设计" icon="shield">
-    API Key + User Token 双层认证，用户数据 AES-256-GCM 加密存储，手机号哈希脱敏。
+  <Card title="Gateway · 服务网关" icon="server" href="/gateway/introduction">
+    *你做好服务，我们搞定技术。*
+
+    帮服务者零门槛接入 AI 服务网络的基础设施。好服务会自然触达对的人。
   </Card>
-  <Card title="持续扩展" icon="arrow-up-right-dots">
-    从外卖开始，逐步覆盖更多本地生活场景——跑腿、生鲜、到店服务。
+  <Card title="爱心 · 科技向善" icon="heart" href="/overview/love">
+    *一个善意的网络，不遗忘任何人。*
+
+    从第一天起就设立的价值基因。Agent 助老、助残、社区守望——确保每个人都被看见。
   </Card>
 </Columns>
 
-## 快速开始
-
-<Tabs>
-  <Tab title="REST API">
-    ```bash
-    # 搜索附近商家
-    curl -X GET "https://gateway.clawdot.ai/api/v1/shops/search?lat=39.9&lng=116.4&keyword=咖啡" \
-      -H "Authorization: Bearer clw_your_api_key" \
-      -H "X-User-Token: your_user_token"
-    ```
-  </Tab>
-  <Tab title="MCP Protocol">
-    ```json
-    {
-      "tool": "search_shops",
-      "arguments": {
-        "lat": 39.9,
-        "lng": 116.4,
-        "keyword": "咖啡",
-        "user_token": "your_user_token"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
-
-<Card title="3 步完成接入" icon="rocket" href="/quickstart" horizontal>
-  注册 Agent → 绑定用户 → 开始点餐。
-</Card>

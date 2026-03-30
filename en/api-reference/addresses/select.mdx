@@ -1,0 +1,58 @@
+---
+title: "Select POI"
+description: "POST /addresses/select — Save selected POI"
+---
+
+## POST /addresses/select
+
+Save the searched POI to the food delivery platform server. This is a **required step** before creating an address.
+
+<Warning>
+  Must call this endpoint before calling `/addresses` (create address). Otherwise the food delivery platform will return a "POI not selected" error.
+</Warning>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "poi_data": {
+    "id": "poi-123456",
+    "name": "Guomao Tower",
+    "address": "1 Jianguo Men Wai Avenue, Chaoyang District, Beijing",
+    "latitude": 39.9087,
+    "longitude": 116.4549,
+    "city": "Beijing",
+    "district": "Chaoyang District"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `poi_data` | object | Yes | Complete POI object returned from `/addresses/search` |
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+### Example
+
+```bash
+curl -X POST "https://your-gateway/api/v1/addresses/select" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"poi_data": {"id": "poi-123456", "name": "Guomao Tower", "address": "1 Jianguo Men Wai Avenue, Chaoyang District, Beijing", "latitude": 39.9087, "longitude": 116.4549, "city": "Beijing", "district": "Chaoyang District"}}'
+```

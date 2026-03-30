@@ -1,0 +1,89 @@
+---
+title: "Create Order"
+description: "POST /orders — Confirm order placement using preview session_id"
+---
+
+## POST /orders
+
+Confirm and create an order using the `session_id` returned from preview.
+
+<Warning>
+  This endpoint has **rate limiting**: maximum 10 requests per minute per Agent. `session_id` is one-time use and becomes invalid after use.
+</Warning>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "session_id": "abc-def-ghi"
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `session_id` | string | Yes | Session ID from `/orders/preview` |
+
+### Response
+
+<Tabs>
+  <Tab title="200 Success">
+    ```json
+    {
+      "order_id": "1234567890",
+      "status": "created",
+      "shop_name": "Luckin Coffee (Guomao Branch)",
+      "total_amount": 8.4
+    }
+    ```
+
+    | Field | Type | Description |
+    |------|------|------|
+    | `order_id` | string | Food delivery order ID |
+    | `status` | string | Order status |
+    | `shop_name` | string | Shop name |
+    | `total_amount` | float | Order total |
+  </Tab>
+  <Tab title="500 Order Failed">
+    ```json
+    {
+      "error": {
+        "code": "ORDER_FAILED",
+        "message": "Session expired or order creation failed"
+      }
+    }
+    ```
+
+    Common causes:
+    - `session_id` expired (> 10 minutes)
+    - `session_id` already used
+    - Food delivery platform API returned error
+  </Tab>
+  <Tab title="429 Rate Limited">
+    ```json
+    {
+      "error": {
+        "code": "RATE_LIMITED",
+        "message": "Too many order requests"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Example
+
+```bash
+curl -X POST "https://your-gateway/api/v1/orders" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "abc-def-ghi"}'
+```

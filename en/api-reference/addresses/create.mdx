@@ -1,0 +1,77 @@
+---
+title: "Create Address"
+description: "POST /addresses — Create a new delivery address"
+---
+
+## POST /addresses
+
+Create a new delivery address.
+
+<Warning>
+  Must call [Select POI](/api-reference/addresses/select) before creating an address, otherwise an error will be returned.
+</Warning>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "poi_id": "poi-123456",
+  "name": "Zhang San",
+  "phone": "13800138000",
+  "detail": "3rd Floor, Room 301",
+  "sex": 0,
+  "tag": "home"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|------|------|------|--------|------|
+| `poi_id` | string | Yes | — | POI ID (from search results) |
+| `name` | string | Yes | — | Recipient name |
+| `phone` | string | Yes | — | Recipient phone number |
+| `detail` | string | Yes | — | Detailed address (floor/room number, etc.) |
+| `sex` | integer | No | 0 | Gender: 0=Unknown, 1=Male, 2=Female |
+| `tag` | string | No | `""` | Tag: `home`, `school`, `work` |
+
+### Response
+
+```json
+{
+  "address_id": "1234567890"
+}
+```
+
+| Field | Type | Description |
+|------|------|------|
+| `address_id` | string | Newly created address ID, used for placing orders |
+
+### Complete Workflow
+
+```bash
+# 1. Search for POI
+curl -X POST ".../addresses/search" -d '{"lat":39.9,"lng":116.4,"keyword":"Guomao"}'
+
+# 2. Select POI (required!)
+curl -X POST ".../addresses/select" -d '{"poi_data":{...}}'
+
+# 3. Create address
+curl -X POST ".../addresses" -d '{"poi_id":"poi-123","name":"Zhang San","phone":"138...","detail":"3rd Floor"}'
+```
+
+### Example
+
+```bash
+curl -X POST "https://your-gateway/api/v1/addresses" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"poi_id": "poi-123456", "name": "Zhang San", "phone": "13800138000", "detail": "3rd Floor, Room 301", "tag": "work"}'
+```

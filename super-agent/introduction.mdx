@@ -1,0 +1,145 @@
+---
+title: "Super Agent"
+description: "你的超级服务员"
+---
+
+## 什么是 Super Agent？
+
+Super Agent（超级服务员）是 Clawdot 针对消费端用户打造的 C-facing 产品。它不是一个通用聊天机器人，而是一个**真正能做事的智能助手**。
+
+每一个 Super Agent 实例都是一个独立的网络节点，专属服务一个用户：
+
+<Mermaid>
+graph LR
+  A["👤 用户"]
+  B["🤖 Super Agent<br/>Instance"]
+  C["🏪 外卖预定"]
+  D["📍 店铺预约"]
+  E["🚗 打车出行"]
+  F["✨ 推荐发现"]
+  G["💬 社交记忆"]
+  H["⚙️ Clawdot"]
+
+  A -->|一对一| B
+  B -->|一对N| C
+  B -->|一对N| D
+  B -->|一对N| E
+  B -->|一对N| F
+  B -->|一对N| G
+  B -->|连接| H
+  H -.->|商家网络| C
+  H -.->|商家网络| D
+  H -.->|出行服务| E
+
+  style B fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style A fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+  style C fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style E fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style F fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style G fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+  style H fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+</Mermaid>
+
+## 满血技能 · 一对N
+
+Super Agent 具备 **满血技能** —— 每个实例都配备完整的能力矩阵：
+
+| 能力 | 状态 | 说明 |
+|------|------|------|
+| 🍽️ 外卖预定 | ✅ 上线 | 搜索商家、浏览菜单、智能下单、订单追踪 |
+| 📅 店铺预约 | 🔜 即将上线 | 搜索预约位置、选择时间、确认预约 |
+| 🚗 打车出行 | 🔜 即将上线 | 位置识别、路线规划、上车出行 |
+| ✨ 推荐发现 | 🔜 即将上线 | 基于用户偏好的商家/菜品推荐 |
+| 💬 社交记忆 | 🔜 即将上线 | 记住用户习惯、口味偏好、常用地址 |
+
+一对多关系体现在：每个 Super Agent 可以与多个外卖平台、预约系统、出行服务对接。
+
+## 和普通聊天机器人的区别
+
+<CardGroup cols={2}>
+  <Card title="🤖 普通聊天机器人" icon="robot">
+    只能**说**不能**做**
+
+    - 回答问题
+    - 文本生成
+    - 信息检索
+
+    无法影响外部系统
+  </Card>
+  <Card title="🦾 Super Agent" icon="wand-magic-sparkles">
+    **既能说，也能做**
+
+    - 调用 API 执行操作
+    - 连接商家和服务
+    - 完成真实交易
+
+    是用户的真实助手
+  </Card>
+</CardGroup>
+
+## 核心特性
+
+<Tabs>
+  <Tab title="专属服务" icon="user-shield">
+    每个用户拥有独立的 Super Agent 实例，专属 AI 助手为你服务，记住你的所有偏好和历史。
+  </Tab>
+
+  <Tab title="智能决策" icon="brain">
+    基于自然语言理解和深度学习，Agent 能够理解用户意图、学习用户偏好、做出最优决策。
+  </Tab>
+
+  <Tab title="多渠道对接" icon="plug">
+    通过 Clawdot Gateway，对接所有本地生活服务商家。一个 Agent，连接无限可能。
+  </Tab>
+
+  <Tab title="可信交易" icon="shield-check">
+    基于 Clawdot 安全框架，所有交易可追踪、可验证、可追责。
+  </Tab>
+</Tabs>
+
+## 快速开始
+
+<CardGroup cols={3}>
+  <Card
+    title="工作原理"
+    icon="gears"
+    href="/super-agent/how-it-works"
+  >
+    了解 Super Agent 如何连接 Clawdot Gateway 和商家网络
+  </Card>
+
+  <Card
+    title="外卖点餐"
+    icon="utensils"
+    href="/super-agent/food-delivery"
+  >
+    深入 Super Agent 外卖场景的完整流程和最佳实践
+  </Card>
+
+  <Card
+    title="能力总览"
+    icon="sparkles"
+    href="/super-agent/capabilities"
+  >
+    查看所有当前和规划中的 Super Agent 能力
+  </Card>
+</CardGroup>
+
+## 场景价值
+
+Super Agent 为不同用户带来价值：
+
+<AccordionGroup>
+  <Accordion title="普通消费者" icon="person">
+    拥有一个私人助手 24/7 帮你点餐、预约、出行。不用反复切换 App，所有服务一个 Agent 搞定。
+  </Accordion>
+
+  <Accordion title="商家" icon="store">
+    通过 Clawdot 网络，触达更多通过 Super Agent 发起的订单。AI 助手提升用户体验，增加复购率。
+  </Accordion>
+
+  <Accordion title="平台" icon="building">
+    构建可信的 AI 交易基础设施。每个 Super Agent 都是一个可靠的、可审计的交易节点。
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,82 @@
+---
+title: "Search Shops"
+description: "GET /shops/search — Search nearby food delivery shops by location and keyword"
+---
+
+## GET /shops/search
+
+Search food delivery shops near specified coordinates.
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+
+### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|------|------|------|--------|------|
+| `lat` | float | Yes | — | Latitude |
+| `lng` | float | Yes | — | Longitude |
+| `keyword` | string | No | — | Search keyword |
+| `offset` | integer | No | 0 | Pagination offset |
+| `limit` | integer | No | 20 | Results per page (maximum 20) |
+
+### Response
+
+```json
+{
+  "shops": [
+    {
+      "id": "E1234567890123",
+      "name": "Luckin Coffee (Guomao Branch)",
+      "brand_name": "Luckin Coffee",
+      "image": "https://image.url/shop.jpg",
+      "delivery_fee": 0.0,
+      "delivery_time_minutes": 35,
+      "min_order_amount": 10.0,
+      "is_ad": false,
+      "items": [
+        {
+          "name": "Fresh Coconut Latte",
+          "price": 9.9,
+          "original_price": 19.0,
+          "description": "Coconut milk + concentrated espresso",
+          "image": "https://image.url/item.jpg",
+          "packing_fee": 0.0,
+          "item_type": "NORMAL"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Search Behavior
+
+<Tabs>
+  <Tab title="Keyword Search">
+    When `keyword` is provided, performs a single precise search returning up to 5 shops.
+
+    ```bash
+    GET /shops/search?lat=39.9&lng=116.4&keyword=Starbucks
+    ```
+  </Tab>
+  <Tab title="Default Category Search">
+    When `keyword` is omitted, the system searches 10 default categories in parallel:
+
+    > Recommended, Fast Food, Stir-fry, Western, Light Meals, Desserts, Milk Tea, Coffee, Congee, BBQ
+
+    Results are deduplicated by `id` and return approximately 50 shops (approximately 1.3 seconds).
+  </Tab>
+</Tabs>
+
+### Example
+
+```bash
+curl -X GET "https://your-gateway/api/v1/shops/search?lat=39.9&lng=116.4&keyword=coffee" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token"
+```

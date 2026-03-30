@@ -19,12 +19,12 @@ description: "POST /orders/preview — 渲染订单并自动应用最优优惠�
 
 ```json
 {
-  "shop_id": "E1234567890123",
-  "address_id": "1234567890",
+  "shop_id": "E15074238835124929109",
+  "address_id": 1,
   "items": [
     {
-      "item_id": "123456789",
-      "sku_id": "987654321",
+      "item_id": "670685166551",
+      "sku_id": "5014584502270",
       "quantity": 1,
       "specs": [
         {"name": "规格", "value": "大杯"}
@@ -34,55 +34,63 @@ description: "POST /orders/preview — 渲染订单并自动应用最优优惠�
       ],
       "ingredients": [
         {
-          "item_id": "11111",
-          "sku_id": "22222",
-          "package_id": "33333",
+          "item_id": "670685166551",
+          "sku_id": "5014584502270",
+          "package_id": "1234567890",
           "buy_amount": 1
         }
       ]
     }
   ],
-  "lat": 39.9,
-  "lng": 116.4,
+  "lat": 31.2304,
+  "lng": 121.4737,
   "note": "少冰"
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `shop_id` | string | 是 | 商家 ID（E 前缀）|
-| `address_id` | string | 是 | 收货地址 ID |
-| `items` | array | 是 | 商品列表 |
-| `items[].item_id` | string | 是 | 商品 Taobao ID（来自菜单）|
-| `items[].sku_id` | string | 是 | SKU Taobao ID（来自菜单）|
-| `items[].quantity` | integer | 是 | 数量 |
-| `items[].specs` | array | 否 | 规格选择 |
-| `items[].attrs` | array | 否 | 属性选择 |
-| `items[].ingredients` | array | 否 | 加料选择 |
-| `lat` | float | 是 | 纬度 |
-| `lng` | float | 是 | 经度 |
-| `note` | string | 否 | 备注 |
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `shop_id` | string | 是 | — | 商家 ID（搜索结果的 `id` 字段） |
+| `address_id` | integer | 是 | — | **网关地址 ID**（来自 [保存地址](/api-reference/addresses/select) 返回的 `id`） |
+| `items` | array | 是 | — | 商品列表 |
+| `items[].item_id` | string | 是 | — | 商品 ID（来自菜单的 `item_id`） |
+| `items[].sku_id` | string | 是 | — | SKU ID（来自菜单的 `sku_id`） |
+| `items[].quantity` | integer | 否 | 1 | 数量 |
+| `items[].specs` | array | 否 | `[]` | 规格选择，格式 `{"name": "...", "value": "..."}` |
+| `items[].attrs` | array | 否 | `[]` | 属性选择，格式 `{"name": "...", "value": "..."}` |
+| `items[].ingredients` | array | 否 | `[]` | 配料选择 |
+| `items[].ingredients[].item_id` | string | 是 | — | 配料商品 ID |
+| `items[].ingredients[].sku_id` | string | 是 | — | 配料 SKU ID |
+| `items[].ingredients[].package_id` | string | 是 | — | 配料包裹 ID（tbPackageId） |
+| `items[].ingredients[].buy_amount` | integer | 否 | 1 | 购买数量 |
+| `lat` | float | 是 | — | 配送位置纬度 |
+| `lng` | float | 是 | — | 配送位置经度 |
+| `note` | string | 否 | `""` | 备注（给骑手的留言） |
+
+<Warning>
+  `address_id` 是 **integer 类型**（网关地址 ID），不是字符串。必须使用 `/addresses/select` 返回的 `id` 值。
+</Warning>
 
 ### 快速下单（推荐 Agent 使用）
 
-直接使用菜单中的 `default_ingredients`，无需手动选择规格/属性/加料：
+直接使用菜单项的 `default_ingredients`，无需手动选择规格/属性/配料：
 
 ```json
 {
-  "shop_id": "E1234567890123",
-  "address_id": "1234567890",
+  "shop_id": "E15074238835124929109",
+  "address_id": 1,
   "items": [
     {
-      "item_id": "123456789",
-      "sku_id": "987654321",
+      "item_id": "670685166551",
+      "sku_id": "5014584502270",
       "quantity": 1,
       "ingredients": [
-        {"item_id": "11111", "sku_id": "22222", "package_id": "33333", "buy_amount": 1}
+        {"item_id": "...", "sku_id": "...", "package_id": "...", "buy_amount": 1}
       ]
     }
   ],
-  "lat": 39.9,
-  "lng": 116.4
+  "lat": 31.2304,
+  "lng": 121.4737
 }
 ```
 
@@ -90,59 +98,58 @@ description: "POST /orders/preview — 渲染订单并自动应用最优优惠�
 
 ```json
 {
-  "session_id": "abc-def-ghi",
-  "shop_name": "瑞幸咖啡(国贸店)",
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "shop_name": "瑞幸咖啡(人民广场店)",
   "items": [
     {
       "name": "生椰拿铁",
-      "price": 9.9,
+      "price": 16.0,
       "quantity": 1,
-      "description": "大杯, 冰"
+      "description": "大杯/冰"
     }
   ],
-  "packing_fee": 0.0,
-  "delivery_fee": 0.0,
-  "discount": 1.5,
-  "total": 8.4,
+  "packing_fee": 1.0,
+  "delivery_fee": 3.0,
+  "discount": 5.0,
+  "total": 15.0,
   "estimated_delivery_time": "35分钟"
 }
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `session_id` | string | 订单会话 ID（一次性，10 分钟有效）|
+| `session_id` | string | 订单会话 ID，**一次性使用**，10 分钟后过期 |
 | `shop_name` | string | 商家名称 |
 | `items` | array | 商品明细 |
-| `packing_fee` | float | 打包费 |
-| `delivery_fee` | float | 配送费 |
-| `discount` | float | 优惠金额 |
-| `total` | float | 实付总价 |
-| `estimated_delivery_time` | string | 预计配送时间 |
+| `packing_fee` | float | 包装费（元） |
+| `delivery_fee` | float | 配送费（元） |
+| `discount` | float | 优惠金额（元），自动应用最优优惠券 |
+| `total` | float | 实付金额 = 商品小计 + 包装费 + 配送费 - 优惠 |
+| `estimated_delivery_time` | string \| null | 预计送达时间 |
 
-### 自动优惠券
+### 自动优惠券逻辑
 
-系统自动执行两次渲染：
+系统执行 **两次渲染**：
 
 1. **第一次渲染**（无优惠券）— 获取可用优惠券列表
-2. **选择最优** — 过滤有效券，优先推荐券，其次最大金额
+2. **选择最优** — 过滤有效券（`beRealInValid=false`），优先推荐券，其次最大金额券
 3. **第二次渲染**（带优惠券）— 返回折后价
 
 <Note>
-  `session_id` 是一次性的，使用后或超过 10 分钟后失效。需要重新预览。
+  `session_id` 是一次性的，用后即失效。超过 10 分钟也会过期，需要重新预览。
 </Note>
 
 ### 示例
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/orders/preview" \
+curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-User-Token: your_user_token" \
   -H "Content-Type: application/json" \
   -d '{
-    "shop_id": "E1234567890123",
-    "address_id": "1234567890",
-    "items": [{"item_id": "123456789", "sku_id": "987654321", "quantity": 1}],
-    "lat": 39.9,
-    "lng": 116.4
+    "shop_id": "E15074238835124929109",
+    "address_id": 1,
+    "items": [{"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}],
+    "lat": 31.23, "lng": 121.47
   }'
 ```

@@ -1,0 +1,71 @@
+---
+title: "Error Handling"
+description: "Unified error format and all error code reference"
+---
+
+## Unified Error Format
+
+All error responses follow unified format:
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error description"
+  }
+}
+```
+
+## Error Code Reference
+
+### Authentication Errors (401)
+
+| Error Code | Description | Handling Suggestion |
+|---|---|---|
+| `AUTH_REQUIRED` | Missing `Authorization` request header | Add `Bearer clw_...` header |
+| `AUTH_INVALID` | Invalid or disabled API Key | Check if Key is correct, contact admin to confirm status |
+| `USER_TOKEN_REQUIRED` | Missing `X-User-Token` request header | Get Token through SMS binding process |
+| `USER_TOKEN_INVALID` | Invalid or expired User Token | Re-bind user (Token valid 90 days by default) |
+
+### Client Errors (400)
+
+| Error Code | Description | Handling Suggestion |
+|---|---|---|
+| `SMS_CODE_INVALID` | Invalid or expired OTP | OTP valid for 10 minutes, resend |
+
+### Rate Limiting Errors (429)
+
+| Error Code | Description | Handling Suggestion |
+|---|---|---|
+| `SMS_COOLDOWN` | Repeated OTP send within 60 seconds | Wait for cooldown to end |
+| `RATE_LIMITED` | Exceeded request frequency limit | Reduce request frequency (ordering 10/min, others 60/min) |
+
+### Resource Errors (404)
+
+| Error Code | Description | Handling Suggestion |
+|---|---|---|
+| `SHOP_NOT_FOUND` | Shop ID doesn't exist | Check shop_id format (should start with E) |
+
+### Server Errors (500)
+
+| Error Code | Description | Handling Suggestion |
+|---|---|---|
+| `ORDER_FAILED` | Order creation or preview failed | session_id may have expired (10 min), re-preview |
+
+### Upstream Errors (502)
+
+| Error Code | Description | Handling Suggestion |
+|---|---|---|
+| `UPSTREAM_ERROR` | Food delivery platform API returned error | Retry later, check if parameters are correct |
+
+## HTTP Status Code Summary
+
+| Status Code | Meaning |
+|---|---|
+| 200 | Request successful |
+| 400 | Client parameter error |
+| 401 | Authentication failed |
+| 404 | Resource not found |
+| 429 | Request frequency exceeded |
+| 500 | Server internal error |
+| 502 | Upstream API unavailable |

@@ -1,0 +1,98 @@
+---
+title: "Shop Details"
+description: "GET /shops/{shop_id} — Retrieve shop information and complete menu"
+---
+
+## GET /shops/{shop_id}
+
+Retrieve detailed information and complete menu (including specifications, attributes, and add-ons) for a specified shop.
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|------|------|------|
+| `shop_id` | string | Shop ID (E prefix, from search results) |
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|------|------|------|------|
+| `lat` | float | Yes | Latitude |
+| `lng` | float | Yes | Longitude |
+
+### Response
+
+```json
+{
+  "shop": {
+    "id": "E1234567890123",
+    "name": "Luckin Coffee (Guomao Branch)",
+    "address": "B1 Level, Guomao Building",
+    "business_hours": "06:00 - 23:00",
+    "status": "open",
+    "_tb_shop_id": "internal-id"
+  },
+  "menu": [
+    {
+      "category": "Classic Coffee",
+      "items": [
+        {
+          "item_id": "123456789",
+          "sku_id": "987654321",
+          "name": "Fresh Coconut Latte",
+          "description": "Coconut milk + concentrated espresso",
+          "image": "https://image.url/item.jpg",
+          "price": 9.9,
+          "original_price": 19.0,
+          "sold_count": "1000+ sold",
+          "in_stock": true,
+          "specs": [...],
+          "attrs": [...],
+          "ingredients": [...],
+          "default_ingredients": [...]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Shop Status
+
+| Status | Description |
+|--------|------|
+| `open` | Open |
+| `busy` | Busy (may have slower delivery) |
+| `closed` | Closed |
+| `booking` | Reservation only |
+| `closing_soon` | Closing soon |
+
+### Menu Field Descriptions
+
+Each menu item contains four customization dimensions, see [Item Specifications](/gateway/item-specs) for details:
+
+| Field | Description |
+|------|------|
+| `specs` | Specification options (affect price, e.g., large/medium cup) |
+| `attrs` | Attribute options (don't affect price, e.g., hot/iced) |
+| `ingredients` | Add-on options (with mutual exclusion rules) |
+| `default_ingredients` | Pre-calculated defaults (for quick Agent ordering) |
+
+<Tip>
+  `item_id` and `sku_id` are required Taobao IDs for ordering. Don't confuse with shop `id` from search results.
+</Tip>
+
+### Example
+
+```bash
+curl -X GET "https://your-gateway/api/v1/shops/E1234567890?lat=39.9&lng=116.4" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token"
+```

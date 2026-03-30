@@ -1,0 +1,148 @@
+---
+title: "Preview Order"
+description: "POST /orders/preview — Render order and auto-apply best coupon"
+---
+
+## POST /orders/preview
+
+Preview an order, automatically select the best coupon, and return the final price and `session_id`.
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "shop_id": "E1234567890123",
+  "address_id": "1234567890",
+  "items": [
+    {
+      "item_id": "123456789",
+      "sku_id": "987654321",
+      "quantity": 1,
+      "specs": [
+        {"name": "Size", "value": "Large"}
+      ],
+      "attrs": [
+        {"name": "Temperature", "value": "Iced"}
+      ],
+      "ingredients": [
+        {
+          "item_id": "11111",
+          "sku_id": "22222",
+          "package_id": "33333",
+          "buy_amount": 1
+        }
+      ]
+    }
+  ],
+  "lat": 39.9,
+  "lng": 116.4,
+  "note": "Less ice"
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `shop_id` | string | Yes | Shop ID (E prefix) |
+| `address_id` | string | Yes | Delivery address ID |
+| `items` | array | Yes | Items list |
+| `items[].item_id` | string | Yes | Item Taobao ID (from menu) |
+| `items[].sku_id` | string | Yes | SKU Taobao ID (from menu) |
+| `items[].quantity` | integer | Yes | Quantity |
+| `items[].specs` | array | No | Specification selections |
+| `items[].attrs` | array | No | Attribute selections |
+| `items[].ingredients` | array | No | Add-on selections |
+| `lat` | float | Yes | Latitude |
+| `lng` | float | Yes | Longitude |
+| `note` | string | No | Special instructions |
+
+### Quick Ordering (Recommended for Agents)
+
+Directly use `default_ingredients` from the menu without manually selecting specs/attrs/add-ons:
+
+```json
+{
+  "shop_id": "E1234567890123",
+  "address_id": "1234567890",
+  "items": [
+    {
+      "item_id": "123456789",
+      "sku_id": "987654321",
+      "quantity": 1,
+      "ingredients": [
+        {"item_id": "11111", "sku_id": "22222", "package_id": "33333", "buy_amount": 1}
+      ]
+    }
+  ],
+  "lat": 39.9,
+  "lng": 116.4
+}
+```
+
+### Response
+
+```json
+{
+  "session_id": "abc-def-ghi",
+  "shop_name": "Luckin Coffee (Guomao Branch)",
+  "items": [
+    {
+      "name": "Fresh Coconut Latte",
+      "price": 9.9,
+      "quantity": 1,
+      "description": "Large, Iced"
+    }
+  ],
+  "packing_fee": 0.0,
+  "delivery_fee": 0.0,
+  "discount": 1.5,
+  "total": 8.4,
+  "estimated_delivery_time": "35 minutes"
+}
+```
+
+| Field | Type | Description |
+|------|------|------|
+| `session_id` | string | Order session ID (one-time use, valid for 10 minutes) |
+| `shop_name` | string | Shop name |
+| `items` | array | Item details |
+| `packing_fee` | float | Packing fee |
+| `delivery_fee` | float | Delivery fee |
+| `discount` | float | Discount amount |
+| `total` | float | Final total price |
+| `estimated_delivery_time` | string | Estimated delivery time |
+
+### Automatic Coupon Selection
+
+The system automatically performs two renders:
+
+1. **First render** (no coupon) — Get available coupon list
+2. **Select best** — Filter valid coupons, prioritize promotional coupons, then highest amount
+3. **Second render** (with coupon) — Return discounted price
+
+<Note>
+  `session_id` is one-time use and becomes invalid after use or 10 minutes. Need to preview again.
+</Note>
+
+### Example
+
+```bash
+curl -X POST "https://your-gateway/api/v1/orders/preview" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "E1234567890123",
+    "address_id": "1234567890",
+    "items": [{"item_id": "123456789", "sku_id": "987654321", "quantity": 1}],
+    "lat": 39.9,
+    "lng": 116.4
+  }'
+```

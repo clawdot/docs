@@ -1,0 +1,154 @@
+---
+title: "搜索地址"
+description: "POST /addresses/search — 搜索已保存地址和地址建议"
+---
+
+## POST /addresses/search
+
+搜索配送地址。返回已保存的网关地址 + 外部建议。
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...` |
+| `X-User-Token` | 是 | 用户 Token |
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "keyword": "国贸",
+  "lat": 31.2304,
+  "lng": 121.4737
+}
+```
+
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `keyword` | string | 否 | `""` | 搜索关键词（地址名、联系人等） |
+| `lat` | float | 有 keyword 时必填 | null | 纬度 |
+| `lng` | float | 有 keyword 时必填 | null | 经度 |
+
+### 响应
+
+<Tabs>
+  <Tab title="无 keyword">
+    返回已保存的网关地址 + 饿了么历史地址建议：
+
+    ```json
+    {
+      "saved": [
+        {
+          "id": 1,
+          "contact_name": "张三",
+          "contact_phone": "13800138000",
+          "address": "上海市黄浦区人民大道200号",
+          "detail": "3楼301室",
+          "lat": 31.2304,
+          "lng": 121.4737,
+          "tag": "work"
+        }
+      ],
+      "suggestions": [
+        {
+          "source": "eleme_history",
+          "eleme_address_id": "22872378801",
+          "contact_name": "李四",
+          "contact_phone": "13900139000",
+          "address": "上海市静安区南京西路1000号",
+          "detail": "5楼",
+          "lat": 31.229,
+          "lng": 121.456
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="有 keyword">
+    模糊匹配已保存地址 + POI 搜索结果 + 饿了么历史地址：
+
+    ```json
+    {
+      "saved": [
+        {
+          "id": 1,
+          "contact_name": "张三",
+          "contact_phone": "13800138000",
+          "address": "上海市黄浦区人民大道200号",
+          "detail": "3楼301室",
+          "lat": 31.2304,
+          "lng": 121.4737,
+          "tag": "work"
+        }
+      ],
+      "suggestions": [
+        {
+          "source": "poi",
+          "poi_data": {
+            "id": "poi-123456",
+            "name": "国贸大厦",
+            "address": "上海市黄浦区...",
+            "latitude": 31.2304,
+            "longitude": 121.4737
+          },
+          "name": "国贸大厦",
+          "address": "上海市黄浦区...",
+          "lat": 31.2304,
+          "lng": 121.4737
+        },
+        {
+          "source": "eleme_history",
+          "eleme_address_id": "22872378801",
+          "contact_name": "李四",
+          "contact_phone": "13900139000",
+          "address": "上海市黄浦区国贸中心",
+          "detail": "B1",
+          "lat": 31.23,
+          "lng": 121.47
+        }
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 字段说明
+
+**saved（已保存地址）:**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | integer | 网关地址 ID，**可直接用于下单** |
+| `contact_name` | string | 收件人姓名 |
+| `contact_phone` | string | 收件人电话 |
+| `address` | string | 地址文本 |
+| `detail` | string | 门牌号/楼层 |
+| `lat` | float \| null | 纬度 |
+| `lng` | float \| null | 经度 |
+| `tag` | string | 标签（home/work/school） |
+
+**suggestions（地址建议）:**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `source` | string | `"poi"`（POI 搜索）或 `"eleme_history"`（饿了么历史） |
+| `poi_data` | object | 完整 POI 对象（仅 source=poi），用于 select_address |
+| `eleme_address_id` | string | 饿了么地址 ID（仅 source=eleme_history） |
+
+### 行为说明
+
+- **无 keyword**：返回所有已保存的网关地址，并从饿了么获取历史地址作为建议（已保存的不会出现在 suggestions 中）
+- **有 keyword**：在已保存地址中模糊匹配，同时并行搜索 POI 和饿了么历史地址
+- suggestions 中的地址**需通过 [保存地址](/api-reference/addresses/select) 接口保存后才能用于下单**
+
+### 示例
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/search" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token" \
+  -H "Content-Type: application/json" \
+  -d '{"keyword": "国贸", "lat": 31.23, "lng": 121.47}'
+```

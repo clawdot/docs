@@ -1,0 +1,72 @@
+---
+title: "Verify Binding"
+description: "POST /user/bind/verify — Verify SMS code and retrieve User Token"
+---
+
+## POST /user/bind/verify
+
+Verify the SMS verification code, complete user binding, and return a User Token.
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+  "code": "123456"
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `bind_id` | string | Yes | Binding session ID from `/user/bind/request` |
+| `code` | string | Yes | 6-digit verification code received by user |
+
+### Response
+
+<Tabs>
+  <Tab title="200 Success">
+    ```json
+    {
+      "user_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "expires_at": "2026-06-22T12:34:56.789Z"
+    }
+    ```
+
+    | Field | Type | Description |
+    |------|------|------|
+    | `user_token` | string | User Token (UUID), used for all subsequent business endpoints |
+    | `expires_at` | string | Token expiration time (ISO 8601), defaults to 90 days |
+  </Tab>
+  <Tab title="400 Verification Failed">
+    ```json
+    {
+      "error": {
+        "code": "SMS_CODE_INVALID",
+        "message": "Invalid or expired verification code"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Notes
+
+- After successful verification, the system queries the food delivery platform to retrieve user ID and stores it encrypted
+- Only one binding is retained per Agent + phone number (re-binding updates the Token)
+- After Token expiration, re-execute the binding process
+
+### Example
+
+```bash
+curl -X POST "https://your-gateway/api/v1/user/bind/verify" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"bind_id": "550e8400-e29b-41d4-a716-446655440000", "code": "123456"}'
+```

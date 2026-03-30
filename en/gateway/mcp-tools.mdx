@@ -1,0 +1,156 @@
+---
+title: "Tool Reference"
+description: "Complete MCP tool parameters documentation"
+---
+
+## Common Parameters for All Tools
+
+Each tool requires `user_token` parameter (for business operations like shop search and ordering):
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `user_token` | string | Yes | User Token (from binding process) |
+
+---
+
+## search_shops
+
+Search nearby shops.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `lat` | float | Yes | — | Latitude |
+| `lng` | float | Yes | — | Longitude |
+| `user_token` | string | Yes | — | User Token |
+| `keyword` | string | No | — | Search keyword |
+| `offset` | integer | No | 0 | Pagination offset |
+| `limit` | integer | No | 20 | Items per page |
+
+**Returns:** `{"shops": [...]}`
+
+---
+
+## get_shop_detail
+
+Get shop details and complete menu.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `shop_id` | string | Yes | Shop ID |
+| `lat` | float | Yes | Latitude |
+| `lng` | float | Yes | Longitude |
+| `user_token` | string | Yes | User Token |
+
+**Returns:** `{"shop": {...}, "menu": [...]}`
+
+---
+
+## search_pois
+
+Search points of interest (POI).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `lat` | float | Yes | Latitude |
+| `lng` | float | Yes | Longitude |
+| `keyword` | string | Yes | Search keyword |
+| `user_token` | string | Yes | User Token |
+
+**Returns:** `[{id, name, address, latitude, longitude, city, district}, ...]`
+
+---
+
+## select_address
+
+Select POI (must call before creating address).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `poi_data` | object | Yes | Complete POI object (from `search_pois`) |
+| `user_token` | string | Yes | User Token |
+
+**Returns:** `"Address selected"`
+
+---
+
+## list_addresses
+
+Get saved delivery addresses.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `user_token` | string | Yes | User Token |
+
+**Returns:** `[{id, address, lat, lng}, ...]`
+
+---
+
+## create_address
+
+Create new delivery address.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `poi_id` | string | Yes | — | POI ID |
+| `name` | string | Yes | — | Recipient name |
+| `phone` | string | Yes | — | Recipient phone |
+| `detail` | string | Yes | — | Address details |
+| `user_token` | string | Yes | — | User Token |
+| `sex` | integer | No | 0 | Gender |
+| `tag` | string | No | `""` | Tag |
+
+**Returns:** `"address-id-string"`
+
+---
+
+## preview_order
+
+Preview order and auto-apply coupon.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `shop_id` | string | Yes | Shop ID |
+| `address_id` | string | Yes | Address ID |
+| `items_json` | string | Yes | Items JSON **string** |
+| `lat` | float | Yes | Latitude |
+| `lng` | float | Yes | Longitude |
+| `user_token` | string | Yes | User Token |
+| `note` | string | No | Notes |
+
+<Warning>
+  `items_json` must be a JSON string, not an array.
+</Warning>
+
+**items_json format:**
+
+```json
+"[{\"item_id\": \"123456789\", \"sku_id\": \"987654321\", \"quantity\": 1, \"ingredients\": [{\"item_id\": \"11111\", \"sku_id\": \"22222\", \"package_id\": \"33333\", \"buy_amount\": 1}]}]"
+```
+
+**Returns:** `{session_id, shop_name, items, packing_fee, delivery_fee, discount, total, estimated_delivery_time}`
+
+---
+
+## confirm_order
+
+Confirm order.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | string | Yes | Session ID returned from preview |
+| `user_token` | string | Yes | User Token |
+
+**Returns:** `{order_id, status, shop_name, total_amount}`
+
+---
+
+## get_order
+
+Query order status.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `order_id` | string | Yes | Order ID |
+| `user_token` | string | Yes | User Token |
+
+**Returns:** `{order_id, status, shop_name, total_amount, created_at}`

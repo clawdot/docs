@@ -1,0 +1,45 @@
+---
+title: "Address List"
+description: "GET /addresses — Retrieve saved delivery addresses"
+---
+
+## GET /addresses
+
+Retrieve all saved delivery addresses for the current user.
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `X-User-Token` | Yes | User Token |
+
+### Response
+
+```json
+{
+  "addresses": [
+    {
+      "id": "1234567890",
+      "address": "Room 301, 3rd Floor, Guomao Tower",
+      "lat": 39.9087,
+      "lng": 116.4549
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|------|------|------|
+| `id` | string | Address ID, used for placing orders |
+| `address` | string | Complete address text |
+| `lat` | float | Latitude |
+| `lng` | float | Longitude |
+
+### Example
+
+```bash
+curl -X GET "https://your-gateway/api/v1/addresses" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-User-Token: your_user_token"
+```

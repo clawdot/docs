@@ -1,0 +1,643 @@
+---
+title: "接入指南"
+description: "三种方式将本地生活技能接入你的 Agent"
+icon: "code"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import { Tabs, Tab } from '/components/Tabs';
+import { Info, Warning } from '/components/Callout';
+
+## 快速开始
+
+Skills 平台提供三种集成方式，满足不同 Agent 平台的接入需求。选择最适合你的方式，按照步骤逐一完成。
+
+<CardGroup cols={3}>
+  <Card title="MCP" icon="plug" href="#mcp-protocol">
+    适合 Claude Desktop、Cursor 等支持 MCP 的客户端应用。配置简单，自动工具发现。
+  </Card>
+
+  <Card title="REST API" icon="link">
+    通用 HTTP 接口，支持任何编程语言。适合自建 Agent、钉钉、Kimi 等平台集成。
+  </Card>
+
+  <Card title="OpenAI Function Calling" icon="robot">
+    直接注册 Gateway API 作为 OpenAI 函数工具，适合 OpenAI 兼容的模型和平台。
+  </Card>
+</CardGroup>
+
+## MCP 协议
+
+MCP（Model Context Protocol）是 Anthropic 推出的标准协议，支持 Claude Desktop、Cursor 等客户端轻松接入 Skills 平台。
+
+### 步骤 1：获取 API Key
+
+访问 [Clawdot 控制台](https://console.clawdot.com)，进入 **Agent 管理** 页面：
+
+1. 点击 **创建新 Agent**
+2. 输入 Agent 名称和描述
+3. 系统自动生成 API Key（`clw_` 开头）
+4. 复制 API Key 到安全位置
+
+<Info>
+API Key 仅在创建时显示一次。如果遗失，需要在控制台重新生成。
+</Info>
+
+### 步骤 2：配置 MCP 服务器
+
+编辑 Claude Desktop 配置文件（`~/.claude-desktop/config.json`）：
+
+```json
+{
+  "mcpServers": {
+    "clawdot-gateway": {
+      "command": "npx",
+      "args": [
+        "@clawdot/mcp-gateway@latest",
+        "--gateway-url",
+        "https://api.clawdot.com/gateway",
+        "--api-key",
+        "clw_your_api_key_here"
+      ]
+    }
+  }
+}
+```
+
+**配置说明：**
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `--gateway-url` | Skills 平台 Gateway 的 API 端点 | `https://api.clawdot.com/gateway` |
+| `--api-key` | 你的 API Key | `clw_abc123def456...` |
+
+<Warning>
+不要将 API Key 提交到版本控制系统。使用环境变量管理敏感信息：
+
+```json
+{
+  "mcpServers": {
+    "clawdot-gateway": {
+      "command": "npx",
+      "args": [
+        "@clawdot/mcp-gateway@latest",
+        "--gateway-url",
+        "https://api.clawdot.com/gateway",
+        "--api-key",
+        "${CLAWDOT_API_KEY}"
+      ],
+      "env": {
+        "CLAWDOT_API_KEY": "clw_your_api_key_here"
+      }
+    }
+  }
+}
+```
+</Warning>
+
+### 步骤 3：用户绑定
+
+当用户首次使用你的 Agent 时，执行用户绑定流程：
+
+```python
+# 步骤 3a：请求绑定验证码
+POST /api/v1/auth/sms/request
+Content-Type: application/json
+
+{
+  "phone": "+86 138 0000 0000"
+}
+
+# 响应示例
+{
+  "request_id": "req_abc123",
+  "expires_in": 600  // 验证码 10 分钟有效
+}
+```
+
+```python
+# 步骤 3b：用户输入验证码后，验证并获取 User Token
+POST /api/v1/auth/sms/verify
+Content-Type: application/json
+
+{
+  "request_id": "req_abc123",
+  "code": "123456"
+}
+
+# 响应示例
+{
+  "user_token": "550e8400-e29b-41d4-a716-446655440000",
+  "expires_in": 7776000  // 90 天有效期（秒）
+}
+```
+
+### 步骤 4：调用 Gateway 技能
+
+通过 MCP 协议，你的 Agent 可以自动发现和调用所有 Gateway 技能。Claude Desktop 会在工具栏中展示所有可用的技能。
+
+**示例对话：**
+
+> 用户：我想在附近点一份外卖
+>
+> Claude：我可以帮你搜索附近的餐厅。首先，请告诉我你的位置或地址。
+>
+> 用户：中关村大街1号
+>
+> Claude：【调用 Gateway 技能 `search_shops`】正在搜索中关村大街附近的餐厅...
+>
+> ... 返回推荐列表
+
+---
+
+## REST API
+
+适合需要完整控制的高级场景，或集成到钉钉、Kimi 等平台。
+
+### 步骤 1：获取 API Key
+
+同 MCP 步骤 1。
+
+### 步骤 2：User 绑定（同上）
+
+同 MCP 步骤 3。
+
+### 步骤 3：API 调用格式
+
+所有 REST API 请求都需要在 Header 中包含身份凭证：
+
+```bash
+curl -X POST https://api.clawdot.com/gateway/search \
+  -H "Authorization: Bearer clw_your_api_key_here" \
+  -H "X-User-Token: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "水果外卖",
+    "location": "中关村大街1号",
+    "limit": 10
+  }'
+```
+
+**Header 说明：**
+
+| Header | 说明 | 必需 |
+|--------|------|------|
+| `Authorization: Bearer {API_KEY}` | 识别 Agent 身份 | 是 |
+| `X-User-Token: {USER_TOKEN}` | 识别用户身份 | 是 |
+| `Content-Type: application/json` | 请求类型 | 是 |
+
+### 步骤 4：常用 API 端点
+
+<Tabs>
+  <Tab title="搜索商店">
+    **搜索本地商店（外卖、商超、便利店等）**
+
+    ```bash
+    POST /api/v1/gateway/shops/search
+    ```
+
+    **请求体：**
+    ```json
+    {
+      "query": "外卖",
+      "location": "中关村大街1号",
+      "latitude": 39.9854,
+      "longitude": 116.3055,
+      "radius": 5,
+      "limit": 20,
+      "offset": 0
+    }
+    ```
+
+    **响应示例：**
+    ```json
+    {
+      "shops": [
+        {
+          "id": "shop_123456",
+          "name": "美食外卖馆",
+          "category": "外卖",
+          "rating": 4.8,
+          "distance": 1.2,
+          "delivery_time": 30,
+          "min_order": 15,
+          "delivery_fee": 5
+        }
+      ],
+      "total": 45,
+      "has_more": true
+    }
+    ```
+  </Tab>
+
+  <Tab title="获取商店详情">
+    **获取单个商店的菜单、营业时间等详情**
+
+    ```bash
+    GET /api/v1/gateway/shops/{shop_id}
+    ```
+
+    **路径参数：**
+    - `shop_id`：商店 ID，例如 `shop_123456`
+
+    **响应示例：**
+    ```json
+    {
+      "id": "shop_123456",
+      "name": "美食外卖馆",
+      "description": "江浙菜系，新鲜食材",
+      "rating": 4.8,
+      "reviews_count": 3250,
+      "opening_hours": {
+        "monday": "09:00-21:00",
+        "tuesday": "09:00-21:00",
+        "wednesday": "09:00-21:00",
+        "thursday": "09:00-21:00",
+        "friday": "09:00-21:00",
+        "saturday": "09:00-22:00",
+        "sunday": "09:00-22:00"
+      },
+      "categories": [
+        {
+          "id": "cat_001",
+          "name": "招牌菜",
+          "items": [
+            {
+              "id": "item_001",
+              "name": "红油炒手",
+              "price": 12,
+              "description": "四川传统小吃",
+              "image_url": "https://...",
+              "available": true
+            }
+          ]
+        }
+      ]
+    }
+    ```
+  </Tab>
+
+  <Tab title="创建订单">
+    **创建新订单**
+
+    ```bash
+    POST /api/v1/gateway/orders
+    ```
+
+    **请求体：**
+    ```json
+    {
+      "shop_id": "shop_123456",
+      "items": [
+        {
+          "item_id": "item_001",
+          "quantity": 2,
+          "notes": "不要辣"
+        },
+        {
+          "item_id": "item_002",
+          "quantity": 1,
+          "notes": ""
+        }
+      ],
+      "delivery_address": "中关村大街1号",
+      "contact_phone": "+86 138 0000 0000",
+      "payment_method": "alipay",
+      "coupon_code": "WELCOME20",
+      "remarks": "请按门铃"
+    }
+    ```
+
+    **响应示例：**
+    ```json
+    {
+      "order_id": "order_abc123",
+      "shop_id": "shop_123456",
+      "status": "confirmed",
+      "items": [...],
+      "subtotal": 35,
+      "delivery_fee": 5,
+      "discount": 7,
+      "total": 33,
+      "estimated_delivery_time": 35,
+      "tracking_url": "https://track.clawdot.com/order_abc123"
+    }
+    ```
+  </Tab>
+
+  <Tab title="查询订单">
+    **查询订单状态和详情**
+
+    ```bash
+    GET /api/v1/gateway/orders/{order_id}
+    ```
+
+    **路径参数：**
+    - `order_id`：订单 ID，例如 `order_abc123`
+
+    **响应示例：**
+    ```json
+    {
+      "order_id": "order_abc123",
+      "status": "delivering",
+      "shop_name": "美食外卖馆",
+      "items": [...],
+      "total": 33,
+      "created_at": "2026-03-29T10:00:00Z",
+      "estimated_delivery_time": 35,
+      "delivery_status": {
+        "phase": "delivering",
+        "driver_name": "小王",
+        "driver_phone": "+86 138 xxxx xxxx",
+        "last_location_update": "2026-03-29T10:20:00Z"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 步骤 5：错误处理
+
+处理常见的 HTTP 错误响应：
+
+```python
+import requests
+
+try:
+    response = requests.post(
+        "https://api.clawdot.com/gateway/shops/search",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "X-User-Token": user_token,
+            "Content-Type": "application/json"
+        },
+        json={"query": "外卖", "location": "中关村"}
+    )
+
+    if response.status_code == 401:
+        # API Key 或 User Token 无效
+        print("认证失败，请检查凭证")
+    elif response.status_code == 403:
+        # 权限拒绝（API Key 与 User Token 未绑定）
+        print("权限不足，请重新绑定用户")
+    elif response.status_code == 429:
+        # 触发速率限制
+        print("请求过于频繁，请稍后重试")
+    else:
+        data = response.json()
+        print(data)
+
+except requests.RequestException as e:
+    print(f"网络错误：{e}")
+```
+
+---
+
+## OpenAI Function Calling
+
+适合使用 OpenAI API 或兼容 API 的 Agent 框架（如 LangChain、LlamaIndex）。
+
+### 步骤 1：获取 API Key
+
+同上。
+
+### 步骤 2：User 绑定
+
+同上。
+
+### 步骤 3：注册函数工具
+
+将 Gateway API 注册为 OpenAI Function Calling 工具：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-...")
+
+# 注册 Gateway 技能作为函数工具
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_shops",
+            "description": "搜索本地商店（外卖、商超、便利店等）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词，例如：外卖、水果、快餐"
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "位置地址"
+                    },
+                    "radius": {
+                        "type": "number",
+                        "description": "搜索半径（公里），默认 5 km"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "返回结果数量，默认 20",
+                        "minimum": 1,
+                        "maximum": 100
+                    }
+                },
+                "required": ["query", "location"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_shop_detail",
+            "description": "获取商店详情和菜单",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shop_id": {
+                        "type": "string",
+                        "description": "商店 ID"
+                    }
+                },
+                "required": ["shop_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_order",
+            "description": "创建新订单",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shop_id": {
+                        "type": "string",
+                        "description": "商店 ID"
+                    },
+                    "items": {
+                        "type": "array",
+                        "description": "订单项目列表",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item_id": {"type": "string"},
+                                "quantity": {"type": "integer"},
+                                "notes": {"type": "string"}
+                            }
+                        }
+                    },
+                    "delivery_address": {
+                        "type": "string",
+                        "description": "收货地址"
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "enum": ["alipay", "wechat", "card"],
+                        "description": "支付方式"
+                    }
+                },
+                "required": ["shop_id", "items", "delivery_address"]
+            }
+        }
+    }
+]
+
+# 调用 ChatCompletion API
+messages = [
+    {"role": "user", "content": "我想在中关村点一份外卖"}
+]
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=messages,
+    tools=tools,
+    tool_choice="auto"
+)
+
+# 处理函数调用
+for tool_call in response.tool_calls:
+    if tool_call.function.name == "search_shops":
+        # 调用 Clawdot Gateway API
+        # ...
+```
+
+### 步骤 4：函数实现
+
+```python
+import requests
+import json
+
+def call_gateway_api(endpoint, params, api_key, user_token):
+    """调用 Clawdot Gateway API 的辅助函数"""
+    url = f"https://api.clawdot.com/gateway/{endpoint}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-User-Token": user_token,
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, json=params, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+def execute_tool(tool_name, tool_args, api_key, user_token):
+    """执行函数工具"""
+    if tool_name == "search_shops":
+        result = call_gateway_api(
+            "shops/search",
+            {
+                "query": tool_args["query"],
+                "location": tool_args["location"],
+                "radius": tool_args.get("radius", 5),
+                "limit": tool_args.get("limit", 20)
+            },
+            api_key, user_token
+        )
+        return json.dumps(result, ensure_ascii=False)
+
+    elif tool_name == "get_shop_detail":
+        result = call_gateway_api(
+            f"shops/{tool_args['shop_id']}",
+            {},
+            api_key, user_token
+        )
+        return json.dumps(result, ensure_ascii=False)
+
+    elif tool_name == "create_order":
+        result = call_gateway_api(
+            "orders",
+            {
+                "shop_id": tool_args["shop_id"],
+                "items": tool_args["items"],
+                "delivery_address": tool_args["delivery_address"],
+                "payment_method": tool_args.get("payment_method", "alipay")
+            },
+            api_key, user_token
+        )
+        return json.dumps(result, ensure_ascii=False)
+```
+
+---
+
+## 对比选择
+
+| 维度 | MCP | REST API | Function Calling |
+|------|-----|----------|------------------|
+| **适用平台** | Claude Desktop、Cursor | 通用（任何语言/框架） | OpenAI API、兼容框架 |
+| **配置复杂度** | 极低（JSON 配置） | 中等（需要自己处理 HTTP） | 中等（需要定义 Schema） |
+| **工具发现** | 自动 | 手动 | 手动 |
+| **学习成本** | 低 | 中 | 中 |
+| **生产就绪** | 是 | 是 | 是 |
+| **响应速度** | 快 | 快 | 快 |
+
+**推荐选择：**
+
+- **MCP**：已使用 Claude Desktop 或 Cursor，需要最简单的集成
+- **REST API**：自建 Agent 系统，需要完整控制和自定义逻辑
+- **Function Calling**：使用 OpenAI API，希望最小化集成代码
+
+---
+
+## 故障排查
+
+<details>
+<summary>收不到 SMS 验证码</summary>
+
+1. 检查手机号码格式，确保是有效的中国大陆号码
+2. 查看垃圾短信箱，部分手机会自动过滤
+3. 等待 1-2 分钟，短信可能延迟到达
+4. 请求已过期（10 分钟），重新点击"获取验证码"
+5. 如持续失败，请联系技术支持
+
+</details>
+
+<details>
+<summary>API 调用返回 401 Unauthorized</summary>
+
+- API Key 不存在或已禁用，检查控制台
+- API Key 格式错误，应以 `clw_` 开头
+- Header 拼写错误，应为 `Authorization: Bearer ...`，区分大小写
+- User Token 过期（90 天），需要重新 SMS 绑定
+
+</details>
+
+<details>
+<summary>API 调用返回 403 Forbidden</summary>
+
+- API Key 与 User Token 未绑定（来自不同的 Agent）
+- Agent 已被禁用，检查控制台状态
+- User Token 被禁用，需要重新绑定
+
+</details>
+
+<details>
+<summary>MCP 无法加载</summary>
+
+- 检查 `~/.claude-desktop/config.json` 的 JSON 语法
+- 确保 API Key 正确，未包含 `Bearer ` 前缀
+- 重启 Claude Desktop
+- 查看日志：`tail -f ~/.claude-desktop/logs/*.log`
+
+</details>

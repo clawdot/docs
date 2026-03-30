@@ -1,0 +1,68 @@
+---
+title: "MCP Integration"
+description: "Access Clawdot Gateway through Model Context Protocol"
+---
+
+## Overview
+
+Clawdot Gateway provides MCP (Model Context Protocol) interface through `/mcp` endpoint, allowing AI Agent to directly call food delivery capabilities.
+
+MCP and REST API share the same service layer, functionality is identical.
+
+## Connection Methods
+
+### Streamable HTTP
+
+```
+POST https://your-gateway/mcp
+Authorization: Bearer clw_your_api_key
+```
+
+MCP uses Streamable HTTP transport protocol. Authentication is same as REST (Bearer Token).
+
+### Claude Desktop Configuration
+
+```json
+{
+  "mcpServers": {
+    "clawdot": {
+      "url": "https://your-gateway/mcp",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key"
+      }
+    }
+  }
+}
+```
+
+## Differences from REST API
+
+| Difference | REST API | MCP |
+|---|---|---|
+| User Token Passing | `X-User-Token` request header | `user_token` parameter for each tool |
+| Item List Format | JSON array | `items_json` JSON string |
+| Authentication | FastAPI dependency injection | ASGI middleware inject `agent_id` |
+
+<Warning>
+  In MCP's `preview_order` tool, `items_json` must be a **JSON string** (not an array).
+
+  Correct: `"items_json": "[{\"item_id\": \"123\", ...}]"`
+
+  Wrong: `"items_json": [{"item_id": "123", ...}]`
+</Warning>
+
+## Available Tools
+
+MCP provides 9 tools, completely covering food delivery flow. See [Tool Reference](/gateway/mcp-tools).
+
+| Tool | Corresponding REST | Description |
+|---|---|---|
+| `search_shops` | `GET /shops/search` | Search shops |
+| `get_shop_detail` | `GET /shops/{id}` | Shop details + menu |
+| `search_pois` | `POST /addresses/search` | Search POI |
+| `select_address` | `POST /addresses/select` | Select POI |
+| `list_addresses` | `GET /addresses` | Address list |
+| `create_address` | `POST /addresses` | Create address |
+| `preview_order` | `POST /orders/preview` | Preview order |
+| `confirm_order` | `POST /orders` | Confirm order |
+| `get_order` | `GET /orders/{id}` | Query order |

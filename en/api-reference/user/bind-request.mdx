@@ -1,0 +1,69 @@
+---
+title: "Send Verification Code"
+description: "POST /user/bind/request — Send SMS verification code to phone number"
+---
+
+## POST /user/bind/request
+
+Send an SMS verification code to a specified phone number and initiate the user binding process.
+
+### Request Headers
+
+| Name | Required | Description |
+|------|------|------|
+| `Authorization` | Yes | `Bearer clw_...` |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "phone": "13800138000"
+}
+```
+
+| Field | Type | Required | Description |
+|------|------|------|------|
+| `phone` | string | Yes | Mainland China phone number (11 digits) |
+
+### Response
+
+<Tabs>
+  <Tab title="200 Success">
+    ```json
+    {
+      "bind_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+    ```
+
+    | Field | Type | Description |
+    |------|------|------|
+    | `bind_id` | string | Binding session ID (UUID), used in verification step |
+  </Tab>
+  <Tab title="429 Cooldown">
+    ```json
+    {
+      "error": {
+        "code": "SMS_COOLDOWN",
+        "message": "Please wait 60 seconds before resending"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Notes
+
+- Verification code is sent via Alibaba Cloud SMS service (DySMS)
+- Each phone number has a **60 second cooldown period**
+- Verification code is valid for **10 minutes**
+- `bind_id` is used in the next [verification endpoint](/api-reference/user/bind-verify)
+
+### Example
+
+```bash
+curl -X POST "https://your-gateway/api/v1/user/bind/request" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "13800138000"}'
+```

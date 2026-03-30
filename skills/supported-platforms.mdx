@@ -1,0 +1,775 @@
+---
+title: "支持的平台"
+description: "Skills 已接入的 Agent 平台"
+icon: "grid"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import { Tabs, Tab } from '/components/Tabs';
+import { Info } from '/components/Callout';
+
+## 已接入平台
+
+Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验证和生产就绪的集成方案。
+
+<CardGroup cols={2}>
+  <Card title="钉钉 Agent" href="#dingtalk-agent" icon="bell">
+    企业级 AI 助手，集成到钉钉工作流和应用中心。
+  </Card>
+
+  <Card title="Kimi Agent" icon="brain">
+    月之暗面 Kimi 的 AI Agent 平台，支持 Function Calling 和自定义工具。
+  </Card>
+
+  <Card title="QCloud Agent" icon="cloud">
+    腾讯云 AI 助手，支持云原生部署和企业级管理。
+  </Card>
+
+  <Card title="Claude Desktop (MCP)" href="#claude-desktop-mcp" icon="desktop">
+    Anthropic 官方客户端，支持 MCP 协议的本地和远程模型。
+  </Card>
+
+  <Card title="Cursor" icon="edit">
+    面向开发者的 AI 代码编辑器，支持 MCP 集成。
+  </Card>
+
+  <Card title="自建 Agent" icon="wrench">
+    使用 REST API 自行开发的 Agent 应用，适合定制需求。
+  </Card>
+</CardGroup>
+
+---
+
+## 钉钉 Agent
+
+钉钉 Agent 是企业场景中最常见的 AI 助手形式，可以集成到钉钉应用市场，为员工和用户提供本地生活服务。
+
+### 快速开始
+
+<Tabs>
+  <Tab title="集成步骤">
+    1. **注册钉钉开发者账号**
+       - 访问 [钉钉开放平台](https://open.dingtalk.com)
+       - 创建企业应用
+
+    2. **创建 Agent**
+       在 Clawdot 控制台创建专用于钉钉的 Agent，记录 API Key
+
+    3. **配置 WebHook**
+       在钉钉应用设置中，配置 Clawdot Skills API 作为消息处理端点
+
+    4. **实现消息处理**
+       在你的服务端实现与钉钉消息交互的逻辑
+
+    5. **发布应用**
+       通过钉钉应用市场发布，供组织内用户或公众使用
+  </Tab>
+
+  <Tab title="代码示例">
+    ```python
+    from flask import Flask, request
+    import requests
+    import hmac
+    import hashlib
+    import base64
+    import time
+    import json
+    import os
+
+    app = Flask(__name__)
+
+    DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
+    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
+    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+
+    def sign_message(timestamp, secret):
+        """钉钉消息签名验证"""
+        message = f"{timestamp}\n{secret}".encode('utf-8')
+        sign = hmac.new(
+            secret.encode('utf-8'),
+            message,
+            hashlib.sha256
+        ).digest()
+        return base64.b64encode(sign).decode('utf-8')
+
+    @app.route("/webhook/dingtalk", methods=["POST"])
+    def handle_dingtalk_message():
+        """处理钉钉 WebHook 消息"""
+        timestamp = request.headers.get("X-Dingtalk-Timestamp")
+        sign = request.headers.get("X-Dingtalk-Sign")
+
+        # 验证消息完整性
+        expected_sign = sign_message(timestamp, DINGTALK_BOT_SECRET)
+        if sign != expected_sign:
+            return {"code": 401, "message": "Unauthorized"}, 401
+
+        data = request.json
+        conversation_id = data.get("conversationId")
+        sender_id = data.get("senderId")
+        text = data.get("text", {}).get("content", "").strip()
+
+        # 提取用户意图
+        if "外卖" in text or "点餐" in text:
+            # 搜索商店
+            shops = search_shops_for_dingtalk(text, sender_id)
+            reply = format_shop_list_for_dingtalk(shops)
+        elif "订单" in text or "查询" in text:
+            # 查询订单
+            order = get_order_for_dingtalk(sender_id)
+            reply = format_order_for_dingtalk(order)
+        else:
+            reply = "你好，我可以帮助你查询外卖、商超等本地生活服务。"
+
+        # 发送回复到钉钉
+        send_dingtalk_message(conversation_id, reply)
+
+        return {"code": 0, "message": "ok"}, 200
+
+    def search_shops_for_dingtalk(query, user_id):
+        """调用 Clawdot API 搜索商店"""
+        user_token = get_user_token(user_id)  # 获取该用户的 token
+
+        url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
+        headers = {
+            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
+            "X-User-Token": user_token
+        }
+        payload = {
+            "query": query,
+            "location": "中关村",  # 应该从用户位置服务获取
+            "limit": 5
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        return response.json().get("shops", [])
+
+    def format_shop_list_for_dingtalk(shops):
+        """格式化商店列表为钉钉卡片"""
+        cards = []
+        for shop in shops:
+            cards.append({
+                "title": shop["name"],
+                "actionURL": f"https://your-app.com/shop/{shop['id']}",
+                "content": f"评分: {shop['rating']}⭐ | 距离: {shop['distance']}km | 配送费: ¥{shop['delivery_fee']}"
+            })
+        return {"cards": cards}
+
+    def send_dingtalk_message(conversation_id, content):
+        """发送消息到钉钉"""
+        # 钉钉 API 实现
+        pass
+
+    def get_user_token(user_id):
+        """从数据库获取用户的 User Token"""
+        # 实现用户 token 存储和检索逻辑
+        pass
+
+    if __name__ == "__main__":
+        app.run(port=5000)
+    ```
+  </Tab>
+
+  <Tab title="最佳实践">
+    - **异步处理**：使用消息队列（如 RabbitMQ）处理长时间的 API 调用，避免 WebHook 超时
+    - **缓存结果**：缓存商店列表和菜单数据，减少 API 调用
+    - **错误降级**：当 Clawdot API 不可用时，展示缓存的结果或友好的错误提示
+    - **速率限制**：为同一用户添加速率限制，防止重复请求
+    - **日志记录**：记录所有 WebHook 请求，便于调试
+  </Tab>
+</Tabs>
+
+---
+
+## Kimi Agent
+
+月之暗面 Kimi 是国内领先的大语言模型，支持 Agent 开发和 Function Calling。
+
+### 快速开始
+
+<Tabs>
+  <Tab title="集成步骤">
+    1. **注册 Kimi 开发者**
+       - 访问 [Kimi 开放平台](https://kimi.moonshot.cn)
+       - 创建应用并获取 API Key
+
+    2. **创建 Clawdot Agent**
+       在 Clawdot 控制台创建 Agent，记录 API Key
+
+    3. **定义 Function Schema**
+       在 Kimi 应用中注册 Clawdot Gateway 的 API 为 Function Calling 工具
+
+    4. **测试集成**
+       使用 Kimi API 发送请求，验证 Function Calling 工作正常
+
+    5. **部署上线**
+       将 Agent 发布到 Kimi 应用市场
+  </Tab>
+
+  <Tab title="代码示例">
+    ```python
+    import requests
+    import json
+    import os
+
+    KIMI_API_KEY = os.getenv("KIMI_API_KEY")
+    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
+    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+
+    def call_kimi_with_function_calling(user_message, user_token):
+        """使用 Kimi API 和 Function Calling"""
+
+        # 定义可用的 Function（Clawdot Gateway API）
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_shops",
+                    "description": "搜索本地商店（外卖、商超、便利店等）",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "搜索关键词"
+                            },
+                            "location": {
+                                "type": "string",
+                                "description": "位置地址"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "返回结果数量"
+                            }
+                        },
+                        "required": ["query", "location"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_shop_detail",
+                    "description": "获取商店菜单和详细信息",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shop_id": {
+                                "type": "string",
+                                "description": "商店 ID"
+                            }
+                        },
+                        "required": ["shop_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_order",
+                    "description": "创建外卖订单",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shop_id": {"type": "string"},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "item_id": {"type": "string"},
+                                        "quantity": {"type": "integer"}
+                                    }
+                                }
+                            },
+                            "delivery_address": {"type": "string"}
+                        },
+                        "required": ["shop_id", "items", "delivery_address"]
+                    }
+                }
+            }
+        ]
+
+        # 调用 Kimi API
+        url = "https://api.moonshot.cn/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {KIMI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "moonshot-v1-8k",
+            "messages": [
+                {"role": "user", "content": user_message}
+            ],
+            "tools": tools,
+            "tool_choice": "auto"
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        result = response.json()
+
+        # 处理 Function Calling 响应
+        if result.get("choices"):
+            choice = result["choices"][0]
+            if choice.get("finish_reason") == "tool_calls":
+                for tool_call in choice.get("tool_calls", []):
+                    function_name = tool_call["function"]["name"]
+                    function_args = json.loads(tool_call["function"]["arguments"])
+
+                    # 调用 Clawdot Gateway API
+                    function_result = call_clawdot_function(
+                        function_name,
+                        function_args,
+                        user_token
+                    )
+
+                    print(f"Function: {function_name}")
+                    print(f"Result: {function_result}")
+
+        return result
+
+    def call_clawdot_function(function_name, args, user_token):
+        """调用 Clawdot Gateway API"""
+
+        headers = {
+            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
+            "X-User-Token": user_token,
+            "Content-Type": "application/json"
+        }
+
+        if function_name == "search_shops":
+            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
+            response = requests.post(
+                url,
+                json=args,
+                headers=headers
+            )
+            return response.json()
+
+        elif function_name == "get_shop_detail":
+            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/{args['shop_id']}"
+            response = requests.get(url, headers=headers)
+            return response.json()
+
+        elif function_name == "create_order":
+            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/orders"
+            response = requests.post(
+                url,
+                json=args,
+                headers=headers
+            )
+            return response.json()
+
+    # 使用示例
+    user_message = "我想在中关村点一份外卖"
+    user_token = "550e8400-e29b-41d4-a716-446655440000"
+
+    result = call_kimi_with_function_calling(user_message, user_token)
+    ```
+  </Tab>
+
+  <Tab title="最佳实践">
+    - **Function 超时处理**：设置合理的超时时间，避免 Kimi API 等待过长
+    - **智能重试**：对于临时失败，使用指数退避重试
+    - **缓存 Schema**：缓存 Function Schema，减少重复调用
+    - **监控成本**：追踪 API 调用成本和使用情况
+  </Tab>
+</Tabs>
+
+---
+
+## QCloud Agent (腾讯云)
+
+腾讯云提供企业级的 AI Agent 服务，支持云原生部署和完整的管理后台。
+
+### 快速开始
+
+<Tabs>
+  <Tab title="集成步骤">
+    1. **注册腾讯云账号**
+       - 访问 [腾讯云 AI](https://cloud.tencent.com/product/ai)
+       - 申请 Agent 服务权限
+
+    2. **创建 Agent 应用**
+       - 在腾讯云控制台创建新的 Agent 应用
+       - 配置基础信息和权限
+
+    3. **创建 Clawdot Agent**
+       在 Clawdot 控制台创建专用 Agent
+
+    4. **配置集成**
+       在腾讯云 Agent 中配置 Clawdot Skills 平台的 API 端点
+
+    5. **部署和测试**
+       部署 Agent 到腾讯云环境，进行集成测试
+
+    6. **发布上线**
+       通过腾讯云应用市场发布
+  </Tab>
+
+  <Tab title="最佳实践">
+    - **资源管理**：合理分配云资源，监控成本
+    - **日志和监控**：使用腾讯云的日志和监控服务追踪 Agent 运行状态
+    - **灾备策略**：配置跨区域备份和故障转移
+    - **安全防护**：启用腾讯云的 DDoS 防护和 WAF
+  </Tab>
+</Tabs>
+
+---
+
+## Claude Desktop (MCP)
+
+Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model Context Protocol）协议。
+
+### 快速开始
+
+<Tabs>
+  <Tab title="安装和配置">
+    **1. 安装 Claude Desktop**
+    - 下载 [Claude Desktop](https://claude.ai/download)
+    - 按照指示完成安装和登录
+
+    **2. 创建 Clawdot Agent**
+    在 Clawdot 控制台创建 Agent 并获取 API Key
+
+    **3. 配置 MCP 服务器**
+    编辑 `~/.claude-desktop/config.json`：
+
+    ```json
+    {
+      "mcpServers": {
+        "clawdot-skills": {
+          "command": "node",
+          "args": [
+            "/path/to/mcp-gateway/dist/index.js",
+            "--gateway-url",
+            "https://api.clawdot.com/gateway",
+            "--api-key",
+            "clw_your_api_key_here"
+          ]
+        }
+      }
+    }
+    ```
+
+    **4. 重启 Claude Desktop**
+    - 关闭 Claude Desktop
+    - 重新打开，等待 MCP 服务器连接
+    - 在工具栏中查看可用的 Gateway 技能
+
+    **5. 开始使用**
+    - 在对话中提及外卖、商超等本地生活需求
+    - Claude 会自动调用相应的 Gateway 技能
+  </Tab>
+
+  <Tab title="MCP 服务器实现">
+    如果你想自己实现 MCP 服务器，以下是简化的示例：
+
+    ```typescript
+    import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+    import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+    import {
+      CallToolRequestSchema,
+      ListToolsRequestSchema,
+      Tool
+    } from "@modelcontextprotocol/sdk/types.js";
+    import axios from "axios";
+
+    const apiKey = process.env.CLAWDOT_API_KEY;
+    const gatewayUrl = process.env.CLAWDOT_GATEWAY_URL;
+
+    class ClawdotMCP {
+      private server: Server;
+
+      constructor() {
+        this.server = new Server(
+          {
+            name: "clawdot-skills",
+            version: "1.0.0"
+          },
+          {
+            capabilities: {
+              tools: {}
+            }
+          }
+        );
+
+        this.setupHandlers();
+      }
+
+      private setupHandlers() {
+        this.server.setRequestHandler(
+          ListToolsRequestSchema,
+          async () => ({
+            tools: [
+              {
+                name: "search_shops",
+                description: "搜索本地商店（外卖、商超等）",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    query: { type: "string" },
+                    location: { type: "string" }
+                  },
+                  required: ["query", "location"]
+                }
+              },
+              {
+                name: "get_shop_detail",
+                description: "获取商店菜单",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    shop_id: { type: "string" }
+                  },
+                  required: ["shop_id"]
+                }
+              },
+              {
+                name: "create_order",
+                description: "创建订单",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    shop_id: { type: "string" },
+                    items: { type: "array" }
+                  },
+                  required: ["shop_id", "items"]
+                }
+              }
+            ]
+          })
+        );
+
+        this.server.setRequestHandler(
+          CallToolRequestSchema,
+          async (request) => {
+            const { name, arguments: args } = request.params;
+
+            switch (name) {
+              case "search_shops":
+                return await this.searchShops(args);
+              case "get_shop_detail":
+                return await this.getShopDetail(args);
+              case "create_order":
+                return await this.createOrder(args);
+              default:
+                return { isError: true, content: [{ type: "text", text: "Unknown tool" }] };
+            }
+          }
+        );
+      }
+
+      private async searchShops(args: any) {
+        const response = await axios.post(
+          `${gatewayUrl}/api/v1/gateway/shops/search`,
+          args,
+          {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+
+      private async getShopDetail(args: any) {
+        const response = await axios.get(
+          `${gatewayUrl}/api/v1/gateway/shops/${args.shop_id}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`
+            }
+          }
+        );
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+
+      private async createOrder(args: any) {
+        const response = await axios.post(
+          `${gatewayUrl}/api/v1/gateway/orders`,
+          args,
+          {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+
+      async start() {
+        const transport = new StdioServerTransport();
+        await this.server.connect(transport);
+      }
+    }
+
+    const mcp = new ClawdotMCP();
+    mcp.start();
+    ```
+  </Tab>
+
+  <Tab title="最佳实践">
+    - **工具发现缓存**：Claude 会缓存 MCP 工具列表，更新时需要重启
+    - **错误处理**：返回清晰的错误消息，帮助 Claude 理解问题
+    - **流式响应**：支持长时间运行的操作流式返回结果
+    - **隐私保护**：不记录用户输入，遵守隐私政策
+  </Tab>
+</Tabs>
+
+---
+
+## Cursor
+
+Cursor 是面向开发者的 AI 代码编辑器，支持 MCP 集成。
+
+### 快速开始
+
+配置与 Claude Desktop 类似：
+
+```json
+{
+  "mcpServers": {
+    "clawdot": {
+      "command": "node",
+      "args": [
+        "path/to/mcp-gateway",
+        "--api-key",
+        "clw_your_key"
+      ]
+    }
+  }
+}
+```
+
+在 Cursor 中使用 `Cmd+K` (Mac) 或 `Ctrl+K` (Windows/Linux) 打开命令面板，调用 Gateway 技能。
+
+<Info>
+Cursor 集成方式与 Claude Desktop 基本相同，主要区别是使用场景（代码编辑 vs 通用对话）。
+</Info>
+
+---
+
+## 自建 Agent
+
+如果你的 Agent 平台未在上述列表中，可以使用 **REST API** 自行集成。
+
+### 使用 REST API 集成
+
+参考 [接入指南 - REST API](/skills/integration-guide#rest-api) 章节。
+
+**快速示例：**
+
+```javascript
+const axios = require('axios');
+
+const CLAWDOT_API_KEY = process.env.CLAWDOT_API_KEY;
+const USER_TOKEN = process.env.USER_TOKEN;
+
+async function searchShops(query, location) {
+  const response = await axios.post(
+    'https://api.clawdot.com/api/v1/gateway/shops/search',
+    { query, location },
+    {
+      headers: {
+        'Authorization': `Bearer ${CLAWDOT_API_KEY}`,
+        'X-User-Token': USER_TOKEN,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  return response.data;
+}
+
+// 使用
+searchShops('外卖', '中关村').then(data => {
+  console.log('搜索结果:', data.shops);
+});
+```
+
+---
+
+## 即将支持的平台
+
+以下平台已在开发或测试中，即将支持：
+
+<CardGroup cols={2}>
+  <Card title="Google Vertex AI" icon="cloud" disabled>
+    Google Cloud 的 AI 代理服务，即将集成。
+  </Card>
+
+  <Card title="AWS Bedrock Agents" icon="cloud" disabled>
+    AWS 的托管 AI 服务，支持自定义 Agent。
+  </Card>
+
+  <Card title="LangChain 集成" icon="link" disabled>
+    通过 LangChain 的 Tool/Agent 框架集成。
+  </Card>
+
+  <Card title="更多企业 Agent 平台" icon="building" disabled>
+    支持其他商业 AI Agent 平台，敬请期待。
+  </Card>
+</CardGroup>
+
+---
+
+## 平台对比
+
+| 平台 | 集成方式 | 难度 | 企业级 | 开发者友好 | 社区活跃度 |
+|------|---------|------|--------|-----------|----------|
+| 钉钉 | REST API / WebHook | 中 | ✓ | 高 | 高 |
+| Kimi | Function Calling | 低 | ✓ | 高 | 中 |
+| QCloud | REST API | 中 | ✓ | 中 | 中 |
+| Claude Desktop | MCP | 低 | - | 高 | 高 |
+| Cursor | MCP | 低 | - | 高 | 中 |
+| 自建 Agent | REST API | 中 | ✓ | 高 | - |
+
+---
+
+## 常见问题
+
+<details>
+<summary>我的 Agent 平台不在列表中怎么办？</summary>
+
+你可以：
+1. 使用 REST API 自行集成（参考 [接入指南](/skills/integration-guide)）
+2. 联系我们 support@clawdot.com，申请添加新的平台集成
+3. 贡献 MCP 服务器实现（开源项目）
+
+</details>
+
+<details>
+<summary>不同平台的 API Key 是否相同？</summary>
+
+是的，Clawdot 为每个 Agent 应用生成唯一的 API Key。你可以在多个平台使用同一个 API Key，但建议为不同平台创建不同的 Agent（便于监控和管理）。
+
+</details>
+
+<details>
+<summary>如何在生产环境中安全地管理 API Key？</summary>
+
+最佳实践：
+- 使用环境变量或密钥管理服务（如 HashiCorp Vault、AWS Secrets Manager）
+- 不要在代码中硬编码 API Key
+- 定期轮换 API Key
+- 限制 API Key 的使用范围（如按 IP、按 User Token）
+
+</details>
+
+<details>
+<summary>MCP 和 REST API 有什么区别？</summary>
+
+**MCP**：
+- 标准化协议，自动工具发现
+- 适合与大模型深度集成
+- 配置简单，无需自行处理 HTTP
+
+**REST API**：
+- 通用 HTTP 接口，完全控制
+- 适合自建应用和企业系统
+- 学习成本稍高，灵活性更强
+
+</details>

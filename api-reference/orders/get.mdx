@@ -18,32 +18,46 @@ description: "GET /orders/{order_id} — 查询订单状态"
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `order_id` | string | 外卖订单 ID（从创建订单返回）|
+| `order_id` | string | 饿了么订单号（从 [创建订单](/api-reference/orders/create) 返回的 `order_id`） |
 
 ### 响应
 
-```json
-{
-  "order_id": "1234567890",
-  "status": "created",
-  "shop_name": "瑞幸咖啡(国贸店)",
-  "total_amount": 8.4,
-  "created_at": "2026-03-23T10:15:30.123Z"
-}
-```
+<Tabs>
+  <Tab title="200 成功">
+    ```json
+    {
+      "order_id": "12345678901234",
+      "status": "created",
+      "shop_name": "瑞幸咖啡(人民广场店)",
+      "total_amount": 15.0,
+      "created_at": "2026-03-30T10:15:30"
+    }
+    ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `order_id` | string | 外卖订单 ID |
-| `status` | string | 订单状态 |
-| `shop_name` | string | 商家名称 |
-| `total_amount` | float | 订单总额 |
-| `created_at` | string | 创建时间（ISO 8601）|
+    | 字段 | 类型 | 说明 |
+    |------|------|------|
+    | `order_id` | string | 饿了么订单号 |
+    | `status` | string | 订单状态 |
+    | `shop_name` | string | 商家名称 |
+    | `total_amount` | float | 订单金额（元） |
+    | `created_at` | string | 创建时间（ISO 8601） |
+  </Tab>
+  <Tab title="500 未找到">
+    ```json
+    {
+      "error": {
+        "code": "ORDER_FAILED",
+        "message": "Order not found"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
 
 ### 示例
 
 ```bash
-curl -X GET "https://your-gateway/api/v1/orders/1234567890" \
+curl -X GET "https://api.clawdot.ai/api/v1/orders/12345678901234" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-User-Token: your_user_token"
 ```
