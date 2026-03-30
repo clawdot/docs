@@ -1,259 +1,155 @@
 ---
-title: "Four-Layer Architecture"
-description: "Complete overview of Clawdot's four-layer business architecture"
+title: "H2A2A2H Network"
+description: "Human → Agent → Agent → Human: How clawdot's service network operates"
 ---
 
-import { Card, CardGroup } from '/components/Card';
-import { Accordion, AccordionGroup } from '/components/Accordion';
-import { Tabs, Tab } from '/components/Tabs';
+## One Network, Not a Pipeline
 
-## Architecture Overview
+H2A2A2H stands for **Human → Agent → Agent → Human**.
 
-Clawdot adopts a four-layer architecture design. From top to bottom: Super Agent, Skills Platform, Merchant Gateway, and Service SDK. Each layer has independent responsibilities, and layers interact through protocols and standard interfaces to form a complete local life service ecosystem.
+This is clawdot's core vision for the future of local life services: people no longer need to personally "search" for services; they express their needs through Agents. Service providers no longer need to master "traffic generation"; their Agents deliver their excellent services to the people who need them. All negotiation, matching, and connection in between happens Agent-to-Agent.
+
+This isn't a one-way assembly line. It's an open network—any Agent can join, any service provider can be connected.
 
 ```mermaid
 graph TB
-    User["👤 End User"]
-
-    subgraph Layer1["Layer 1: Super Agent (End Users)"]
-        SA["<b>Super Agent</b><br/>Super Agent<br/>1 instance = 1 node = 1 user<br/>Full-featured skills, 1-to-many"]
-        SA_Skills["In-store booking<br/>Food delivery ordering<br/>Ride-hailing<br/>Recommendations<br/>Social memory"]
+    subgraph Users["👤 Users (Human)"]
+        U1["User A"]
+        U2["User B"]
+        U3["User C"]
     end
 
-    subgraph Layer2["Layer 2: Skills Platform (Developers)"]
-        Skills["<b>Skills Platform</b><br/>Restricted skills (one-to-one)<br/>One-to-one binding authorization<br/>Natural security isolation"]
-        Agents["Dingtalk Agent<br/>Kimi Agent<br/>QCloud Agent<br/>Other Personal Agents"]
+    subgraph DemandAgents["🤖 Demand-Side Agents (First A)"]
+        SA["clawdot Super Agent"]
+        OA["Third-party Agents"]
+        PA["Personal Agents"]
     end
 
-    subgraph Layer3["Layer 3: Merchant Gateway (B2B)"]
-        GW["<b>Gateway</b><br/>Protocol layer + Discovery layer<br/>Node registration + Protocol forwarding<br/>Standardized conversation language"]
-        Proxy["<b>Proxy Layer</b><br/>(Cold start)<br/>Ele.me/Meituan/Amap<br/>Auto-coverage"]
-        IndependentAgent["<b>Independent Merchant Agent</b><br/>Self-built by major merchants<br/>e.g., Chagee"]
-        Protocols["Menu queries<br/>Order fulfillment<br/>Booking management<br/>Ratings & feedback<br/>Delivery tracking"]
+    subgraph CapabilityLayer["⚡ Skills + Gateway"]
+        SK["Skills · Open Capability Layer"]
+        GW["Gateway · Network Hub"]
     end
 
-    subgraph Layer4["Layer 4: ISV Providers"]
-        SDK["<b>Service SDK</b><br/>Open source<br/>SaaS providers<br/>POS system vendors<br/>ERP providers"]
+    subgraph SupplyAgents["🤖 Supply-Side Agents (Second A)"]
+        RA["Restaurant Agent"]
+        TA["Travel Agent"]
+        HA["Household Services Agent"]
+        MA["More..."]
     end
 
-    User -->|connects to| SA
-    SA -->|uses| SA_Skills
+    subgraph ServiceProviders["🤝 Service Providers (Human)"]
+        S1["Chef · Restaurant Owner"]
+        S2["Driver · Tour Guide"]
+        S3["Housekeeper · Repair Specialist"]
+    end
 
-    SA_Skills -->|invokes restricted skills| Skills
-    Skills -->|integrates with| Agents
+    U1 & U2 & U3 --> SA & OA & PA
+    SA & OA & PA --> SK
+    SK --> GW
+    GW --> RA & TA & HA & MA
+    RA & TA & HA & MA --> S1 & S2 & S3
 
-    SA -->|queries & orders| GW
-    GW -->|protocol conversion & forwarding| Proxy
-    GW -->|direct integration| IndependentAgent
-    GW -->|standard protocols| Protocols
-
-    IndependentAgent -->|built with| SDK
-    Proxy -->|built with| SDK
-
-    style SA fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-    style Skills fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-    style Agents fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-    style GW fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-    style Proxy fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-    style IndependentAgent fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-    style SDK fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+    style SA fill:#FFF3EE,stroke:#E8593C,stroke-width:2px
+    style OA fill:#FFF8ED,stroke:#F59E0B,stroke-width:2px
+    style PA fill:#FEF3C7,stroke:#FBBF24,stroke-width:2px
+    style SK fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+    style GW fill:#F5F3FF,stroke:#8B5CF6,stroke-width:2px
+    style RA fill:#F0FDF4,stroke:#22C55E,stroke-width:2px
+    style TA fill:#F0FDF4,stroke:#22C55E,stroke-width:2px
+    style HA fill:#F0FDF4,stroke:#22C55E,stroke-width:2px
+    style MA fill:#F0FDF4,stroke:#22C55E,stroke-width:2px,stroke-dasharray: 5 5
 ```
-
-## Four Layers Explained
-
-<AccordionGroup>
-  <Accordion title="Layer 1: Super Agent (End Users)" defaultOpen>
-
-    **One user = One dedicated Agent = One network node**
-
-    Super Agent is the core concept of Clawdot. Each user has a dedicated AI Agent called a "Super Agent". This Agent:
-
-    - **Full-featured skills**: Complete local life service capabilities
-      - In-store booking: Search, compare, and book restaurants, beauty salons, etc.
-      - Food delivery ordering: Search merchants, browse menus, smart ordering, track fulfillment
-      - Ride-hailing: Check vehicle types, reserve, pay, get route information
-      - Recommendations: Intelligently recommend new shops and activities based on preferences
-      - Social memory: Remember user preferences, order history, and favorite addresses
-
-    - **1-to-Many service**: One Agent serves multiple merchants and SKUs without individual training
-
-    - **Network node value**: Each Agent is both a user proxy and a node in the local life network
-
-  </Accordion>
-
-  <Accordion title="Layer 2: Skills Platform (Developers)">
-
-    **A restricted skills ecosystem for Personal Agent integration**
-
-    The Skills Platform is Clawdot's entry point for opening up to the developer ecosystem. Key features:
-
-    - **Restricted skills supply**: Unlike Layer 1's "full-featured" skills, developer-integrated skills are restricted (one-to-one binding)
-
-    - **One-to-one binding authorization**:
-      - Each developer's agent (e.g., Dingtalk agent, Kimi agent) can only bind to a specific skill set
-      - Natural security isolation, different agents' permissions don't affect each other
-
-    - **Supported Personal Agents**:
-      - Dingtalk Agent (enterprise scenarios)
-      - Kimi Agent (knowledge assistant scenarios)
-      - QCloud Agent (Tencent Cloud ecosystem)
-      - Other third-party Personal Agents
-
-    - **Security mode**: Authorization, metering, and auditing are completely independent with risk isolation
-
-  </Accordion>
-
-  <Accordion title="Layer 3: Merchant Gateway (B2B)">
-
-    **Protocol and discovery layer connecting local merchants**
-
-    The Merchant Gateway is a critical hub for Clawdot to onboard local merchants. It contains two core modules:
-
-    **Gateway Responsibilities:**
-    - **Protocol layer**: Unified protocol forwarding, converting user requests to merchant API calls
-    - **Discovery layer**: Merchant node registration, indexing, search, and ranking
-    - **Standardized conversation**: Defining unified business language for ordering, booking, ratings, etc.
-
-    **Proxy Layer (Cold start):**
-    - Automatically proxies major platforms like "Ele.me", "Meituan", and "Amap"
-    - No need to wait for merchant self-integration, instantly cover millions of merchants
-    - Automatically converts these platforms' APIs to Clawdot's standard protocol
-
-    **Independent Merchant Agent (Self-built by major merchants):**
-    - Top merchants (e.g., Chagee, HeyTea) can build their own dedicated Agent
-    - Integrate SDK for quick implementation, connect with Clawdot protocol
-    - Gain more customization capabilities and data control
-
-    **Standard Protocol Stack:**
-    ```
-    - Menu queries: Get merchant menus, inventory, pricing
-    - Order fulfillment: Create orders, pay, ship, receive
-    - Booking management: Query available slots, create and cancel bookings
-    - Ratings & feedback: Submit ratings, get rating summaries
-    - Delivery tracking: Real-time order logistics tracking
-    ```
-
-  </Accordion>
-
-  <Accordion title="Layer 4: ISV Providers">
-
-    **Open source Service SDK, empowering SaaS/ERP/POS systems**
-
-    The fourth layer provides ISVs (Independent Software Vendors) with a standardized Service SDK, lowering integration barriers.
-
-    - **Open source SDK**: Published as open source, reducing costs and integration difficulty
-
-    - **Supported ISV types**:
-      - SaaS providers (CRM, marketing automation, etc.)
-      - POS system vendors (primarily for restaurants/retail)
-      - ERP providers (inventory, supply chain management)
-
-    - **Ecosystem role**:
-      - Accelerate merchant onboarding, expand network node quantity
-      - Provide standardized onboarding paths, reduce merchant learning costs
-      - ISVs can gain new business opportunities through the Clawdot ecosystem
-
-  </Accordion>
-</AccordionGroup>
-
-## Inter-Layer Relationships and Data Flow
-
-### Skill Abstraction Propagation
-
-The Super Agent's full-featured skills are progressively abstracted and combined from lower layers:
-
-1. **Layer 1 → Layer 2**: Platform extracts restricted, reusable skill units from Layer 1's "full-featured skills"
-2. **Layer 2 → Layer 3**: These skills invoke Layer 3's various merchant agents through Gateway
-3. **Layer 3 → Layer 4**: Merchant agents and Proxy use Layer 4's SDK to implement concrete services
-
-### Skill Sources
-
-```
-User request
-    ↓
-Super Agent (Layer 1) understands intent
-    ↓
-Invokes restricted skills (Layer 2) to execute
-    ↓
-Gateway (Layer 3) protocol conversion
-    ↓
-Merchant Agent or Proxy (Layer 3) calls API
-    ↓
-SDK (Layer 4) implements concrete functionality
-```
-
-### Three Ways to Onboard Merchant Nodes
-
-| Method | Merchant Scale | Integration Difficulty | Customization | Examples |
-|--------|--------|--------|--------|------|
-| **Proxy Cold Start** | Ultra-large | Zero | None | Ele.me, Meituan, Amap |
-| **Gateway Direct** | Small-to-medium | Low | Standard protocol | Regular restaurant merchants |
-| **Independent Agent** | Top merchants | Medium | Highly customized | Chagee, HeyTea, Haidilao |
-
-## Core Flywheel: Network Effects
-
-Clawdot's true value lies in network effects. As participating merchants and developers increase, the platform's bargaining power and appeal grow exponentially:
-
-```
-More nodes
-    ↓
-Greater network value
-    ↓
-Stronger protocol voice
-    ↓
-More nodes proactively join
-    ↓
-[Loop]
-```
-
-**Key drivers of this flywheel**:
-- Layer 1 user count is Layer 3's network scale
-- Layer 3 merchant count is Layer 2 developers' market opportunity
-- Layer 2 applications count is Layer 4 ISVs' business value
-
-## Phased Development Strategy
-
-Clawdot's development is divided into three phases, each with clear objectives:
-
-<CardGroup cols={3}>
-  <Card title="Phase 1: Now" icon="🚀">
-    **Proxy Cold Start**
-
-    - Rapidly cover Ele.me, Meituan, Amap merchants
-    - Prove the feasibility of Super Agent model
-    - Accumulate first batch of core users
-  </Card>
-  <Card title="Phase 2: This Year" icon="⚙️">
-    **SDK + Skills Ecosystem Expansion**
-
-    - Release open source SDK, attract ISVs
-    - Open Skills Platform, support more Personal Agents
-    - Expand to at-home scenarios (fresh groceries, errand services, etc.)
-  </Card>
-  <Card title="Phase 3: Next Year" icon="🌟">
-    **Protocol Standardization + Network Release**
-
-    - Define industry standard protocols, become the de facto local life API layer
-    - Network reaches critical mass, flywheel self-starts
-    - Ecosystem participants autonomously expand
-  </Card>
-</CardGroup>
-
-## Benchmarking and Innovation Points
-
-| Dimension | Clawdot | Traditional Platforms |
-|--------|--------|--------|
-| **User Agent** | Super Agent (full-featured) | Manual user operations |
-| **Developer Ecosystem** | Restricted skills + one-to-one authorization | Unlimited APIs |
-| **Merchant Onboarding** | Proxy cold start + Gateway | Merchant-by-merchant listing |
-| **Security Model** | Natural isolation | Single point of failure |
-| **Network Value** | Exponential growth | Linear growth |
 
 ---
 
-**Ready to join the Clawdot ecosystem?**
+## Four Roles in the Network
 
-- I'm a user: [Learn about Super Agent](/super-agent)
-- I'm a developer: [Integrate Skills Platform](/skills-platform)
-- I'm a merchant: [Integrate Gateway](/gateway)
-- I'm an ISV: [Use Service SDK](/sdk)
+### The First H — You (Consumer)
+
+You simply say what you want.
+
+"Something light to eat tonight for two, under 150 yuan budget." "Help me arrange my business trip tomorrow." "Find a fun place to take the kids this weekend."
+
+You don't need to scroll through apps, read dozens of reviews, or agonize over choices. You just need to express your needs naturally, like talking to a friend who understands you.
+
+### The First A — Demand-Side Agent
+
+Your Agent understands you, remembers you, and takes action for you.
+
+It knows you don't eat cilantro, prefer window seats, and prefer Japanese food on Friday nights. It's not a cold search engine—it's a life manager that knows you.
+
+And this isn't just clawdot's own Super Agent. It's an open network—third-party Agents and your own Personal Agent can tap into clawdot's Skills to serve you.
+
+<Columns cols={3}>
+  <Card title="clawdot Super Agent" icon="sparkles">
+    clawdot's own Agent with full capabilities, handling all aspects of eating, travel, entertainment, and life.
+  </Card>
+  <Card title="Third-party Agents" icon="blocks">
+    Other platforms' Agents can also use clawdot's Skills, joining the same service network.
+  </Card>
+  <Card title="Personal Agent" icon="user">
+    Your own Agent can equally use clawdot's capabilities to access local life services.
+  </Card>
+</Columns>
+
+### A ↔ A — Agent Negotiation Layer
+
+This is the truly revolutionary part.
+
+The consumer's Agent and the service provider's Agent talk directly. No centralized platform intermediating, no bidding wars, no traffic taxes. Supply and demand match based on real capability and real reputation.
+
+At this layer, **Skills** are the source of Agent capabilities—every service category from eating to travel to entertainment to daily life is a Skill, with infinitely expandable capabilities. **Gateway** is the network's central hub; supply-side Agents register to Gateway through the SDK, demand-side Agents invoke Gateway through Skills, and both sides connect here.
+
+### The Second A — Supply-Side Agent
+
+Every service provider has their own Agent.
+
+The Restaurant Agent helps the owner manage reservations, take orders, and respond to customers. The Household Services Agent helps the housekeeper schedule shifts, provide quotes, and coordinate timing. The Travel Agent helps the driver with dispatch and order matching.
+
+Artisans can focus on their craft—their Agents handle connecting their services with the people who need them. Zero friction to join through the SDK; no need to understand AI or rebuild systems.
+
+### The Second H — Service Providers (People)
+
+Technology's endpoint is warm human connection.
+
+Agents help you find good services faster, but the actual service experience is between people. The chef's Hunanese cuisine hand-cooked after twenty years, the devoted housekeeper's meticulous cleaning, the skilled repair specialist's well-fixed pipes—this warmth is something AI can't replace.
+
+---
+
+## Why a Network, Not a Platform
+
+Traditional local life services operate through centralized platforms: the platform sets rules, merchants buy traffic, consumers get algorithm recommendations. The bigger the platform, the higher the commissions, and both service providers and consumers pay the cost of connection.
+
+clawdot is not a platform. clawdot is a network.
+
+In this network, every person and every Agent is a node, connecting and enabling each other. No one "owns" this network—**clawdot belongs to everyone in their everyday life.**
+
+| | Network (clawdot) | Traditional Platform |
+|---|---|---|
+| **Connection Method** | Agent-to-Agent direct negotiation | Platform intermediation, algorithm recommendations |
+| **Entry Barrier** | Any Agent can join | Must operate within the platform |
+| **Service Provider Customer Acquisition** | Great services naturally reach the right people | Buy traffic, do operations |
+| **Cost Structure** | Decentralized, transparent, reasonable | High commissions and traffic taxes |
+| **Network Ownership** | Belongs to every participant | Belongs to the platform company |
+
+---
+
+## Care: Flowing Through Every Connection
+
+Care isn't a specific layer of this network—it's a value embedded throughout.
+
+AI Agents are naturally suited to serve those who need help most. Elderly people living alone need someone to pick up medicines, people with mobility challenges need more attentive home services, grandparents unfamiliar with smartphones need patient agents.
+
+On traditional platforms, these groups are often overlooked because they're not "high-value users." But in clawdot's network, everyone who needs help can be seen through their Agent, matched with services, and treated with care.
+
+<Columns cols={3}>
+  <Card title="Agents Supporting the Elderly" icon="heart-handshake">
+    Help seniors access local life services through simple voice interaction. One phrase handles groceries, medicine, or calling services.
+  </Card>
+  <Card title="Agents Supporting the Disabled" icon="accessibility">
+    Provide more attentive service matching and home service coordination for people with mobility challenges.
+  </Card>
+  <Card title="Community Care" icon="users">
+    A community mutual aid network based on Agents, letting kindness between neighbors flow naturally.
+  </Card>
+</Columns>

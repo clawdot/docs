@@ -1,79 +1,45 @@
 ---
-title: "Clawdot"
-description: "Local life AI service platform"
+title: "Overview"
+description: "clawdot — The local life service network for the AI era"
 ---
 
-## AI Era Local Life Infrastructure
+<Frame>
+  <img src="/logo/light.png" alt="clawdot" style={{ display: 'block', margin: '0 auto', maxWidth: '480px', width: '100%' }} />
+</Frame>
 
-A network of Super Agents, learning in one go the complete skill set for food ordering, transportation, booking, and recommendations.
+## One Click for Everything You Need
 
-<Columns cols={3}>
-  <Card title="Super Agent" icon="wand-magic-sparkles" href="/super-agent/introduction">
-    Provide each user with a dedicated AI agent, mastering the complete skill set of food delivery, booking, transportation, recommendations, and social memory.
-  </Card>
-  <Card title="Skills Platform" icon="puzzle-piece" href="/skills/introduction">
-    A skills platform for Agent integration with platforms like Dingtalk, Kimi, and QCloud, with one-to-one binding and natural security isolation.
-  </Card>
-  <Card title="Gateway" icon="server" href="/gateway/introduction">
-    Protocol layer connecting local merchants, standardizing menu queries, order fulfillment, booking management, and other services.
-  </Card>
-</Columns>
+clawdot is the local life service network for the AI era.
 
-## Why Choose Clawdot
+Just tell your Agent what you want — "Something light to eat tonight", "Help me arrange my business trip tomorrow", "Find a fun place to take the kids this weekend" — and your Agent understands you, remembers you, and gets it all done.
+
+Service providers can focus on perfecting their craft. The chef who's made Hunanese cuisine for twenty years doesn't need to learn video editing—their Agent will naturally connect their excellent skills with the people who need them.
+
+This network belongs to no company or organization. **clawdot belongs to everyone in their everyday life.**
+
+---
+
+## Four Pillars of clawdot
 
 <Columns cols={2}>
-  <Card title="Network Effects" icon="circle-nodes">
-    More nodes → Greater network value → Stronger protocol voice → More nodes join. Building a strong network flywheel for local life services.
-  </Card>
-  <Card title="Dual Protocol Support" icon="plug">
-    REST API and MCP protocol dual entry points, adapting to all AI platforms — Claude, GPT, and custom Agents can all integrate.
-  </Card>
-  <Card title="Out of the Box" icon="box-open">
-    Proxy cold start automatically covers Ele.me, Meituan, and Amap merchants, ready to run without development.
-  </Card>
-  <Card title="Security Design" icon="shield">
-    One-to-one binding authorization with natural security isolation. Dual-layer authentication with API Key + User Token, user data encrypted with AES-256-GCM.
-  </Card>
-</Columns>
+  <Card title="Super Agent · Your Personal AI Assistant" icon="sparkles" href="/super-agent/introduction">
+    *Just express your needs, as naturally as talking to a friend who knows you.*
 
-## Quick Example
-
-<Tabs>
-  <Tab title="REST API">
-    ```bash
-    # Search nearby shops
-    curl -X GET "https://gateway.clawdot.ai/api/v1/shops/search?lat=39.9&lng=116.4&keyword=coffee" \
-      -H "Authorization: Bearer clw_your_api_key" \
-      -H "X-User-Token: your_user_token"
-    ```
-  </Tab>
-  <Tab title="MCP Protocol">
-    ```json
-    {
-      "tool": "search_shops",
-      "arguments": {
-        "lat": 39.9,
-        "lng": 116.4,
-        "keyword": "coffee",
-        "user_token": "your_user_token"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
-
-## Start Building
-
-Choose your role:
-
-<Columns cols={3}>
-  <Card title="I'm a User/Developer" icon="user" href="/super-agent/introduction">
-    Learn how Super Agent works for you.
+    Your personal AI life manager. One Agent handles eating, travel, entertainment, and life — understanding you, remembering you, and taking action for you.
   </Card>
-  <Card title="I'm a Skill Developer" icon="code" href="/skills/integration-guide">
-    Integrate local life skills into your Agent.
+  <Card title="Skills · Open Capability Ecosystem" icon="puzzle" href="/skills/introduction">
+    *Every service can become a Skill for your Agent.*
+
+    Endless capability expansion for eating, travel, entertainment, and life. Any Agent can use them, any developer can contribute.
   </Card>
-  <Card title="I'm a Merchant" icon="shop" href="/gateway/merchant-onboarding">
-    Connect your merchant services to the Clawdot network.
+  <Card title="Gateway · Service Network Hub" icon="server" href="/gateway/introduction">
+    *You perfect your service, we handle the technology.*
+
+    Zero-friction infrastructure to connect service providers to the AI service network. Great services naturally reach the right people.
+  </Card>
+  <Card title="Care · Technology for Good" icon="heart" href="/overview/love">
+    *A network of kindness that leaves no one behind.*
+
+    A value embedded since day one. Agents supporting the elderly, assisting the disabled, watching over communities — ensuring everyone is seen.
   </Card>
 </Columns>
