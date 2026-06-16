@@ -1,0 +1,70 @@
+---
+title: "Shop Share URL"
+description: "POST /shops/share-url — generate an H5 share short link for a shop"
+---
+
+## POST /shops/share-url
+
+Generates a shareable H5 short link (short URL) for a shop. The gateway wraps the provider's raw scheme (which embeds an internal ID and UA) behind a short link, so callers only ever see our short link and never touch the internal ID.
+
+<Note>
+  **Flow**: `/shops/search` → `shop_id` → **`/shops/share-url`** → `share_url`. Use the `shop_id` returned by `/shops/search` as-is; do not construct it yourself.
+</Note>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "shop_id": "<from /shops/search>"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `shop_id` | string | Yes | — | Shop ID (`shop_` prefix, from `/shops/search`); pass it back as-is |
+
+### Response
+
+```json
+{
+  "share_url": "https://s.clawdot.ai/abc123"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `share_url` | string | The shop's H5 share short link. If the short-url service is unconfigured or errors, it degrades to the provider's raw scheme (internal info may then be visible) |
+
+<Note>
+  This endpoint returns no amount fields and does not echo `shop_id` (a synchronous single-shop call — the caller already holds it).
+</Note>
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | Missing or invalid consent grant |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `shop_id` invalid, expired, or not owned by the current consent user |
+| 502 | `ELEME_ERROR` | Upstream failed to generate the share scheme |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/shops/share-url" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<from /shops/search>"
+  }'
+```

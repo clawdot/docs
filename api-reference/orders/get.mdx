@@ -1,63 +1,104 @@
 ---
-title: "查询订单"
-description: "GET /orders/{order_id} — 查询订单状态"
+title: "订单状态"
+description: "GET /orders/{order_id} — 按平台订单 ID 查询订单的实时状态、店铺、商品摘要与应付金额"
 ---
 
 ## GET /orders/{order_id}
 
-查询指定订单的状态和详情。
+按平台订单 ID 查询单个订单的当前状态。网关会先尝试从上游拉取实时状态，失败时回落到本地快照，并将状态归一化为统一的平台状态枚举。
+
+<Note>
+  **下单链路**：`/orders/preview` 得 `preview_id` + `confirmation_token` → `/orders/create` 得 `order_id` → **`GET /orders/{order_id}`** 查状态。`order_id`（`ord_` 前缀）必须原样使用 `/orders/create` 返回的值，不要自造或改写。
+</Note>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
-| `X-User-Token` | 是 | 用户 Token |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
 
 ### 路径参数
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `order_id` | string | 饿了么订单号（从 [创建订单](/api-reference/orders/create) 返回的 `order_id`） |
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `order_id` | string | 是 | 平台订单 ID（`ord_` 前缀），原样使用 `/orders/create` 返回的值 |
+
+本接口为 `GET`，无请求体、无查询参数。
 
 ### 响应
 
-<Tabs>
-  <Tab title="200 成功">
-    ```json
-    {
-      "order_id": "12345678901234",
-      "status": "created",
-      "shop_name": "瑞幸咖啡(人民广场店)",
-      "total_amount": 15.0,
-      "created_at": "2026-03-30T10:15:30"
-    }
-    ```
+```json
+{
+  "order_id": "ord_7c1a...",
+  "status": "delivering",
+  "status_text": "配送中",
+  "shop_name": "瑞幸咖啡(人民广场店)",
+  "items_summary": "生椰拿铁 x1，美式 x2",
+  "payable_price": 1500,
+  "delivery": {
+    "status": "DELIVERING",
+    "estimated_time_text": null
+  },
+  "created_at": "2026-06-16T10:20:00+00:00",
+  "paid_at": null,
+  "completed_at": null
+}
+```
 
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | `order_id` | string | 饿了么订单号 |
-    | `status` | string | 订单状态 |
-    | `shop_name` | string | 商家名称 |
-    | `total_amount` | float | 订单金额（元） |
-    | `created_at` | string | 创建时间（ISO 8601） |
-  </Tab>
-  <Tab title="500 未找到">
-    ```json
-    {
-      "error": {
-        "code": "ORDER_FAILED",
-        "message": "Order not found"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
+<Warning>
+  金额字段 `payable_price` 单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 平台订单 ID，原样回传请求中的值 |
+| `status` | string | 归一化后的平台状态枚举（见下表）|
+| `status_text` | string | 状态的中文文案（与 `status` 一一对应）|
+| `shop_name` | string | 店铺名称（取不到时为空串）|
+| `items_summary` | string | 商品摘要，取前 3 项拼成 `名称 x数量`，以中文逗号 `，` 连接 |
+| `payable_price` | integer | 应付金额（分）|
+| `delivery` | object \| null | 配送信息；上游无实时配送数据、或实时查询失败回落本地快照时为 `null` |
+| `delivery.status` | string \| null | 上游配送状态原值 |
+| `delivery.estimated_time_text` | string \| null | 预计送达文案（当前恒为 `null`，上游暂不返回该字段）|
+| `created_at` | string \| null | 下单时间（ISO 8601）|
+| `paid_at` | string \| null | 支付时间（当前恒为 `null`，上游暂不返回该字段）|
+| `completed_at` | string \| null | 完成时间（当前恒为 `null`，上游暂不返回该字段）|
+
+**`status` 枚举与 `status_text` 对照：**
+
+| `status` | `status_text` |
+|------|------|
+| `created` | 订单已创建 |
+| `pending_payment` | 待支付 |
+| `paid` | 已支付 |
+| `preparing` | 商家备餐中 |
+| `delivering` | 配送中 |
+| `completed` | 已完成 |
+| `cancelled` | 已取消 |
+| `failed` | 下单或履约失败 |
+| `refunded` | 已退款 |
+
+无法识别的上游状态会安全回落为 `created`，不会向调用方泄露渠道原始状态码。
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未携带 `X-Consent-Grant-Id`）|
+| 401 | `CONSENT_GRANT_INVALID` | 授权无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本端点 |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `order_id` 无效、过期或不属于当前授权用户 |
+| 500 | `ORDER_FAILED` | 订单未找到（本地无记录且实时查询未命中）|
+
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
 ```bash
-curl -X GET "https://api.clawdot.ai/api/v1/orders/12345678901234" \
+curl "https://api.clawdot.ai/api/v1/orders/ord_7c1a..." \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token"
+  -H "X-Consent-Grant-Id: cg_your_consent_grant"
 ```

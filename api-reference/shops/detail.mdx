@@ -1,158 +1,175 @@
 ---
-title: "商家详情"
-description: "GET /shops/{shop_id} — 获取商家信息和完整菜单"
+title: "店铺菜单"
+description: "POST /shops/menu — 拉取店铺的可下单菜单，返回下单用的 item_id / sku_id，支持关键词过滤与分页"
 ---
 
-## GET /shops/{shop_id}
+## POST /shops/menu
 
-获取指定商家的详细信息和完整菜单（含规格、属性、配料信息）。
+拉取一个店铺的菜单。返回的每个菜单项带网关生成的 `item_id`（及可选 `sku_id` / `option_id`），这些 ID 是后续 `/cart/quote`、`/orders/preview`、`/orders/create` 唯一可用的下单凭据。菜单可能很大（100+ 项），支持 `keyword` 过滤与 `limit` / `offset` 分页（渐进式披露）。
+
+<Note>
+  **下单链路**：`/shops/search` 得 `shop_id` + `cart_id`（已含配送坐标）→ **`/shops/menu`** 选商品得 `item_id` / `sku_id` → `/cart/quote` 算价得 `quote_id` → `/addresses/select` 得 `address_id` → `/orders/preview` 得 `preview_id` + `confirmation_token` → `/orders/create`。菜单必须基于一个已存在的 `cart_id`，且 `shop_id` 必须与该 `cart_id` 匹配（同一次 `/shops/search` 返回）。
+</Note>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
-| `X-User-Token` | 是 | 用户 Token |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
+| `Content-Type` | 是 | `application/json` |
 
-### 路径参数
+### 请求体
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `shop_id` | string | 商家 ID（来自搜索结果的 `id` 字段），ID 类型自动检测 |
+```json
+{
+  "shop_id": "<来自 /shops/search>",
+  "cart_id": "<来自 /shops/search>",
+  "address_id": "<来自 /addresses/select，可选>",
+  "lat": null,
+  "lng": null,
+  "keyword": "拿铁",
+  "limit": 20,
+  "offset": 0
+}
+```
 
-### 查询参数
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `shop_id` | string | 是 | — | 店铺 ID（来自 `/shops/search`），原样回传 |
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `/shops/search`，已封装店铺与配送坐标）|
+| `address_id` | string \| null | 否 | `null` | 网关地址 ID（来自 `/addresses/select`）；提供后用其坐标解析配送位置 |
+| `lat` | float \| null | 否 | `null` | 配送位置纬度；不传则回退到 `cart_id` 内已封装的坐标 |
+| `lng` | float \| null | 否 | `null` | 配送位置经度；不传则回退到 `cart_id` 内已封装的坐标 |
+| `keyword` | string \| null | 否 | `null` | 关键词过滤，按商品名 / 分类名 / 描述匹配（大小写不敏感）|
+| `limit` | integer \| null | 否 | `null` | 本页返回数量，≥ 1；不传则返回（过滤后的）全部 |
+| `offset` | integer | 否 | `0` | 分页偏移，≥ 0；与上一次响应的 `next_offset` 配合翻页 |
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `lat` | float | 是 | 配送位置纬度 |
-| `lng` | float | 是 | 配送位置经度 |
+<Note>
+  `address_id` / `lat` / `lng` 三者用于解析配送坐标，通常无需传：`cart_id` 已封装搜索时的坐标。三者同时不传时使用 `cart_id` 内坐标。
+</Note>
 
 ### 响应
 
 ```json
 {
   "shop": {
-    "id": "E15074238835124929109",
+    "shop_id": "shop_8f3a...",
+    "cart_id": "cart_2b7c...",
     "name": "瑞幸咖啡(人民广场店)",
-    "address": "上海市黄浦区人民大道200号",
-    "business_hours": "周一至周日 08:00-22:00",
-    "announcement": "满30减5"
+    "available": true
   },
-  "menu": [
+  "categories": [
     {
-      "category": "经典咖啡",
+      "name": "经典咖啡",
       "items": [
+        { "item_id": "item_a1b2...", "name": "生椰拿铁" }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "item_id": "item_a1b2...",
+      "name": "生椰拿铁",
+      "category_name": "经典咖啡",
+      "description": "椰浆+浓缩咖啡",
+      "image_url": "https://image.url/item.jpg",
+      "price": 1600,
+      "original_price": 2900,
+      "available": true,
+      "unavailable_reason": null,
+      "sku_options": [
         {
-          "item_id": "670685166551",
-          "sku_id": "5014584502270",
-          "name": "生椰拿铁",
-          "description": "椰浆+浓缩咖啡",
-          "image": "https://image.url/item.jpg",
-          "price": 16.0,
-          "original_price": 29.0,
-          "sold_count": "月售 2000+",
-          "in_stock": true,
-          "specs": [
-            {
-              "name": "规格",
-              "options": ["大杯", "中杯"]
-            }
-          ],
-          "attrs": [
-            {
-              "name": "温度",
-              "options": ["冰", "热"]
-            },
-            {
-              "name": "糖度",
-              "options": ["标准糖", "半糖", "无糖"]
-            }
-          ],
-          "ingredients": [
-            {
-              "group_name": "浓缩份数",
-              "required": true,
-              "default_id": "ig_0_0",
-              "options": [
-                {
-                  "id": "ig_0_0",
-                  "name": "标准(1份浓缩)",
-                  "price": 0.0,
-                  "item_id": "670685166551",
-                  "sku_id": "5014584502270",
-                  "package_id": "1234567890",
-                  "excludes": ["ig_1_1"]
-                },
-                {
-                  "id": "ig_0_1",
-                  "name": "加浓(2份浓缩)",
-                  "price": 3.0,
-                  "item_id": "670685166552",
-                  "sku_id": "5014584502271",
-                  "package_id": "1234567891"
-                }
-              ]
-            }
-          ],
-          "default_ingredients": [
-            {
-              "item_id": "670685166551",
-              "sku_id": "5014584502270",
-              "package_id": "1234567890",
-              "buy_amount": 1
-            }
-          ]
+          "sku_id": "sku_c3d4...",
+          "name": "大杯",
+          "price": 1600,
+          "available": true
+        }
+      ],
+      "ingredient_options": [
+        {
+          "option_id": "opt_e5f6...",
+          "group_name": "糖度",
+          "name": "标准糖",
+          "price_delta": 0,
+          "selected_by_default": true,
+          "available": true
         }
       ]
     }
-  ]
+  ],
+  "total_items": 128,
+  "has_more": true,
+  "next_offset": 20
 }
 ```
 
-### 店铺信息
+<Warning>
+  所有金额字段（`price` / `original_price` / `price_delta`）单位为**分（整数）**，不是元。例如 `price: 1600` 表示 ¥16.00。
+</Warning>
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | string | 店铺 ID（与搜索结果一致） |
-| `name` | string | 店铺名称 |
-| `address` | string | 店铺地址 |
-| `business_hours` | string | 营业时间描述 |
-| `announcement` | string | 店铺公告 |
-
-### 菜单项字段
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `item_id` | string | 商品 ID（Taobao ID），**下单必需** |
-| `sku_id` | string | SKU ID（Taobao ID），**下单必需** |
-| `name` | string | 商品名称 |
-| `price` | float | 当前价格（元） |
-| `original_price` | float \| null | 原价（元），无折扣时为 null |
-| `sold_count` | string | 销量文本（如 "月售 2000+"） |
-| `in_stock` | boolean | 是否有货 |
-| `specs` | array | 规格选项组（如杯型），下单时每组选一个值 |
-| `attrs` | array | 属性选项组（如温度、糖度），下单时每组选一个值 |
-| `ingredients` | array | 配料选项组（完整结构，含互斥规则） |
-| `default_ingredients` | array | **预计算的默认配料选择**，可直接用于快速下单 |
-
-### 配料互斥规则（`excludes`）
-
-部分配料选项之间存在互斥关系。每个选项的 `excludes` 字段列出了不兼容的其他选项 ID。
-
-**选择逻辑：**
-1. 维护一个 `excluded_ids` 集合（初始为空）
-2. 对每个配料组，仅展示 `id` 不在 `excluded_ids` 中的选项
-3. 用户选择一个选项后，将其 `excludes` 中的所有 ID 加入 `excluded_ids`
-4. 重新过滤剩余组的可选项
+| `shop.shop_id` | string | 店铺 ID（原样回传请求中的 `shop_id`）|
+| `shop.cart_id` | string | 购物车上下文 ID（原样回传请求中的 `cart_id`）|
+| `shop.name` | string | 店铺名称 |
+| `shop.available` | boolean | 店铺是否可下单（当前恒为 `true`）|
+| `categories` | array | 本页商品按分类的轻量索引 |
+| `categories[].name` | string | 分类名 |
+| `categories[].items` | array | 该分类下的商品（仅 `item_id` + `name`）|
+| `items` | array | 本页完整商品列表（见下）|
+| `items[].item_id` | string | 商品 ID（`item_`），**下单必需**；传给 `/cart/quote`、`/orders/preview` 的 `items[].item_id` |
+| `items[].name` | string | 商品名 |
+| `items[].category_name` | string \| null | 所属分类名 |
+| `items[].description` | string \| null | 商品描述 |
+| `items[].image_url` | string \| null | 商品图片 URL |
+| `items[].price` | integer | 当前价（分）|
+| `items[].original_price` | integer \| null | 原价（分）；无折扣时为 `null` |
+| `items[].available` | boolean | 是否有货 |
+| `items[].unavailable_reason` | string \| null | 不可用原因；售罄时为 `"sold_out"`，否则 `null` |
+| `items[].sku_options` | array | 规格选项（如杯型）；下单时在 `items[].sku_id` 传所选 `sku_id` |
+| `items[].sku_options[].sku_id` | string | SKU ID（`sku_`），原样回传到下单的 `sku_id` |
+| `items[].sku_options[].name` | string | 规格名（如「大杯」）|
+| `items[].sku_options[].price` | integer | 该规格价（分）|
+| `items[].sku_options[].available` | boolean | 该规格是否可选 |
+| `items[].ingredient_options` | array | 配料 / 做法选项（如温度、糖度）|
+| `items[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），原样回传到下单的 `items[].ingredient_option_ids` |
+| `items[].ingredient_options[].group_name` | string | 选项组名（如「糖度」）|
+| `items[].ingredient_options[].name` | string | 选项名（如「标准糖」）|
+| `items[].ingredient_options[].price_delta` | integer | 该选项加价（分），默认 `0` |
+| `items[].ingredient_options[].selected_by_default` | boolean | 是否为默认选项 |
+| `items[].ingredient_options[].available` | boolean | 该选项是否可选 |
+| `total_items` | integer | 过滤（`keyword`）后的商品总数 |
+| `has_more` | boolean | 是否还有下一页 |
+| `next_offset` | integer \| null | 下一页的 `offset`；`has_more` 为 `false` 时为 `null` |
 
 <Tip>
-  **AI Agent 快速下单**：直接使用 `default_ingredients` 字段，无需理解配料互斥规则。详见 [商品规格说明](/gateway/item-specs)。
+  **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。
 </Tip>
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 缺少 / 无效 / 已过期的用户授权（过期需重新授权）|
+| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent 未开通该能力，或授权与能力不匹配 |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` 无效或过期，`shop_id` 无效，或 `shop_id` 与 `cart_id` 不匹配 |
+| 502 | `ELEME_ERROR` | 上游获取菜单失败 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
 ```bash
-curl -X GET "https://api.clawdot.ai/api/v1/shops/E15074238835124929109?lat=31.23&lng=121.47" \
+curl -X POST "https://api.clawdot.ai/api/v1/shops/menu" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token"
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<来自 /shops/search>",
+    "cart_id": "<来自 /shops/search>",
+    "keyword": "拿铁",
+    "limit": 20,
+    "offset": 0
+  }'
 ```

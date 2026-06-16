@@ -1,0 +1,118 @@
+---
+title: "search_shops"
+description: "MCP 工具，对应 REST POST /shops/search — 按位置搜索或浏览附近店铺，每个结果含 shop_id + cart_id（已封装店铺与配送坐标）"
+---
+
+## search_shops
+
+按配送位置搜索或浏览店铺。每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu`、`quote_cart`、`preview_order` 的入口。
+
+<Note>
+  **下单链路**：**`search_shops`** 得 `shop_id` + `cart_id`（已含配送坐标）→ `get_shop_menu` 选商品 → `quote_cart` 算价得 `quote_id` → `select_address` 得 `address_id` → `preview_order` 得 `preview_id` + `confirmation_token` → `create_order`。下游工具的 `shop_id` / `cart_id` 必须原样回传，不要自造。
+</Note>
+
+**两种模式（由 `keyword` 切换）：**
+
+- **不传 / 传空 `keyword`** → 浏览模式：返回附近店铺信息流（最多 20 家），带距离、评分、配送费、起送价、营业状态等决策字段。
+- **传 `keyword`** → 精确搜索（约 5 家）：`keyword` 可为店名（"瑞幸咖啡"）、品类（"奶茶"）或具体商品名（"生椰拿铁"）；上游按商品级匹配，故商品名关键词会返回真正在售该商品的店铺。每家店附带 `matched_items`（仅展示用的命中商品预览）。注意：此模式**不返回** distance / rating / delivery_fee 等字段（上游限制）。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `keyword` | string \| null | 否 | `null` | 关键词：店名 / 品类 / 商品名。不传或传空则进入浏览模式 |
+| `address_id` | string \| null | 否 | `null` | 网关地址 ID（来自 `select_address`）；用于解析配送坐标，优先于 `lat`/`lng` |
+| `lat` | float \| null | 否 | `null` | 纬度（GCJ-02）|
+| `lng` | float \| null | 否 | `null` | 经度（GCJ-02）|
+| `city` | string \| null | 否 | `null` | 城市名，用于限定搜索范围 |
+
+<Note>
+  **配送坐标如何解析**：依次取 ① `address_id` 对应保存地址的经纬度 → ② 显式传入的 `lat`/`lng` → ③ 该用户最近使用过的保存地址 / 历史定位。三者都没有时返回 `COORDS_REQUIRED`。即 `address_id` 与 `lat`/`lng` 均为可选，但至少要能解析出一个位置。
+</Note>
+
+### 返回
+
+```json
+{
+  "shops": [
+    {
+      "shop_id": "shop_4f2a...",
+      "cart_id": "cart_9b3e...",
+      "name": "瑞幸咖啡(人民广场店)",
+      "brand_name": "瑞幸咖啡",
+      "logo_url": "https://image.url/shop.jpg",
+      "distance_text": "1.2km",
+      "delivery_time_text": "35分钟",
+      "delivery_fee_text": "配送 ¥3",
+      "rating": 4.8,
+      "monthly_sales_text": "月售2000+",
+      "min_order_amount": 0,
+      "available": true,
+      "unavailable_reason": null,
+      "matched_items": [
+        {
+          "name": "生椰拿铁",
+          "description": "椰浆+浓缩咖啡",
+          "price": 1600,
+          "original_price": 2900
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Warning>
+  金额字段单位为**分（整数）**，不是元。例如 `min_order_amount: 0` 表示 ¥0、`price: 1600` 表示 ¥16.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `shops` | array | 店铺列表（浏览模式最多 20 家，关键词搜索约 5 家）|
+| `shops[].shop_id` | string | 店铺 ID（`shop_` 前缀）；原样传给 `get_shop_menu` / `quote_cart` / `preview_order` |
+| `shops[].cart_id` | string | 购物车上下文 ID（`cart_` 前缀），已封装该店铺与配送坐标；后续工具据此免传经纬度 |
+| `shops[].name` | string | 店铺名称 |
+| `shops[].brand_name` | string \| null | 品牌名 |
+| `shops[].logo_url` | string \| null | 店铺图标 URL |
+| `shops[].distance_text` | string \| null | 距配送位置距离（文案；关键词搜索模式可能为 `null`）|
+| `shops[].delivery_time_text` | string \| null | 预计送达文案（关键词搜索模式可能为 `null`）|
+| `shops[].delivery_fee_text` | string \| null | 配送费文案（关键词搜索模式可能为 `null`）|
+| `shops[].rating` | float \| null | 评分（关键词搜索模式可能为 `null`）|
+| `shops[].monthly_sales_text` | string \| null | 月销文案 |
+| `shops[].min_order_amount` | integer \| null | 起送金额（分）；缺失为 `null` |
+| `shops[].available` | boolean | 是否可下单（营业且未关闭）|
+| `shops[].unavailable_reason` | string \| null | 不可用原因 |
+| `shops[].matched_items` | array | 命中商品预览（仅关键词搜索有；**仅展示用**）|
+| `shops[].matched_items[].name` | string | 商品名 |
+| `shops[].matched_items[].description` | string \| null | 商品描述（最多 80 字）|
+| `shops[].matched_items[].price` | integer | 商品价（分）|
+| `shops[].matched_items[].original_price` | integer \| null | 原价（分）|
+
+<Warning>
+  `matched_items` **不带任何 ID，也不含库存状态**。要下单必须先调 `get_shop_menu`，使用其返回的 `item_id` / `sku_id` / 选项 ID；商品是否在售也以菜单为准。
+</Warning>
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | 缺少或无效的用户授权 |
+| `PUBLIC_REFERENCE_INVALID` | `address_id` 无效或不属于当前授权用户 |
+| `COORDS_REQUIRED` | 既未传 `address_id` 也未传 `lat`/`lng`，且无历史定位可回退 |
+| `ELEME_ERROR` | 上游搜索接口异常 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "search_shops",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "keyword": "生椰拿铁",
+    "address_id": "<来自 select_address>"
+  }
+}
+```

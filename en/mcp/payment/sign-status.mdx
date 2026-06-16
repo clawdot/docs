@@ -1,0 +1,72 @@
+---
+title: "get_sign_status"
+description: "MCP tool, maps to REST GET /payment/sign-status — check whether the consented user has completed passwordless payment signing"
+---
+
+## get_sign_status
+
+Checks whether the current consented user has completed passwordless payment signing with the provider. Before placing an order (`create_order`), confirm that `signed` is `true`; if not signed, follow the returned `next_action` to guide the user through signing. Signing status is queried live from upstream using the consent context (user, device); the caller does not pass a mobile number or device ID.
+
+<Note>
+  **Signing flow**: call **`get_sign_status`** to check `signed` → if `false`, call `get_sign_action` to get an H5 signing URL and guide the user to complete signing in a browser → call `get_sign_status` again to confirm `signed` becomes `true` → proceed to the order flow.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`); identifies the consented user |
+
+The mobile number, device ID, and signing channel needed for the lookup are all derived by the gateway from the consent context; the caller neither needs nor can pass them.
+
+### Returns
+
+```json
+{
+  "signed": false,
+  "signed_at": null,
+  "next_action": "get_sign_action"
+}
+```
+
+When already signed:
+
+```json
+{
+  "signed": true,
+  "signed_at": "2026-06-16T08:30:00.123456+00:00",
+  "next_action": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `signed` | boolean | Whether passwordless payment signing is complete |
+| `signed_at` | string \| null | Time this query confirmed signing (ISO 8601, UTC); always `null` when `signed` is `false` |
+| `next_action` | string \| null | `"get_sign_action"` when not signed (hint to call `get_sign_action` next); `null` when signed |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` | Missing Agent authentication (no credential at the connection layer) |
+| `AUTH_INVALID` | API Key invalid or disabled |
+| `CONSENT_GRANT_REQUIRED` | Missing `consent_grant_id` parameter |
+| `CONSENT_GRANT_INVALID` | User consent grant invalid |
+| `CONSENT_GRANT_EXPIRED` | User consent grant expired; re-authorization required |
+| `CAP_NOT_BOUND` | The Agent has not been granted the delivery capability |
+| `CONSENT_GRANT_WRONG_CAP` | Grant belongs to a different capability / provider |
+| `ELEME_ERROR` | Upstream sign-status query failed |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "get_sign_status",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

@@ -1,0 +1,63 @@
+---
+title: "get_homepage_url"
+description: "MCP tool that generates a ready-to-open Eleme H5 homepage link (action) for the consented user — maps to REST POST /auth/homepage-url"
+---
+
+## get_homepage_url
+
+Generates a ready-to-open Eleme H5 homepage link for the consented user, wrapped as an `action` (`open_h5`). The link carries a channel JWT signed locally for the user's identity; hand it to the frontend / IM so the user can tap to land on their Eleme homepage.
+
+<Note>
+  **Dependency**: complete user binding to obtain a `consent_grant_id` first (`request_user_bind` → `verify_user_bind`). Once opened, the user's Eleme session is tied to this consent grant — the caller does not assemble any parameters. Pass the returned `action_url` to the user as-is; do not rewrite it or append query parameters.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_`), from `verify_user_bind` |
+| `scene` | string \| null | No | `null` | Scene marker (placeholder). The server does not consume this value yet; sending it has no effect on the returned link |
+
+### Returns
+
+```json
+{
+  "action": {
+    "action_id": "act_3f9a...",
+    "action_type": "open_h5",
+    "action_url": "https://h5.ele.me/minisite/?from=...&opensite_source=...&jwt=...",
+    "expires_at": "2026-07-16T08:30:00+00:00"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `action` | object | Action object for the frontend to execute |
+| `action.action_id` | string | Action ID (`act_`), a handle to the action context |
+| `action.action_type` | string | Action type; always `open_h5` for this tool (open `action_url` in a browser / WebView) |
+| `action.action_url` | string | The Eleme H5 homepage link to open; an empty string `""` when the user has no platform identity yet |
+| `action.expires_at` | string | Action expiry (ISO 8601, UTC); valid for 30 days |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` invalid or revoked |
+| `CONSENT_GRANT_EXPIRED` | Consent grant expired |
+| `CAP_NOT_BOUND` | The Agent has not enabled this capability |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to another capability / provider |
+| `HOMEPAGE_URL_CONFIG_MISSING` | Server missing the secret required to generate the link; contact the platform |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "get_homepage_url",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

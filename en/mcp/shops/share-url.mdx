@@ -1,0 +1,55 @@
+---
+title: "get_shop_share_url"
+description: "MCP tool, maps to REST POST /shops/share-url — generate an H5 share short link for a shop"
+---
+
+## get_shop_share_url
+
+Generates a shareable H5 short link (short URL) for a shop. The gateway wraps the provider's raw scheme (which embeds an internal ID and UA) behind a short link, so callers only ever see our short link and never touch the internal ID.
+
+<Note>
+  **Flow**: `search_shops` → `shop_id` → **`get_shop_share_url`** → `share_url`. Use the `shop_id` returned by `search_shops` as-is; do not construct it yourself.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `shop_id` | string | Yes | — | Shop ID (`shop_` prefix, from `search_shops`); pass it back as-is |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `share_url` | string | The shop's H5 share short link. If the short-url service is unconfigured or errors, it degrades to the provider's raw scheme (internal info may then be visible) |
+
+<Note>
+  This tool returns no amount fields and does not echo `shop_id` (a synchronous single-shop call — the caller already holds it).
+</Note>
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| `PUBLIC_REFERENCE_INVALID` | `shop_id` invalid, expired, or not owned by the current consent user |
+| `ELEME_ERROR` | Upstream failed to generate the share scheme |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "get_shop_share_url",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<from search_shops>"
+  }
+}
+```

@@ -1,11 +1,11 @@
 ---
 title: "错误处理"
-description: "统一错误格式和所有错误码说明"
+description: "统一错误格式与全部错误码"
 ---
 
 ## 统一错误格式
 
-所有错误响应遵循统一格式：
+所有错误响应（HTTP 与 MCP 一致）遵循统一格式：
 
 ```json
 {
@@ -16,56 +16,95 @@ description: "统一错误格式和所有错误码说明"
 }
 ```
 
+错误体只含 `code` 与 `message` 两个字段。
+
 ## 错误码参考
 
-### 认证错误 (401)
+### 认证 (401)
 
 | 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `AUTH_REQUIRED` | 缺少 `Authorization` 请求头 | 添加 `Bearer clw_...` 头 |
-| `AUTH_INVALID` | API Key 无效或已被禁用 | 检查 Key 是否正确，联系管理员确认状态 |
-| `USER_TOKEN_REQUIRED` | 缺少 `X-User-Token` 请求头 | 通过 SMS 绑定流程获取 Token |
-| `USER_TOKEN_INVALID` | User Token 无效或已过期 | 重新绑定用户（Token 默认 90 天有效）|
+|---|---|---|
+| `AUTH_REQUIRED` | 缺少 API Key | 加 `Authorization: Bearer clw_...` |
+| `AUTH_INVALID` | API Key 无效或已禁用 | 检查 Key，或联系平台确认状态 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` | REST 传 `X-Consent-Grant-Id` 头 / MCP 传 `consent_grant_id` 参数 |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已过期 | 重新走绑定流程获取新的 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期 | 重新走绑定流程授权 |
 
-### 客户端错误 (400)
-
-| 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `SMS_CODE_INVALID` | 验证码错误或已过期 | 验证码 10 分钟有效，重新发送 |
-
-### 限流错误 (429)
+### 权限 / 能力 (403)
 
 | 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `SMS_COOLDOWN` | 60 秒内重复发送验证码 | 等待冷却时间结束 |
-| `RATE_LIMITED` | 超过请求频率限制 | 降低请求频率（下单 10次/分钟，其他 60次/分钟）|
+|---|---|---|
+| `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 | 联系平台为该 Agent 开通对应能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 | 使用与该能力匹配的授权 |
 
-### 资源错误 (404)
-
-| 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `SHOP_NOT_FOUND` | 商家 ID 不存在 | 检查 shop_id 格式（应为 E 前缀）|
-
-### 服务端错误 (500)
+### 客户端 / 参数 (400)
 
 | 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `ORDER_FAILED` | 订单创建或预览失败 | session_id 可能已过期（10 分钟），重新预览 |
+|---|---|---|
+| `PUBLIC_REFERENCE_INVALID` | 平台 ID（店铺 / 地址 / 订单等）无效、过期或不属于当前授权用户 | 重新获取对应资源 ID |
+| `CART_PRICE_INVALID` | 购物车算价请求无效 | 检查 `items` / `cart_id` |
+| `SMS_CODE_INVALID` | 验证码无效或已过期 | 重新发送验证码 |
+| `CONTACT_REQUIRED` | 选择地址缺收货人 | 传 `contact_name` 与 `contact_phone` |
+| `DETAIL_REQUIRED` | POI 地址缺门牌 / 楼层 | 让用户补充非空门牌后重试 |
+| `SUGGESTION_EXPIRED` | 地址建议 token 失效 | 重新调用地址搜索 |
+| `COORDS_REQUIRED` | 缺坐标 | 显式传 `lat`/`lng`，或先搜一次店铺 |
+| `ADDRESS_UPDATE_REQUIRES_TOKEN` | 改地址位置 / 门牌需 POI token | 先搜地址取 token；仅改 `tag` 无需 |
+| `DEVICE_ID_REQUIRED` | 缺 `device_id`（≤48 字符）| 传入有效 `device_id` |
 
-### 上游错误 (502)
+### 资源不存在 (404)
 
 | 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `UPSTREAM_ERROR` | 外卖平台 API 返回错误 | 稍后重试，检查参数是否正确 |
+|---|---|---|
+| `SHOP_NOT_FOUND` | 店铺不存在 | 检查 `shop_id`（平台 ID，`shop_` 前缀）|
+| `ADDRESS_NOT_FOUND` | 地址不存在或不属于当前 Agent | 检查 `address_id` |
+| `ELEME_USER_NOT_FOUND` | 手机号无可绑定的淘宝闪购 / 饿了么账号 | 让用户先用该手机号登录或开通 |
+
+### 冲突 (409)
+
+| 错误码 | 说明 | 处理建议 |
+|---|---|---|
+| `IDEMPOTENCY_CONFLICT` | 同一确认令牌用于了不同的下单参数 | 重新预览获取新的确认令牌 |
+| `BINDING_LIMIT_REACHED` | 已达可绑定用户数上限 | 先解绑现有用户或申请提升配额 |
+
+### 限流 (429)
+
+| 错误码 | 说明 | 处理建议 |
+|---|---|---|
+| `RATE_LIMITED` | 请求频率超限 | 降低频率后重试 |
+| `SMS_COOLDOWN` | 验证码 60 秒冷却中 | 等冷却结束 |
+| `QUOTA_EXCEEDED` | 配额用尽 | 等配额重置或申请提升 |
+
+### 服务端 (500)
+
+| 错误码 | 说明 | 处理建议 |
+|---|---|---|
+| `ORDER_FAILED` | 订单创建失败 | 重新预览后重试 |
+
+### 上游 (502)
+
+| 错误码 | 说明 | 处理建议 |
+|---|---|---|
+| `ELEME_ERROR` | 淘宝闪购 / 饿了么上游 API 错误 | 稍后重试 |
+| `SIGN_ADDRESS_NOT_FOUND` | 上游响应未返回签约地址 | 稍后重试 |
+
+### 服务不可用 (503)
+
+| 错误码 | 说明 | 处理建议 |
+|---|---|---|
+| `PROVIDER_NOT_AVAILABLE` | 服务商适配器暂不可用 | 稍后重试 |
+| `HOMEPAGE_URL_CONFIG_MISSING` | 服务端未配置生成首页链接所需密钥 | 联系平台 |
 
 ## HTTP 状态码总结
 
 | 状态码 | 含义 |
-|--------|------|
-| 200 | 请求成功 |
+|---|---|
+| 200 | 成功 |
 | 400 | 客户端参数错误 |
-| 401 | 认证失败 |
+| 401 | 认证 / 授权失败 |
+| 403 | 能力或授权范围不匹配 |
 | 404 | 资源不存在 |
+| 409 | 冲突（幂等 / 配额）|
 | 429 | 请求频率超限 |
 | 500 | 服务端内部错误 |
-| 502 | 上游 API 不可用 |
+| 502 | 上游 API 错误 |
+| 503 | 服务暂不可用 |

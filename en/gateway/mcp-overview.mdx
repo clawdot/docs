@@ -1,68 +1,31 @@
 ---
 title: "MCP Integration"
-description: "Access Clawdot Gateway through Model Context Protocol"
+description: "Clawdot Gateway also exposes an MCP interface; the authoritative docs live under api-reference/mcp"
 ---
 
-## Overview
+Alongside the REST API, Clawdot Gateway exposes an **MCP (Model Context Protocol)** interface over the **Streamable HTTP** transport, reusing the same service layer as the REST API. MCP exposes **18 tools**, each mapping to one REST endpoint; apart from `consent_grant_id`, a tool's parameters match the request body fields of its corresponding REST endpoint.
 
-Clawdot Gateway provides MCP (Model Context Protocol) interface through `/mcp` endpoint, allowing AI Agent to directly call food delivery capabilities.
+<Note>
+  This page is just an entry point. For the full connection details, authentication, and ordering flow see [MCP Overview](/en/mcp/overview); for the signatures and parameters of all 18 tools see [MCP Tools Reference](/en/mcp/overview). Those two pages are the authoritative source.
+</Note>
 
-MCP and REST API share the same service layer, functionality is identical.
+## Authoritative docs
 
-## Connection Methods
+<CardGroup cols={2}>
+  <Card title="MCP Overview" icon="plug" href="/en/mcp/overview">
+    Connection endpoint `/mcp/v1`, Streamable HTTP, two-layer auth, and the ordering flow.
+  </Card>
+  <Card title="MCP Tools Reference" icon="wrench" href="/en/mcp/overview">
+    Signatures, parameters, and return structures of all 18 tools (linked to each REST endpoint page).
+  </Card>
+</CardGroup>
 
-### Streamable HTTP
+## Quick facts
 
-```
-POST https://your-gateway/mcp
-Authorization: Bearer clw_your_api_key
-```
-
-MCP uses Streamable HTTP transport protocol. Authentication is same as REST (Bearer Token).
-
-### Claude Desktop Configuration
-
-```json
-{
-  "mcpServers": {
-    "clawdot": {
-      "url": "https://your-gateway/mcp",
-      "headers": {
-        "Authorization": "Bearer clw_your_api_key"
-      }
-    }
-  }
-}
-```
-
-## Differences from REST API
-
-| Difference | REST API | MCP |
-|---|---|---|
-| User Token Passing | `X-User-Token` request header | `user_token` parameter for each tool |
-| Item List Format | JSON array | `items_json` JSON string |
-| Authentication | FastAPI dependency injection | ASGI middleware inject `agent_id` |
+- **Connection endpoint:** `https://api.clawdot.ai/mcp/v1`. The gateway mounts the MCP app under `/mcp`, and FastMCP's inner route is versioned (`/v1`), so the public endpoint is `/mcp/v1`.
+- **Authentication:** the two-layer auth matches the REST API — an **API Key** (`Authorization: Bearer clw_...` header) identifies the Agent, and a **consent grant** (`cg_` prefix) identifies the authorized user. See [Authentication](/en/gateway/authentication).
+- **Errors:** unified `{"error": {"code", "message"}}` format. See [Error Handling](/en/gateway/error-handling).
 
 <Warning>
-  In MCP's `preview_order` tool, `items_json` must be a **JSON string** (not an array).
-
-  Correct: `"items_json": "[{\"item_id\": \"123\", ...}]"`
-
-  Wrong: `"items_json": [{"item_id": "123", ...}]`
+  `consent_grant_id` is a **parameter on each MCP tool**, not a header; the `X-Consent-Grant-Id` header is only used by the REST API.
 </Warning>
-
-## Available Tools
-
-MCP provides 9 tools, completely covering food delivery flow. See [Tool Reference](/gateway/mcp-tools).
-
-| Tool | Corresponding REST | Description |
-|---|---|---|
-| `search_shops` | `GET /shops/search` | Search shops |
-| `get_shop_detail` | `GET /shops/{id}` | Shop details + menu |
-| `search_pois` | `POST /addresses/search` | Search POI |
-| `select_address` | `POST /addresses/select` | Select POI |
-| `list_addresses` | `GET /addresses` | Address list |
-| `create_address` | `POST /addresses` | Create address |
-| `preview_order` | `POST /orders/preview` | Preview order |
-| `confirm_order` | `POST /orders` | Confirm order |
-| `get_order` | `GET /orders/{id}` | Query order |

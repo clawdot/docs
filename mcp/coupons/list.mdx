@@ -1,0 +1,83 @@
+---
+title: "list_coupons"
+description: "MCP 工具，对应 REST POST /coupons/list — 列出当前授权用户账户下的可用优惠券（账户级，与具体订单无关）"
+---
+
+## list_coupons
+
+列出当前授权用户账户下的可用优惠券。返回的是**账户级**优惠券，与某次具体下单是否可用无关——某张券在当前购物车能否使用，由 `preview_order` 的 `available_coupons` 判定。对应 REST 端点 `POST /coupons/list`。
+
+<Note>
+  本工具仅凭 `consent_grant_id` 识别用户后，向上游服务商查询其账户优惠券。返回的 `coupon_id` 仅用于阅读展示，**不能**直接回传给 `preview_order` 的 `coupon_ids`——预览选券时应使用该次预览返回的 `available_coupons[].coupon_id`。
+</Note>
+
+### 参数
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀），标识已授权用户 |
+
+### 返回
+
+```json
+{
+  "coupons": [
+    {
+      "coupon_id": "cpn_1a2b...",
+      "name": "满20减5",
+      "amount": 500,
+      "threshold": 2000,
+      "threshold_desc": "满20元可用",
+      "begin_time": "2026-06-01T00:00:00",
+      "end_time": "2026-06-30T23:59:59",
+      "status": "NORMAL",
+      "coupon_type": "other",
+      "restrict_desc": ["限外卖订单使用"]
+    }
+  ],
+  "total": 1
+}
+```
+
+<Warning>
+  金额字段（`amount` / `threshold`）单位为**分（整数）**，不是元。例如 `amount: 500` 表示 ¥5.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `coupons` | array | 优惠券列表；用户无券时为空数组 |
+| `coupons[].coupon_id` | string | 优惠券引用 ID（`cpn_` 前缀），仅供展示；预览选券请用 `preview_order` 返回的 `available_coupons[].coupon_id` |
+| `coupons[].name` | string | 券名称（缺省为「优惠券」）|
+| `coupons[].amount` | integer | 券面额（分）|
+| `coupons[].threshold` | integer | 使用门槛（分）；`0` 表示无门槛 |
+| `coupons[].threshold_desc` | string | 门槛文案，如「满20元可用」或「无门槛」|
+| `coupons[].begin_time` | string \| null | 生效时间（ISO 8601 本地时间字符串）|
+| `coupons[].end_time` | string \| null | 失效时间（ISO 8601 本地时间字符串）|
+| `coupons[].status` | string | 券状态（缺省为 `NORMAL`）|
+| `coupons[].coupon_type` | string | 券来源 / 类型（缺省为 `other`）|
+| `coupons[].restrict_desc` | string[] | 使用限制文案列表，如 `["限外卖订单使用"]`；无限制时为空数组 |
+| `total` | integer | 返回的优惠券数量（= `coupons` 长度）|
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少用户授权 |
+| 401 | `CONSENT_GRANT_INVALID` | 授权 ID 无效（未找到对应绑定）|
+| 401 | `CONSENT_GRANT_EXPIRED` | 授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力或服务商 |
+| 502 | `ELEME_ERROR` | 上游优惠券查询失败 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "list_coupons",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

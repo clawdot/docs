@@ -88,29 +88,100 @@
                                 ]
                             },
                             {
-                                "group": "RESTful API",
+                                "group": "授权",
+                                "pages": [
+                                    "api-reference/user/bind-request",
+                                    "api-reference/user/bind-verify",
+                                    "api-reference/user/auth-status",
+                                    "api-reference/user/unbind",
+                                    "api-reference/user/homepage-url"
+                                ]
+                            },
+                            {
+                                "group": "店铺",
                                 "pages": [
                                     "api-reference/shops/search",
                                     "api-reference/shops/detail",
+                                    "api-reference/shops/share-url"
+                                ]
+                            },
+                            {
+                                "group": "地址",
+                                "pages": [
                                     "api-reference/addresses/search",
                                     "api-reference/addresses/select",
+                                    "api-reference/addresses/update"
+                                ]
+                            },
+                            {
+                                "group": "下单",
+                                "pages": [
+                                    "api-reference/cart/quote",
+                                    "api-reference/coupons/list",
                                     "api-reference/orders/preview",
                                     "api-reference/orders/create",
                                     "api-reference/orders/get"
                                 ]
                             },
                             {
-                                "group": "MCP Server",
+                                "group": "支付",
                                 "pages": [
-                                    "api-reference/mcp/overview",
-                                    "api-reference/mcp/tools"
+                                    "api-reference/payment/sign-action",
+                                    "api-reference/payment/sign-status"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "MCP",
+                        "groups": [
+                            {
+                                "group": "概览",
+                                "pages": [
+                                    "mcp/overview"
                                 ]
                             },
                             {
-                                "group": "高级功能",
+                                "group": "授权",
                                 "pages": [
-                                    "api-reference/user/bind-request",
-                                    "api-reference/user/bind-verify"
+                                    "mcp/user/bind-request",
+                                    "mcp/user/bind-verify",
+                                    "mcp/user/auth-status",
+                                    "mcp/user/unbind",
+                                    "mcp/user/homepage-url"
+                                ]
+                            },
+                            {
+                                "group": "店铺",
+                                "pages": [
+                                    "mcp/shops/search",
+                                    "mcp/shops/detail",
+                                    "mcp/shops/share-url"
+                                ]
+                            },
+                            {
+                                "group": "地址",
+                                "pages": [
+                                    "mcp/addresses/search",
+                                    "mcp/addresses/select",
+                                    "mcp/addresses/update"
+                                ]
+                            },
+                            {
+                                "group": "下单",
+                                "pages": [
+                                    "mcp/cart/quote",
+                                    "mcp/coupons/list",
+                                    "mcp/orders/preview",
+                                    "mcp/orders/create",
+                                    "mcp/orders/get"
+                                ]
+                            },
+                            {
+                                "group": "支付",
+                                "pages": [
+                                    "mcp/payment/sign-action",
+                                    "mcp/payment/sign-status"
                                 ]
                             }
                         ]
@@ -183,29 +254,100 @@
                                 ]
                             },
                             {
-                                "group": "RESTful API",
+                                "group": "Authorization",
+                                "pages": [
+                                    "en/api-reference/user/bind-request",
+                                    "en/api-reference/user/bind-verify",
+                                    "en/api-reference/user/auth-status",
+                                    "en/api-reference/user/unbind",
+                                    "en/api-reference/user/homepage-url"
+                                ]
+                            },
+                            {
+                                "group": "Shops",
                                 "pages": [
                                     "en/api-reference/shops/search",
                                     "en/api-reference/shops/detail",
+                                    "en/api-reference/shops/share-url"
+                                ]
+                            },
+                            {
+                                "group": "Addresses",
+                                "pages": [
                                     "en/api-reference/addresses/search",
                                     "en/api-reference/addresses/select",
+                                    "en/api-reference/addresses/update"
+                                ]
+                            },
+                            {
+                                "group": "Order",
+                                "pages": [
+                                    "en/api-reference/cart/quote",
+                                    "en/api-reference/coupons/list",
                                     "en/api-reference/orders/preview",
                                     "en/api-reference/orders/create",
                                     "en/api-reference/orders/get"
                                 ]
                             },
                             {
-                                "group": "MCP Server",
+                                "group": "Payment",
                                 "pages": [
-                                    "en/api-reference/mcp/overview",
-                                    "en/api-reference/mcp/tools"
+                                    "en/api-reference/payment/sign-action",
+                                    "en/api-reference/payment/sign-status"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "MCP",
+                        "groups": [
+                            {
+                                "group": "Overview",
+                                "pages": [
+                                    "en/mcp/overview"
                                 ]
                             },
                             {
-                                "group": "Advanced",
+                                "group": "Authorization",
                                 "pages": [
-                                    "en/api-reference/user/bind-request",
-                                    "en/api-reference/user/bind-verify"
+                                    "en/mcp/user/bind-request",
+                                    "en/mcp/user/bind-verify",
+                                    "en/mcp/user/auth-status",
+                                    "en/mcp/user/unbind",
+                                    "en/mcp/user/homepage-url"
+                                ]
+                            },
+                            {
+                                "group": "Shops",
+                                "pages": [
+                                    "en/mcp/shops/search",
+                                    "en/mcp/shops/detail",
+                                    "en/mcp/shops/share-url"
+                                ]
+                            },
+                            {
+                                "group": "Addresses",
+                                "pages": [
+                                    "en/mcp/addresses/search",
+                                    "en/mcp/addresses/select",
+                                    "en/mcp/addresses/update"
+                                ]
+                            },
+                            {
+                                "group": "Order",
+                                "pages": [
+                                    "en/mcp/cart/quote",
+                                    "en/mcp/coupons/list",
+                                    "en/mcp/orders/preview",
+                                    "en/mcp/orders/create",
+                                    "en/mcp/orders/get"
+                                ]
+                            },
+                            {
+                                "group": "Payment",
+                                "pages": [
+                                    "en/mcp/payment/sign-action",
+                                    "en/mcp/payment/sign-status"
                                 ]
                             }
                         ]

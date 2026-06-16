@@ -1,0 +1,104 @@
+---
+title: "request_user_bind"
+description: "MCP tool request_user_bind — start a user consent binding (sms sends a code / h5 returns an auth link), maps to REST POST /auth/bind/request"
+---
+
+## request_user_bind
+
+Starts a user consent binding. With `auth_type=sms` the gateway sends a verification code to the phone number; with `auth_type=h5` it returns an authorization link (minisite) where the user signs in to grant access. Neither mode returns a grant immediately — call `verify_user_bind` to complete it.
+
+<Note>
+  **Binding flow (entry point)**: **`request_user_bind`** → get `bind_id` (sms) or `request_id` + `h5_url` (h5) → user enters the code / opens the link to authorize → `verify_user_bind` exchanges it for a `consent_grant_id` → subsequent business tools carry that `consent_grant_id`. This is the first step of the auth flow and is a binding tool: it **only requires the Agent identity (connection layer `Authorization: Bearer clw_`) and has no `consent_grant_id` parameter**.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `phone` | string | Yes | — | User phone number |
+| `auth_type` | string | No | `"sms"` | Binding mode, enum `"sms"` / `"h5"`; other values return 422 |
+| `callback_url` | string \| null | No | `null` | **`h5` only**: the gateway polls the binding result and POSTs a callback (with `consent_grant_id`) to this URL on success or expiry. Must be an absolute http(s) URL; private / loopback hosts are rejected. Passing it in `sms` mode is an error |
+| `extra` | object \| null | No | `null` | Caller passthrough (JSON object, ≤2KB): supplied at request time, echoed back verbatim by `verify_user_bind` and the callback. The gateway does not interpret its contents |
+
+### Returns
+
+The return shape depends on `auth_type`.
+
+**`auth_type=sms`:**
+
+```json
+{
+  "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+  "expires_in": 300,
+  "masked_phone": "138****8000"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bind_id` | string | Binding session ID; pass it back as `bind_id` to `verify_user_bind` |
+| `expires_in` | integer | Session lifetime in seconds; currently `300` (5 minutes) |
+| `masked_phone` | string \| null | Masked phone (e.g. `138****8000`); too-short numbers return `"***"`, empty returns `null` |
+
+**`auth_type=h5`:**
+
+```json
+{
+  "auth_type": "h5",
+  "request_id": "h5b_4f2a...",
+  "h5_url": "https://s.clawdot.ai/abc123",
+  "expires_in": 300,
+  "masked_phone": "138****8000",
+  "callback_registered": false,
+  "next_action": "verify_user_bind"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `auth_type` | string | Always `"h5"` |
+| `request_id` | string | H5 binding session ID; pass it back as `request_id` to `verify_user_bind` |
+| `h5_url` | string | User authorization link (shortened URL; falls back to the raw long URL if the shortener is unavailable) |
+| `expires_in` | integer | Link / session lifetime in seconds; currently `300` (5 minutes) |
+| `masked_phone` | string \| null | Masked phone (e.g. `138****8000`) |
+| `callback_registered` | boolean | Whether a callback was registered (`true` when a valid `callback_url` was provided); when `true` the gateway polls and pushes the result, while client polling still works as a fallback |
+| `next_action` | string | Suggested next step, always `"verify_user_bind"` |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
+| 403 | `CAP_NOT_BOUND` | The Agent is not provisioned for the delivery capability |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `auth_type` not sms/h5, `callback_url` passed in `sms` mode, invalid `callback_url` (non-http(s) or private host), or `extra` not a JSON object / over 2KB |
+| 422 | — | Invalid parameter type (e.g. `auth_type` not in the enum) |
+| 429 | `SMS_COOLDOWN` | Verification code is in a 60-second cooldown (`sms` mode only) |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+**SMS mode:**
+
+```json
+{
+  "name": "request_user_bind",
+  "arguments": {
+    "phone": "13800138000",
+    "auth_type": "sms"
+  }
+}
+```
+
+**H5 mode (with callback):**
+
+```json
+{
+  "name": "request_user_bind",
+  "arguments": {
+    "phone": "13800138000",
+    "auth_type": "h5",
+    "callback_url": "https://your-app.example.com/clawdot/bind-callback"
+  }
+}
+```

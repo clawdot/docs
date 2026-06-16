@@ -1,0 +1,127 @@
+---
+title: "Quote Cart"
+description: "POST /cart/quote — price a cart of selected items and return the price breakdown plus the quote_id used for preview"
+---
+
+## POST /cart/quote
+
+Prices the items selected in a cart: validates the shop / cart / items, calls the upstream pricing engine, and returns the price breakdown, whether checkout is allowed, and the `quote_id` used in the next preview step.
+
+<Note>
+  **Order flow**: `/shops/search` → `shop_id` + `cart_id` (carries shop & delivery coordinates) → `/shops/menu` to pick items → **`/cart/quote`** to price the cart and get `quote_id` → `/addresses/select` to get `address_id` → `/orders/preview` (can pass `quote_id` back) → `preview_id` + `confirmation_token` → `/orders/create`. `shop_id` / `cart_id` / `address_id` and item `item_id` all come from upstream endpoints — pass them back as-is, do not fabricate them.
+</Note>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "shop_id": "<from /shops/search>",
+  "cart_id": "<from /shops/search>",
+  "address_id": "<from /addresses/select>",
+  "items": [
+    {
+      "item_id": "670685166551",
+      "sku_id": "5014584502270",
+      "quantity": 1,
+      "ingredient_option_ids": [],
+      "remark": ""
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `shop_id` | string | Yes | — | Shop ID (from `/shops/search`) |
+| `cart_id` | string | Yes | — | Cart context ID (from `/shops/search`; carries shop & delivery coordinates, so no lat/lng is needed here) |
+| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `id` returned by `/addresses/select` as-is |
+| `items` | array | Yes | — | Item list (see below, at least one) |
+| `items[].item_id` | string | Yes | — | Item ID (from `/shops/menu`) |
+| `items[].sku_id` | string | No | `null` | SKU ID (from the menu item's optional SKUs) |
+| `items[].quantity` | integer | Yes | — | Quantity, ≥ 1 |
+| `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options) |
+| `items[].remark` | string | No | `""` | Per-item note |
+
+<Warning>
+  Each item object in `items[]` **rejects undefined fields** (`extra=forbid`); extra fields return 422. The request body itself (`shop_id` / `cart_id` / `address_id` / `items`) does **not** enforce `extra=forbid` — unknown top-level fields are ignored.
+</Warning>
+
+### Response
+
+```json
+{
+  "quote_id": "qt_4f2a...",
+  "can_checkout": true,
+  "blocking_reason": null,
+  "goods_price": 1600,
+  "delivery_fee": 0,
+  "packing_fee": 100,
+  "discount": 500,
+  "payable_price": 1200,
+  "minimum_order_gap": null,
+  "items": [
+    { "name": "Coconut Latte", "quantity": 1, "price": 1600 }
+  ]
+}
+```
+
+<Warning>
+  All amount fields are in **cents (integer)**, not yuan. e.g. `payable_price: 1200` means ¥12.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `quote_id` | string | Quote ID (`qt_`), passed to `/orders/preview` to validate the quote context |
+| `can_checkout` | boolean | Whether checkout is allowed (`false` when items are unavailable or the upstream forbids checkout) |
+| `blocking_reason` | string \| null | Reason checkout is blocked (`null` when `can_checkout` is `true`) |
+| `goods_price` | integer | Goods subtotal (cents) |
+| `delivery_fee` | integer | Delivery fee (cents) |
+| `packing_fee` | integer | Packing fee (cents) |
+| `discount` | integer | Discount amount (cents) |
+| `payable_price` | integer | Payable amount (cents) |
+| `minimum_order_gap` | integer \| null | Amount short of the order minimum (cents); `null` when not applicable |
+| `items` | array | Priced item details |
+| `items[].name` | string | Item name |
+| `items[].quantity` | integer | Quantity |
+| `items[].price` | integer | Item price (cents) |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `X-Consent-Grant-Id` |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | Capability is not enabled for this agent |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| 422 | (request validation) | On the REST path, body field type / required / constraint violations are caught by pydantic and return FastAPI's default 422 (a structured validation body, not `{error:{code}}`). e.g. `items[].quantity` not an integer or < 1 (`Field(ge=1)`), or undefined fields in `items[]` (`extra=forbid`) |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `item_id` not part of this `cart_id`. `address_id` is only validated when the primary pricing call (`cats_price`) fails and falls back to the `render_quote` branch; an invalid `address_id` maps to this code there |
+| 400 | `CART_PRICE_INVALID` | `items[].quantity` is not an integer or is less than 1. **Reachable only via the MCP tool path**: MCP passes raw dicts that bypass pydantic, so the service validates them internally; on the REST path such invalid values are already rejected as 422 at the entry |
+| 502 | `ELEME_ERROR` | Upstream pricing call failed |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<from /shops/search>",
+    "cart_id": "<from /shops/search>",
+    "address_id": "<from /addresses/select>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
+  }'
+```

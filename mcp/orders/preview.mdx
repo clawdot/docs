@@ -1,0 +1,101 @@
+---
+title: "preview_order"
+description: "MCP 工具，对应 REST POST /orders/preview — 校验已算价的购物车，返回最终价格、可用优惠券与下单用的 preview_id"
+---
+
+## preview_order
+
+对一个已算价的购物车做下单前预览：校验店铺 / 地址 / 商品、应用优惠券，返回最终价格明细，以及用于正式下单的 `preview_id` 与 `confirmation_token`。
+
+<Note>
+  **下单链路**：`search_shops` 得 `shop_id` + `cart_id`（已含配送坐标）→ `get_shop_menu` 选商品 → `quote_cart` 算价得 `quote_id` → `select_address` 得 `address_id` → **`preview_order`** 得 `preview_id` + `confirmation_token` → `create_order`。预览必须基于一个已存在的 `cart_id`。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `shop_id` | string | 是 | — | 店铺 ID（来自 `search_shops`）|
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`，已封装店铺与配送坐标，故预览无需再传经纬度）|
+| `quote_id` | string \| null | 否 | `null` | 报价 ID（来自 `quote_cart`）；提供后会校验报价上下文 |
+| `address_id` | string | 是 | — | **网关地址 ID（字符串）**，原样使用 `select_address` 返回的 `address_id` |
+| `items` | array | 是 | — | 商品列表（见下）|
+| `items[].item_id` | string | 是 | — | 商品 ID（来自 `get_shop_menu`）|
+| `items[].sku_id` | string | 否 | `null` | SKU ID |
+| `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
+| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项）|
+| `items[].remark` | string | 否 | `""` | 单品备注 |
+| `coupon_ids` | string[] \| null | 否 | `null` | 优惠券选择，三态见下 |
+| `order_remark` | string | 否 | `""` | 订单备注（给骑手）|
+
+**`coupon_ids` 三态：**
+
+- **不传该参数** → 网关自动选择最优券
+- **传 `[]`（空数组）** → 明确不使用任何券
+- **传 `["<coupon_id>", ...]`** → 使用指定券（券 ID 来自上一次预览返回的 `available_coupons[].coupon_id`）
+
+### 返回
+
+<Warning>
+  所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `preview_id` | string | 预览 ID（`prv_`），传给 `create_order`；有效期约 10 分钟 |
+| `confirmation_token` | string | 确认令牌（`cf_`），与 `preview_id` 一起传给 `create_order` |
+| `shop.name` | string | 店铺名称 |
+| `address.display_name` | string | 地址显示名 |
+| `address.address_detail` | string | 门牌等详情 |
+| `address.city` | string | 城市（当前恒为空串）|
+| `items[].name` | string | 商品名 |
+| `items[].quantity` | integer | 数量 |
+| `items[].price` | integer | 单品价（分）|
+| `price.goods_price` | integer | 商品小计（分）|
+| `price.delivery_fee` | integer | 配送费（分）|
+| `price.packing_fee` | integer | 打包费（分）|
+| `price.discount` | integer | 优惠金额（分）|
+| `price.payable_price` | integer | 应付金额（分）= 商品 + 配送 + 打包 − 优惠 |
+| `delivery.estimated_time_text` | string \| null | 预计送达文案 |
+| `delivery.delivery_type` | string \| null | 配送类型（当前为 `null`）|
+| `payment.requires_payment` | boolean | 是否需要支付 |
+| `payment.available_methods` | string[] | 可用支付方式 |
+| `warnings` | array | 预览告警（如商品变更）|
+| `available_coupons` | array | 可用优惠券；`coupon_id` 可回传到 `coupon_ids` |
+| `available_coupons[].amount` | integer | 券面额（分）|
+| `available_coupons[].threshold` | integer | 使用门槛（分）|
+| `available_coupons[].available` | boolean | 是否可用 |
+| `available_coupons[].unavailable_reason` | string \| null | 不可用原因 |
+| `selected_coupons` | array | 本次已应用的券（含 `coupon_id` / `name` / `amount`）|
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `address_id` 无效 |
+| `ELEME_ERROR` | 上游预览 API 错误；稍后重试 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "preview_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<来自 search_shops>",
+    "cart_id": "<来自 search_shops>",
+    "address_id": "<来自 select_address>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
+  }
+}
+```

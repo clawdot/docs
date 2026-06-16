@@ -1,0 +1,63 @@
+---
+title: "get_homepage_url"
+description: "MCP 工具，为当前授权用户生成一条可直接打开的饿了么 H5 主页链接（action）——对应 REST POST /auth/homepage-url"
+---
+
+## get_homepage_url
+
+为当前授权用户生成一条可直接打开的饿了么 H5 主页链接，包装成一个 `action`（`open_h5`）返回。链接携带按用户身份本地签发的渠道 JWT，交给前端 / IM 让用户点击打开即可落地到饿了么主页。
+
+<Note>
+  **依赖**：需要先完成用户绑定拿到 `consent_grant_id`（`request_user_bind` → `verify_user_bind`）。链接落地后用户在饿了么侧的会话与本次授权绑定，不需要调用方再拼任何参数。返回的 `action_url` 请原样交给用户打开，不要自行改写或拼接查询参数。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_`），来自 `verify_user_bind` |
+| `scene` | string \| null | 否 | `null` | 场景标识（占位字段）。当前服务端不消费该值，传与不传对返回链接无影响 |
+
+### 返回
+
+```json
+{
+  "action": {
+    "action_id": "act_3f9a...",
+    "action_type": "open_h5",
+    "action_url": "https://h5.ele.me/minisite/?from=...&opensite_source=...&jwt=...",
+    "expires_at": "2026-07-16T08:30:00+00:00"
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `action` | object | 动作对象，交给前端执行 |
+| `action.action_id` | string | 动作 ID（`act_`），动作上下文的句柄 |
+| `action.action_type` | string | 动作类型，本工具恒为 `open_h5`（用浏览器 / WebView 打开 `action_url`）|
+| `action.action_url` | string | 要打开的饿了么 H5 主页链接；该用户暂无平台身份时为空串 `""` |
+| `action.expires_at` | string | 动作过期时间（ISO 8601，UTC），有效期 30 天 |
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已失效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期 |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `HOMEPAGE_URL_CONFIG_MISSING` | 服务端未配置生成链接所需密钥，联系平台 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "get_homepage_url",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

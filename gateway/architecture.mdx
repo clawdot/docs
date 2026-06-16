@@ -1,384 +1,202 @@
 ---
 title: "架构概览"
-description: "Clawdot Gateway 的三层架构设计和商户接入模式"
+description: "Clawdot Gateway 的双入口架构、认证模型与下单链路"
 ---
 
-## Gateway 在 Clawdot 中的位置
-
-Clawdot 采用 4 层架构，Gateway 位于第 3 层，是**协议层 + 发现层**：
-
-```
-┌─────────────────────────────────────────────┐
-│  第 4 层 - 应用层                            │
-│  AI Agent / 用户应用 / 第三方集成             │
-└──────────────┬──────────────────────────────┘
-               │ 标准协议
-┌──────────────▼──────────────────────────────┐
-│  第 3 层 - Gateway（协议层 + 发现层）        │
-│  ├─ 标准协议定义（菜单、订单、预约等）       │
-│  ├─ 商户发现和路由                          │
-│  └─ 协议版本管理和演进                      │
-└──────────────┬──────────────────────────────┘
-               │ 内部 REST/MCP
-┌──────────────▼──────────────────────────────┐
-│  第 2 层 - Gateway 内部服务                  │
-│  ├─ ShopService / OrderService / 等         │
-│  ├─ 协议适配（Proxy 转换逻辑）               │
-│  └─ 数据和认证管理                          │
-└──────────────┬──────────────────────────────┘
-               │ HTTP / 内部 API
-┌──────────────▼──────────────────────────────┐
-│  第 1 层 - 商户层                            │
-│  ├─ Proxy（代理饿了么/美团/高德）            │
-│  └─ 独立商户 Agent（自建系统）               │
-└─────────────────────────────────────────────┘
-```
+Clawdot Gateway 把外卖能力以**标准协议**对外开放，同一套服务层同时挂在两个入口上：REST API 与 MCP Server。Agent 用 API Key 表明自己的身份，用 consent_grant 表明"已获得某个外卖用户的授权"，网关据此把请求路由到上游平台并把响应转换成统一的标准格式。
 
 ## 整体架构
 
 ```mermaid
 graph LR
-  REST["REST API\n/api/v1/*"] --> Services
-  MCP["MCP Server\n/mcp"] --> Services
-  Services --> ProxyClient["Proxy Client<br/>转换层"]
-  Services --> MerchantAgent["商户 Agent<br/>独立实现"]
-  ProxyClient --> Platform1["美团 API"]
-  ProxyClient --> Platform2["饿了么 API"]
-  Services --> Models["Models\n(SQLAlchemy)"] --> MySQL
+  Agent["AI Agent"]
+  REST["REST API<br/>/api/v1/*"]
+  MCP["MCP Server<br/>/mcp/v1"]
+  Service["服务层<br/>PublicGatewayService"]
+  Gate["认证 + 能力门禁<br/>API Key · consent_grant · cap binding"]
+  Provider["Provider 适配层<br/>转换为上游平台 API"]
+  Upstream["上游平台<br/>(饿了么 / …)"]
+  DB[("MySQL")]
+  Redis[("Redis")]
 
-  style Services fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-  style ProxyClient fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-  style MerchantAgent fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+  Agent -->|Bearer clw_| REST
+  Agent -->|Bearer clw_| MCP
+  REST --> Service
+  MCP --> Service
+  Service --> Gate
+  Service --> Provider
+  Provider --> Upstream
+  Service --> DB
+  Service --> Redis
+
+  style Service fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style Gate fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style Provider fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
 ```
 
-Clawdot Gateway 采用三层内部架构，REST 和 MCP 两个入口共享同一套服务层。Gateway 通过**标准协议**统一管理两种商户类型：
-- **Proxy 层** — 代理饿了么、美团、高德等平台商户
-- **独立 Agent** — 大型商户自建实现
+- **两个入口共享一套服务层** — REST 和 MCP 暴露相同的能力，差别只在参数传递方式：REST 走 Header + JSON body，MCP 走工具参数。
+- **认证 + 能力门禁** — 每个公开入口在执行前都要过同一道门禁：校验 API Key（识别 Agent）、校验 consent_grant（识别已授权用户）、校验 Agent 是否已开通对应能力（cap binding）。
+- **Provider 适配层** — 把标准协议请求转换成上游平台的 API 调用，并把平台响应转换回统一的标准格式与错误码。
+- **状态存储** — MySQL 保存 Agent / API Key / 用户绑定 / 订单等记录；Redis 承载算价上下文、单飞锁、店铺列表缓存等短时态。
 
-## 商户接入模式
+<Note>
+  本页只覆盖**对外公开**的契约：`/api/v1/*` REST 端点与 `/mcp/v1` MCP 工具。创建 Agent、签发 API Key、开通能力等运营动作走 Portal（[portal.clawdot.ai](https://portal.clawdot.ai)），不属于公开 API。
+</Note>
 
-在详细介绍内部三层架构之前，先理解 Gateway 如何管理两种商户类型：
+## 两个入口
 
 <Tabs>
-  <Tab title="Proxy 层（冷启动）">
-    **目标：** 快速覆盖已有平台商户
+  <Tab title="REST API">
+    挂载在 `/api/v1` 前缀下，共 18 个端点，覆盖授权、地址、店铺、购物车、优惠券、订单、支付签约整条链路。
 
-    ```mermaid
-    graph TB
-      Agent["AI Agent"]
-      Gateway["Gateway"]
-      Proxy["Proxy 转换层"]
-      Platform["美团/饿了么"]
-      Merchant["平台商户<br/>无需改动"]
+    - **Agent 身份** — `Authorization: Bearer clw_...` 请求头。
+    - **用户授权** — `X-Consent-Grant-Id: cg_...` 请求头（绑定类入口除外）。`consent_grant_id` 只走请求头，不放进 JSON body。
+    - **请求/响应** — JSON body；金额字段统一为**分（整数）**。
 
-      Agent -->|标准协议| Gateway
-      Gateway -->|转换为平台 API| Proxy
-      Proxy -->|美团 API / 饿了么 API| Platform
-      Platform -->|订单| Merchant
-
-      style Proxy fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-    ```
-
-    **工作流程：**
-    1. Agent 使用标准协议调用 Gateway
-    2. Gateway 的 Proxy Client 负责转换请求格式
-    3. Proxy 将请求转换为相应平台的 API 调用
-    4. 平台响应被转换回标准协议格式
-    5. 返回给 Agent
-
-    **优势：**
-    - 商户无需做任何改动
-    - 快速覆盖大量商户
-    - Clawdot 完整掌握数据
+    详见 [API 参考](/api-reference/user/bind-request)。
   </Tab>
 
-  <Tab title="独立 Agent（生态）">
-    **目标：** 大型商户深度集成和自主
+  <Tab title="MCP Server">
+    通过 `app.mount("/mcp", create_mcp_app())` 挂载，FastMCP 路由版本化，公开端点是 **`/mcp/v1`**，传输为 streamable HTTP。共 18 个工具，与 18 个 REST 端点一一对应。
 
-    ```mermaid
-    graph TB
-      Agent["AI Agent"]
-      Gateway["Gateway"]
-      Merchant["商户 Agent<br/>直接实现标准协议"]
+    - **Agent 身份** — 同样走 `Authorization: Bearer clw_...`，由 MCP 中间件校验后注入 `agent_id`。
+    - **用户授权** — 作为每个工具的 **`consent_grant_id` 参数**传入（不是 `X-Consent-Grant-Id` 请求头，那是 REST 用的）。
+    - **参数** — 除 `consent_grant_id` 外，工具参数与对应 REST 端点的 body 字段一致。
 
-      Agent -->|标准协议| Gateway
-      Gateway -->|标准协议| Merchant
-      Merchant -->|业务处理| MerchantSystem["商户内部系统"]
-
-      style Merchant fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-    ```
-
-    **工作流程：**
-    1. Agent 使用标准协议调用 Gateway
-    2. Gateway 查找对应的商户 Agent
-    3. 直接转发请求到商户的实现
-    4. 商户处理业务逻辑
-    5. 返回标准协议格式的响应
-
-    **要求：**
-    - 商户必须实现标准协议所有接口
-    - 需要通过 Clawdot 的审核和测试
-    - 承诺 SLA 和安全要求
-
-    **优势：**
-    - 商户完全控制业务逻辑
-    - 可以实现深度定制
-    - 支持未来的生态扩展
+    详见 [MCP 工具](/mcp/overview)。
   </Tab>
 </Tabs>
 
-## 内部三层架构
+### REST 端点 ↔ MCP 工具对照
 
-### 层级说明
+18 个 MCP 工具与 18 个 REST 端点一一对应：
 
-<AccordionGroup>
-  <Accordion title="Gateway 层 — 入口与路由" icon="door-open">
-    **位置：** `src/gateway/`
+| MCP 工具 | REST 端点 |
+|---|---|
+| `request_user_bind` | `POST /auth/bind/request` |
+| `verify_user_bind` | `POST /auth/bind/verify` |
+| `get_user_auth_status` | `GET /auth/status` |
+| `revoke_user_bind` | `POST /auth/unbind` |
+| `get_homepage_url` | `POST /auth/homepage-url` |
+| `search_addresses` | `POST /addresses/search` |
+| `select_address` | `POST /addresses/select` |
+| `update_address` | `POST /addresses/update` |
+| `search_shops` | `POST /shops/search` |
+| `get_shop_menu` | `POST /shops/menu` |
+| `get_shop_share_url` | `POST /shops/share-url` |
+| `quote_cart` | `POST /cart/quote` |
+| `list_coupons` | `POST /coupons/list` |
+| `preview_order` | `POST /orders/preview` |
+| `create_order` | `POST /orders/create` |
+| `get_order_status` | `GET /orders/{order_id}` |
+| `get_sign_action` | `POST /payment/sign-action` |
+| `get_sign_status` | `GET /payment/sign-status` |
 
-    负责协议适配、商户路由和输入验证，不包含业务逻辑。
+## 认证模型
 
-    - **REST routers** — FastAPI 路由，处理 HTTP 请求/响应序列化
-    - **MCP tools** — 9 个 MCP 工具定义，将 MCP 调用转换为服务层调用
-    - **Merchant router** — 根据商户 ID 或 shop_id 查询商户类型，决定转发到 Proxy 或独立 Agent
-    - **Auth middleware** — `require_agent()` 和 `require_user()` 依赖注入
+网关使用双层身份：
 
-    两个入口的区别仅在参数传递方式：REST 使用 Header，MCP 使用参数。
-  </Accordion>
+- **API Key 标识 Agent** — `Authorization: Bearer clw_...`，前缀 `clw_`。服务端只存 SHA-256 哈希、不留明文，每次请求按哈希比对；被禁用的 Key 立即失效。在 Portal 创建 Agent 时签发。
+- **consent_grant 标识已授权用户** — 前缀 `cg_`，代表"某个外卖用户已授权某个 Agent 使用某项能力"。走绑定流程（`request_user_bind` + `verify_user_bind`）获取，可被 `revoke_user_bind` 即时撤销。
 
-  <Accordion title="Service 层 — 业务逻辑与路由" icon="gears">
-    **位置：** `src/services/`
+```mermaid
+flowchart LR
+  A["请求"] --> B["校验 API Key<br/>(识别 Agent)"]
+  B -- 无效 --> E["401 AUTH_INVALID"]
+  B -- 有效 --> C["agent_id"]
+  C --> D{"需要<br/>用户授权?"}
+  D -- 否 --> Z["放行<br/>(绑定类入口)"]
+  D -- 是 --> F["能力门禁<br/>+ consent_grant 解析"]
+  F -- Agent 未开通能力 --> G["403 CAP_NOT_BOUND"]
+  F -- 授权无效/过期 --> H["401 CONSENT_GRANT_*"]
+  F -- 授权属于其它能力/服务商 --> I["403 CONSENT_GRANT_WRONG_CAP"]
+  F -- 通过 --> J["(agent_id, 已授权用户)"]
+```
 
-    核心业务逻辑所在，通过构造函数接收依赖（DB session, Proxy Client, 商户注册表）：
+完整的认证链、错误码与传递方式见 [认证机制](/gateway/authentication)。
 
-    - **AuthService** — Agent 注册、API Key 生成与验证
-    - **UserService** — SMS 发送、验证码校验、用户绑定
-    - **ShopService** — 商家搜索（含并行多品类搜索）、菜单获取
-      - 对于 Proxy 商户 — 通过 Proxy Client 调用
-      - 对于独立 Agent — 直接调用商户的 API
-    - **AddressService** — POI 搜索、地址选择与创建
-    - **OrderService** — 订单预览、创建与查询
-      - 支持两种商户的下单逻辑
-    - **MerchantRegistry** — 商户注册表，记录每个商户的类型和接入方式
-  </Accordion>
+### Agent — 能力 — 服务商
 
-  <Accordion title="Client 层 — API 封装与适配" icon="cloud">
-    **位置：** `src/client/`
+授权不是"Agent 直接拿到用户"，而是绑定到一个具体的**能力（cap）**与**服务商（provider）**上：
 
-    支持三类 API 的 HTTP 客户端封装：
+- **能力绑定（cap binding）** — 一条 `(agent_id, cap_code)` 记录，声明某个 Agent 开通了某项能力（外卖链路的能力码为 `delivery`），并在该记录上携带服务商坐标（`provider_code`）。所有公开入口执行前都要先解析出一条 `active` 的能力绑定，否则返回 `CAP_NOT_BOUND`。
+- **用户绑定（consent_grant）** — 用户授权时落一条用户绑定记录，记下它属于哪个 `agent_id`、哪个 `cap_code`、哪个 `provider_code`。请求进来时，网关把 `consent_grant_id` 哈希后查到这条记录，并校验它的能力/服务商坐标与 Agent 的能力绑定一致——不一致即 `CONSENT_GRANT_WRONG_CAP`。
 
-    **Proxy Client（平台 API 封装）：**
-    - **Token 管理** — `ensure_token` 自动刷新过期 Token
-    - **请求签名** — 按美团/饿了么的签名算法
-    - **UA 管理** — 不同端点使用不同 User-Agent（订单用 MTOPSDK 格式，搜索用 Rajax 格式）
-    - **错误处理** — 统一的平台 API 错误转换为标准协议错误码
+也就是说，一次成功的调用要同时满足三件事：**API Key 有效**（Agent 可信）、**能力已开通**（Agent 有权用这项能力）、**consent_grant 有效且坐标匹配**（用户确实授权了这个 Agent 用这项能力）。
 
-    **Merchant HTTP Client（独立商户 Agent 调用）：**
-    - **API Key 管理** — 商户的 API 认证凭证
-    - **请求签名** — 按商户的安全要求签名（如果需要）
-    - **超时和重试** — 处理商户 API 的不稳定性
-    - **错误处理** — 将商户错误转换为标准协议格式
-  </Accordion>
-</AccordionGroup>
+## 下单链路
 
-## 数据流
-
-### 典型搜索请求
-
-#### 场景 1：Proxy 商户搜索
+一条标准下单链路上下游 ID 逐跳串联，每一步的产物喂给下一步：
 
 ```mermaid
 sequenceDiagram
   participant Agent
-  participant Gateway as REST / MCP
-  participant Shop as ShopService
-  participant Proxy as Proxy Client
-  participant Platform as 美团/饿了么 API
+  participant GW as REST / MCP
+  participant Svc as PublicGatewayService
+  participant Up as 上游平台
 
-  Agent->>Gateway: 搜索商家（shop_id 来自代理商户）
-  Gateway->>Shop: _search_default()
-  Shop->>Shop: 检查 shop_id 类型（Proxy）
-  par 10 个并行搜索
-    Shop->>Proxy: searchByKeyWords("推荐")
-    Shop->>Proxy: searchByKeyWords("快餐")
-    Shop->>Proxy: ...
-  end
-  Proxy->>Platform: 平台 API 调用
-  Platform-->>Proxy: 平台响应
-  Proxy->>Proxy: 转换为标准协议格式
-  Proxy-->>Shop: 标准格式结果
-  Shop->>Shop: 按 encryptShopId 去重
-  Shop-->>Gateway: ~50 家商店
-  Gateway-->>Agent: 搜索结果
+  Agent->>GW: search_shops / POST /shops/search
+  GW->>Svc: 门禁 + 路由
+  Svc->>Up: 平台搜索
+  Up-->>Svc: 店铺
+  Svc-->>Agent: shop_id + cart_id
+
+  Agent->>GW: get_shop_menu / POST /shops/menu
+  Svc-->>Agent: 菜单（item_id / sku_id / option_id）
+
+  Agent->>GW: quote_cart / POST /cart/quote
+  Svc-->>Agent: quote_id（算价）
+
+  Agent->>GW: select_address / POST /addresses/select
+  Svc-->>Agent: address_id
+
+  Agent->>GW: preview_order / POST /orders/preview
+  Svc->>Up: 渲染 + 选券
+  Svc-->>Agent: preview_id + confirmation_token + 价格明细
+
+  Agent->>GW: create_order / POST /orders/create
+  Svc->>Up: 正式下单
+  Up-->>Svc: 平台订单
+  Svc-->>Agent: order_id
+
+  Agent->>GW: get_sign_action / POST /payment/sign-action
+  Svc-->>Agent: 免密签约动作
 ```
 
-#### 场景 2：独立商户搜索
+1. `search_shops` → 得 `shop_id` + `cart_id`（`cart_id` 已封装店铺与配送坐标）
+2. `get_shop_menu` → 选品，拿到 `item_id` / `sku_id` / `option_id`
+3. `quote_cart` → 得 `quote_id`（算价）
+4. `select_address` → 得 `address_id`
+5. `preview_order` → 得 `preview_id` + `confirmation_token` 与最终价格明细
+6. `create_order` → 得 `order_id`
+7. `get_sign_action` → 免密签约动作（`get_sign_status` 查询签约状态）
 
-```mermaid
-sequenceDiagram
-  participant Agent
-  participant Gateway as REST / MCP
-  participant Shop as ShopService
-  participant MerchantClient as Merchant HTTP Client
-  participant Merchant as 商户 Agent
+<Note>
+  所有金额字段单位为**分（整数）**；对外暴露的全部是网关签发的不透明 ID（`shop_id` / `cart_id` / `quote_id` / `address_id` / `preview_id` / `order_id`），上游平台的原始 ID 不外泄。
+</Note>
 
-  Agent->>Gateway: 搜索商家（商户 ID）
-  Gateway->>Shop: search_by_merchant()
-  Shop->>Shop: 查询商户注册表
-  Shop->>MerchantClient: 调用商户 API
-  MerchantClient->>Merchant: GET /search（标准协议）
-  Merchant->>Merchant: 业务逻辑处理
-  Merchant-->>MerchantClient: 标准协议响应
-  MerchantClient-->>Shop: 返回结果
-  Shop-->>Gateway: 搜索结果
-  Gateway-->>Agent: 搜索结果
+## 错误处理
+
+所有错误返回统一结构，没有 `next_action` 之类的附加字段：
+
+```json
+{
+  "error": {
+    "code": "CONSENT_GRANT_INVALID",
+    "message": "..."
+  }
+}
 ```
 
-### 典型下单请求
-
-#### 场景 1：Proxy 商户下单
-
-```mermaid
-sequenceDiagram
-  participant Agent
-  participant Gateway as REST / MCP
-  participant Order as OrderService
-  participant Proxy as Proxy Client
-  participant Platform as 外卖平台 API
-  participant Cache as 内存缓存
-  participant DB as MySQL
-
-  Agent->>Gateway: POST /orders/preview
-  Gateway->>Order: preview()
-  Order->>Order: 检查商户类型（Proxy）
-  Order->>Proxy: 第 1 次渲染（无优惠券）
-  Proxy->>Platform: 平台 API 调用
-  Platform-->>Proxy: 可用优惠券列表
-  Proxy->>Proxy: 转换为标准格式
-  Proxy-->>Order: 标准响应
-  Order->>Order: 选择最优优惠券
-  Order->>Proxy: 第 2 次渲染（带优惠券）
-  Proxy->>Platform: 平台 API 调用
-  Platform-->>Proxy: 最终价格
-  Proxy-->>Order: 标准响应
-  Order->>Cache: 缓存渲染结果（10 min TTL）
-  Order-->>Agent: session_id + 价格明细
-
-  Agent->>Gateway: POST /orders
-  Gateway->>Order: create()
-  Order->>Cache: 获取渲染数据
-  Order->>Proxy: 创建订单
-  Proxy->>Platform: 平台 API 调用
-  Platform-->>Proxy: order_id
-  Proxy-->>Order: 标准响应
-  Order->>DB: 保存订单记录
-  Order-->>Agent: order_id + 状态
-```
-
-#### 场景 2：独立商户下单
-
-```mermaid
-sequenceDiagram
-  participant Agent
-  participant Gateway as REST / MCP
-  participant Order as OrderService
-  participant MerchantClient as Merchant HTTP Client
-  participant Merchant as 商户 Agent
-  participant MerchantDB as 商户 DB
-
-  Agent->>Gateway: POST /orders/preview
-  Gateway->>Order: preview()
-  Order->>Order: 检查商户类型（独立）
-  Order->>MerchantClient: 调用商户 API
-  MerchantClient->>Merchant: POST /orders/preview（标准协议）
-  Merchant->>MerchantDB: 查询库存和价格
-  MerchantDB-->>Merchant: 数据
-  Merchant-->>MerchantClient: 标准响应（包含优惠券）
-  MerchantClient-->>Order: 返回结果
-  Order-->>Agent: session_id + 价格明细
-
-  Agent->>Gateway: POST /orders
-  Gateway->>Order: create()
-  Order->>MerchantClient: 创建订单
-  MerchantClient->>Merchant: POST /orders（标准协议）
-  Merchant->>MerchantDB: 保存订单
-  MerchantDB-->>Merchant: 订单 ID
-  Merchant-->>MerchantClient: 标准响应
-  MerchantClient-->>Order: 返回结果
-  Order->>Order: 保存订单记录（完整交互日志）
-  Order-->>Agent: order_id + 状态
-```
-
-## 数据库模型
-
-<Tabs>
-  <Tab title="merchants">
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | id | int (PK) | 自增主键 |
-    | name | varchar(200) | 商户名称 |
-    | merchant_type | enum | Proxy / Independent |
-    | platform | varchar(50) | 所属平台（美团/饿了么/高德，仅限 Proxy） |
-    | platform_shop_id | varchar(100) | 平台的 shop_id（仅限 Proxy） |
-    | api_endpoint | varchar(500) | API 端点（仅限 Independent） |
-    | api_key | varchar(256) | API Key（加密存储，仅限 Independent） |
-    | is_active | boolean | 是否启用 |
-    | verified_at | datetime | 验证通过时间（仅限 Independent） |
-    | created_at / updated_at | datetime | 时间戳 |
-  </Tab>
-
-  <Tab title="agents">
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | id | int (PK) | 自增主键 |
-    | name | varchar(100) | Agent 名称 |
-    | is_active | boolean | 是否启用 |
-    | created_at | datetime | 创建时间 |
-  </Tab>
-  <Tab title="api_keys">
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | id | int (PK) | 自增主键 |
-    | agent_id | int (FK) | 关联 Agent |
-    | key_hash | varchar(64) | SHA-256 哈希 |
-    | prefix | varchar(8) | Key 前缀（如 `clw_a1b2`）|
-    | is_active | boolean | 是否启用 |
-    | created_at | datetime | 创建时间 |
-  </Tab>
-  <Tab title="user_bindings">
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | id | int (PK) | 自增主键 |
-    | agent_id | int (FK) | 关联 Agent |
-    | phone_hash | varchar(64) | 手机号 SHA-256 |
-    | encrypted_user_id | varchar(256) | AES-256-GCM 加密 |
-    | user_token | varchar(36) | UUID，唯一索引 |
-    | token_expires_at | datetime | Token 过期时间 |
-    | created_at / updated_at | datetime | 时间戳 |
-  </Tab>
-  <Tab title="orders">
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | id | int (PK) | 自增主键 |
-    | agent_id | int (FK) | 关联 Agent |
-    | user_binding_id | int (FK) | 关联用户绑定 |
-    | merchant_id | int (FK) | 关联商户（新增） |
-    | merchant_order_id | varchar(64) | 商户订单 ID |
-    | shop_name | varchar(200) | 商家名称 |
-    | total_amount | decimal(10,2) | 订单总额 |
-    | status | varchar(32) | 订单状态 |
-    | merchant_type | enum | Proxy / Independent |
-    | raw_request | JSON | 原始请求（用于审计） |
-    | raw_response | JSON | 原始响应 |
-    | created_at / updated_at | datetime | 时间戳 |
-  </Tab>
-</Tabs>
+REST 与 MCP 共用同一套错误码。完整清单见 [错误处理](/gateway/error-handling)。
 
 ## 安全设计
 
 | 机制 | 实现 |
 |------|------|
-| API Key 存储 | SHA-256 哈希，数据库不存明文 |
-| 手机号存储 | SHA-256 哈希，用于去重 |
-| 用户 ID 存储 | AES-256-GCM 加密（base64 编码的 32 字节密钥）|
-| User Token | UUID v4（128 位熵）|
-| 管理员认证 | 单一 `X-Admin-Secret` 请求头 |
+| API Key 存储 | SHA-256 哈希，数据库不存明文，禁用即时失效 |
+| consent_grant 存储 | 只存 SHA-256 哈希（`consent_grant_hash`），原值不落库 |
+| 手机号存储 | 加密存储，并以 SHA-256 哈希用于去重 |
+| 用户 ID 存储 | AES-256-GCM 加密 |
+| 对外 ID | 全部为网关签发的不透明 ID，与上游平台原始 ID 解耦 |
+| 公开面边界 | 对外只暴露 `/api/v1/*` 与 `/mcp/v1`；运营 / 管理动作（创建 Agent、开通能力等）走 Portal，不属于公开 API |

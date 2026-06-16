@@ -1,0 +1,72 @@
+---
+title: "get_sign_status"
+description: "MCP 工具，对应 REST GET /payment/sign-status — 查询当前授权用户是否已完成免密支付签约"
+---
+
+## get_sign_status
+
+查询当前授权用户在该服务商下是否已完成免密支付签约。下单（`create_order`）前应确认 `signed` 为 `true`；未签约时按返回的 `next_action` 引导用户去签约。签约状态由网关用授权上下文（用户、设备）向上游实时查询，无需调用方传入手机号或设备 ID。
+
+<Note>
+  **签约链路**：调用 **`get_sign_status`** 检查 `signed` → 若为 `false`，调用 `get_sign_action` 获取 H5 签约链接，引导用户在浏览器完成签约 → 再次调用 `get_sign_status` 确认 `signed` 变为 `true` → 进入下单流程。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+
+签约所需的手机号、设备 ID、签约渠道等均由网关从授权上下文派生，调用方无需也无法传入。
+
+### 返回
+
+```json
+{
+  "signed": false,
+  "signed_at": null,
+  "next_action": "get_sign_action"
+}
+```
+
+已签约时：
+
+```json
+{
+  "signed": true,
+  "signed_at": "2026-06-16T08:30:00.123456+00:00",
+  "next_action": null
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `signed` | boolean | 是否已完成免密支付签约 |
+| `signed_at` | string \| null | 本次查询确认已签约的时间（ISO 8601，UTC）；`signed` 为 `false` 时恒为 `null` |
+| `next_action` | string \| null | 未签约时为 `"get_sign_action"`（提示下一步调用 `get_sign_action`）；已签约时为 `null` |
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` | 缺少 Agent 认证（连接层未携带凭据）|
+| `AUTH_INVALID` | API Key 无效或已禁用 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` 参数 |
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `ELEME_ERROR` | 上游查询签约状态失败 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "get_sign_status",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

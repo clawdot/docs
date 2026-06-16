@@ -1,72 +1,157 @@
 ---
 title: "Verify Binding"
-description: "POST /user/bind/verify — Verify SMS code and retrieve User Token"
+description: "POST /auth/bind/verify — complete user authorization and exchange for consent_grant_id / scopes / expires_at"
 ---
 
-## POST /user/bind/verify
+## POST /auth/bind/verify
 
-Verify the SMS verification code, complete user binding, and return a User Token.
+Completes a user authorization started by [Request Binding](/en/api-reference/user/bind-request). `auth_type=sms` verifies with `bind_id` + the verification `code`; `auth_type=h5` polls the authorization status via `request_id`. On success, it mints and returns the `consent_grant_id` used by subsequent business endpoints.
+
+<Note>
+  **Binding flow (the closing step)**: `/auth/bind/request` → get `bind_id` (sms) or `request_id` (h5) → user receives the code / opens the link to authorize → **`/auth/bind/verify`** → exchange for `consent_grant_id` → call business endpoints with that `consent_grant_id`. This is the closing step of the binding flow and **needs only the API Key, no `consent_grant`**.
+</Note>
+
+<Warning>
+  **Re-authorization rotates the grant**: every successful binding for the same user mints a new `consent_grant_id`, and the old one stops working. The plaintext `consent_grant_id` is returned only once in this response (only its hash is stored); save it carefully.
+</Warning>
 
 ### Request Headers
 
 | Name | Required | Description |
-|------|------|------|
-| `Authorization` | Yes | `Bearer clw_...` |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
 | `Content-Type` | Yes | `application/json` |
+
+As part of the binding flow, this endpoint does **not** require `X-Consent-Grant-Id`.
 
 ### Request Body
 
+The body requires different fields depending on `auth_type`.
+
+**`auth_type=sms`:**
+
 ```json
 {
+  "auth_type": "sms",
   "bind_id": "550e8400-e29b-41d4-a716-446655440000",
   "code": "123456"
 }
 ```
 
-| Field | Type | Required | Description |
-|------|------|------|------|
-| `bind_id` | string | Yes | Binding session ID from `/user/bind/request` |
-| `code` | string | Yes | 6-digit verification code received by user |
+**`auth_type=h5`:**
+
+```json
+{
+  "auth_type": "h5",
+  "request_id": "h5b_4f2a..."
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `auth_type` | string | No | `"sms"` | Binding mode, enum `"sms"` / `"h5"`; other values return 422 |
+| `bind_id` | string | Required for `sms` | `null` | Binding session ID; pass back the `bind_id` returned by `/auth/bind/request` (sms) as-is |
+| `code` | string | Required for `sms` | `null` | The SMS verification code received by the user |
+| `request_id` | string | Required for `h5` | `null` | H5 binding session ID; pass back the `request_id` returned by `/auth/bind/request` (h5) as-is |
+
+<Warning>
+  Field requirements are conditional on `auth_type`: missing `bind_id` or `code` in `sms` mode, or missing `request_id` in `h5` mode, returns 422. These IDs must be passed back from `/auth/bind/request` as-is — do not fabricate them.
+</Warning>
 
 ### Response
 
-<Tabs>
-  <Tab title="200 Success">
-    ```json
-    {
-      "user_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "expires_at": "2026-06-22T12:34:56.789Z"
-    }
-    ```
+**Success (authorized):**
 
-    | Field | Type | Description |
-    |------|------|------|
-    | `user_token` | string | User Token (UUID), used for all subsequent business endpoints |
-    | `expires_at` | string | Token expiration time (ISO 8601), defaults to 90 days |
-  </Tab>
-  <Tab title="400 Verification Failed">
-    ```json
-    {
-      "error": {
-        "code": "SMS_CODE_INVALID",
-        "message": "Invalid or expired verification code"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
+```json
+{
+  "bound": true,
+  "status": "success",
+  "consent_grant_id": "cg_4f2a...",
+  "scopes": ["eleme.delivery"],
+  "expires_at": "2026-09-14T08:30:00+00:00",
+  "extra": null,
+  "next_action": null
+}
+```
 
-### Notes
+| Field | Type | Description |
+|-------|------|-------------|
+| `bound` | boolean | Whether bound; `true` on success |
+| `status` | string | Binding status, `"success"` on success |
+| `consent_grant_id` | string | User consent grant ID (`cg_...`), passed via the `X-Consent-Grant-Id` header / MCP `consent_grant_id` parameter on subsequent business endpoints. Plaintext returned only here |
+| `scopes` | string[] | Authorization scopes, shaped like `["<provider_code>.<cap_code>"]` (e.g. `["eleme.delivery"]`) |
+| `expires_at` | string | Grant expiration time (ISO 8601, UTC) |
+| `extra` | object \| null | The `extra` passed through at `/auth/bind/request`, echoed back as-is; `null` if none |
+| `next_action` | string \| null | Suggested next step; `null` on success |
 
-- After successful verification, the system queries the food delivery platform to retrieve user ID and stores it encrypted
-- Only one binding is retained per Agent + phone number (re-binding updates the Token)
-- After Token expiration, re-execute the binding process
+<Note>
+  **Not yet authorized when polling in H5 mode**: while the user has not finished authorizing in the link, this endpoint returns a pending state rather than an error. Clients should retry later per `next_action`, and must not treat the pending state as a failure.
+</Note>
+
+**H5 pending / expired:**
+
+```json
+{
+  "bound": false,
+  "status": "pending",
+  "consent_grant_id": null,
+  "scopes": [],
+  "expires_at": null,
+  "extra": null,
+  "next_action": "verify_user_bind"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bound` | boolean | `false` here |
+| `status` | string | `"pending"` (user has not authorized yet) or `"expired"` (session expired) |
+| `consent_grant_id` | string \| null | `null` when pending / expired |
+| `scopes` | string[] | Empty array `[]` when pending / expired |
+| `expires_at` | string \| null | `null` when pending / expired |
+| `extra` | object \| null | The `extra` passed through at request time, echoed back as-is; `null` if none |
+| `next_action` | string | `pending` → `"verify_user_bind"` (retry this endpoint later); `expired` → `"request_bind"` (start a new binding) |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
+| 400 | `SMS_CODE_INVALID` | Verification code invalid or expired (`sms` mode) |
+| 404 | `ELEME_USER_NOT_FOUND` | No bindable Taobao Instant / Ele.me account for this phone number |
+| 409 | `BINDING_LIMIT_REACHED` | This Agent has reached its binding quota |
+| 422 | — | Invalid body field types, or a required field missing for the given `auth_type`: `auth_type` not `sms`/`h5`, missing `bind_id`/`code` in `sms` mode, or missing `request_id` in `h5` mode. On REST these fail at the pydantic layer and return FastAPI's default 422 (the response body is the validation detail, not `{error:{code}}`) |
+| 502 | `ELEME_ERROR` | Taobao Instant / Ele.me upstream API error |
+
+<Note>
+  The parameter validations above all return 422 on REST. The same invalid input returns `400 PUBLIC_REFERENCE_INVALID` only on the **MCP tool path** (MCP tool arguments have no `Literal` / model validation).
+</Note>
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
 
 ### Example
 
+**SMS mode:**
+
 ```bash
-curl -X POST "https://your-gateway/api/v1/user/bind/verify" \
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
-  -d '{"bind_id": "550e8400-e29b-41d4-a716-446655440000", "code": "123456"}'
+  -d '{
+    "auth_type": "sms",
+    "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+    "code": "123456"
+  }'
+```
+
+**H5 mode:**
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "auth_type": "h5",
+    "request_id": "h5b_4f2a..."
+  }'
 ```

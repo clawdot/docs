@@ -1,83 +1,157 @@
 ---
-title: "验证绑定"
-description: "POST /user/bind/verify — 动态绑定用户：验证 SMS 码并获取 User Token"
+title: "确认绑定"
+description: "POST /auth/bind/verify — 完成用户授权绑定，换取 consent_grant_id / scopes / expires_at"
 ---
 
-## POST /user/bind/verify
+## POST /auth/bind/verify
 
-动态绑定用户第二步：验证 SMS 验证码，完成用户绑定并返回 User Token。
+完成一次由 [发起绑定](/api-reference/user/bind-request) 开启的用户授权。`auth_type=sms` 用 `bind_id` + 验证码 `code` 核验；`auth_type=h5` 用 `request_id` 查询用户在授权链接中的授权状态。核验成功即铸造并返回 `consent_grant_id`，后续业务接口凭它调用。
+
+<Note>
+  **绑定链路（绑定收口）**：`/auth/bind/request` → 拿到 `bind_id`（sms）或 `request_id`（h5）→ 用户收验证码 / 打开链接授权 → **`/auth/bind/verify`** 换取 `consent_grant_id` → 后续业务接口带该 `consent_grant_id` 调用。本接口是授权流程的收口步骤，**只需 API Key，不需要 `consent_grant`**。
+</Note>
+
+<Warning>
+  **重授权即轮换**：同一用户每次成功绑定都会铸造新的 `consent_grant_id`，旧的不再可用。`consent_grant_id` 明文只在本次响应出现一次，落库仅存哈希，请妥善保存。
+</Warning>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
 | `Content-Type` | 是 | `application/json` |
+
+本接口为绑定流程的一部分，**不需要** `X-Consent-Grant-Id`。
 
 ### 请求体
 
+请求体随 `auth_type` 不同需要不同字段。
+
+**`auth_type=sms`：**
+
 ```json
 {
+  "auth_type": "sms",
   "bind_id": "550e8400-e29b-41d4-a716-446655440000",
   "code": "123456"
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `bind_id` | string | 是 | 从 `/user/bind/request` 获取的绑定会话 ID |
-| `code` | string | 是 | 用户收到的 6 位 SMS 验证码 |
+**`auth_type=h5`：**
+
+```json
+{
+  "auth_type": "h5",
+  "request_id": "h5b_4f2a..."
+}
+```
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `auth_type` | string | 否 | `"sms"` | 绑定模式，枚举 `"sms"` / `"h5"`；其它值返回 422 |
+| `bind_id` | string | `sms` 必填 | `null` | 绑定会话 ID，原样回传 `/auth/bind/request`（sms）返回的 `bind_id`|
+| `code` | string | `sms` 必填 | `null` | 用户收到的短信验证码 |
+| `request_id` | string | `h5` 必填 | `null` | H5 绑定会话 ID，原样回传 `/auth/bind/request`（h5）返回的 `request_id`|
+
+<Warning>
+  字段必填性按 `auth_type` 条件成立：`sms` 模式缺 `bind_id` 或 `code`、`h5` 模式缺 `request_id`，返回 422。这些 ID 必须原样回传 `/auth/bind/request` 的返回值，不要自造。
+</Warning>
 
 ### 响应
 
-<Tabs>
-  <Tab title="200 成功">
-    ```json
-    {
-      "user_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "expires_at": "2026-06-28T12:00:00+00:00"
-    }
-    ```
+**成功（已授权）：**
 
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | `user_token` | string | User Token（UUID），用于后续所有业务接口的 `X-User-Token` header |
-    | `expires_at` | string | Token 过期时间（ISO 8601），默认 90 天 |
-  </Tab>
-  <Tab title="400 验证失败">
-    ```json
-    {
-      "error": {
-        "code": "SMS_CODE_INVALID",
-        "message": "Verification code is invalid or expired"
-      }
-    }
-    ```
-  </Tab>
-  <Tab title="409 绑定冲突">
-    ```json
-    {
-      "error": {
-        "code": "BINDING_LIMIT_REACHED",
-        "message": "This agent can only bind one user. Unbind the current user first or upgrade to superagent."
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
+```json
+{
+  "bound": true,
+  "status": "success",
+  "consent_grant_id": "cg_4f2a...",
+  "scopes": ["eleme.delivery"],
+  "expires_at": "2026-09-14T08:30:00+00:00",
+  "extra": null,
+  "next_action": null
+}
+```
 
-### 说明
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bound` | boolean | 是否已绑定；成功为 `true` |
+| `status` | string | 绑定状态，成功为 `"success"` |
+| `consent_grant_id` | string | 用户授权 ID（`cg_...`），传给后续业务接口的 `X-Consent-Grant-Id` 头 / MCP 的 `consent_grant_id` 参数。明文仅本次返回 |
+| `scopes` | string[] | 授权范围，形如 `["<provider_code>.<cap_code>"]`（如 `["eleme.delivery"]`）|
+| `expires_at` | string | 授权过期时间（ISO 8601，UTC）|
+| `extra` | object \| null | `/auth/bind/request` 发起时透传的 `extra`，原样回传；未传则为 `null` |
+| `next_action` | string \| null | 下一步建议；成功为 `null` |
 
-- 验证成功后，系统查询饿了么获取用户 ID 并加密存储
-- 同一 Agent + 手机号重复绑定会更新 Token（而非创建新绑定）
-- **普通 Agent 只能绑定一个手机号**，绑定不同手机号返回 `BINDING_LIMIT_REACHED`。需要绑定多个用户请升级为 Superagent
-- Token 过期后需重新执行绑定流程
+<Note>
+  **H5 模式查询时尚未授权**：用户还没在链接中完成授权时，本接口返回待定态而非报错。客户端应按 `next_action` 提示稍后重试，不要把待定态当失败处理。
+</Note>
+
+**H5 待定 / 已过期：**
+
+```json
+{
+  "bound": false,
+  "status": "pending",
+  "consent_grant_id": null,
+  "scopes": [],
+  "expires_at": null,
+  "extra": null,
+  "next_action": "verify_user_bind"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bound` | boolean | 此时为 `false` |
+| `status` | string | `"pending"`（用户尚未完成授权）或 `"expired"`（会话已过期）|
+| `consent_grant_id` | string \| null | 待定 / 过期时为 `null` |
+| `scopes` | string[] | 待定 / 过期时为空数组 `[]` |
+| `expires_at` | string \| null | 待定 / 过期时为 `null` |
+| `extra` | object \| null | 发起时透传的 `extra`，原样回传；未传则为 `null` |
+| `next_action` | string | `pending` → `"verify_user_bind"`（稍后重试本接口）；`expired` → `"request_bind"`（重新发起绑定）|
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
+| 400 | `SMS_CODE_INVALID` | `sms` 模式验证码无效或已过期 |
+| 404 | `ELEME_USER_NOT_FOUND` | 该手机号无可绑定的淘宝闪购 / 饿了么账号 |
+| 409 | `BINDING_LIMIT_REACHED` | 当前 Agent 已达可绑定用户数上限 |
+| 422 | — | 请求体字段类型不合法，或按 `auth_type` 缺必填字段：`auth_type` 非 `sms`/`h5`、`sms` 模式缺 `bind_id`/`code`、`h5` 模式缺 `request_id`。REST 端这组在 pydantic 层校验失败，返回 FastAPI 默认 422（响应体为校验明细，非 `{error:{code}}`）|
+| 502 | `ELEME_ERROR` | 淘宝闪购 / 饿了么上游 API 错误 |
+
+<Note>
+  上述参数校验在 REST 端统一返回 422。同样的非法输入仅在 **MCP 工具路径** 会返回 `400 PUBLIC_REFERENCE_INVALID`（MCP 工具参数无 `Literal` / 模型校验）。
+</Note>
+
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
+**SMS 模式：**
+
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/user/bind/verify" \
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
-  -d '{"bind_id": "550e8400-e29b-41d4-a716-446655440000", "code": "123456"}'
+  -d '{
+    "auth_type": "sms",
+    "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+    "code": "123456"
+  }'
+```
+
+**H5 模式：**
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "auth_type": "h5",
+    "request_id": "h5b_4f2a..."
+  }'
 ```

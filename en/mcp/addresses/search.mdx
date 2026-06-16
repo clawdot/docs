@@ -1,0 +1,107 @@
+---
+title: "search_addresses"
+description: "MCP tool, maps to REST POST /addresses/search — list the user's saved delivery addresses and search new POI candidates by keyword"
+---
+
+## search_addresses
+
+Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`) and, when a `keyword` is given, returns POI candidate addresses (`suggestions`). When `lat`/`lng` are passed, each saved address is annotated with `distance_meters` and the closest one's ID is surfaced at the top level as `nearest_address_id`. Maps to the REST endpoint `POST /addresses/search`.
+
+<Note>
+  **Position in the order flow**: the `address_id` (a saved address) or `suggestions[].token` (a POI candidate) returned here feeds the next step, `select_address`, which returns the canonical `address_id` used by `preview_order` and `create_order`.
+</Note>
+
+### Parameters
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix); identifies the consenting user |
+| `keyword` | string \| null | No | `null` | POI search keyword; omit to only list saved addresses (no `suggestions` returned) |
+| `lat` | number \| null | No | `null` | User latitude (GCJ-02); enables `distance_meters` and `nearest_address_id`, and biases POI search |
+| `lng` | number \| null | No | `null` | User longitude (GCJ-02) |
+| `city` | string \| null | No | `null` | City name to scope POI search; when provided it wins over `lat`/`lng` for the search scope |
+
+<Note>
+  All fields except `consent_grant_id` are optional. POI `suggestions` are returned only when both a `keyword` and a scope signal (a `lat`+`lng` pair, or a resolvable `city`) are present; otherwise `suggestions` is an empty array and only `saved_addresses` is returned.
+</Note>
+
+### Returns
+
+```json
+{
+  "saved_addresses": [
+    {
+      "address_id": "addr_8f3c...",
+      "display_name": "武汉市洪山区光谷世界城",
+      "address_detail": "Building 3, Room 101",
+      "city": "",
+      "lat": 30.5,
+      "lng": 114.4,
+      "contact_name": "张三",
+      "contact_phone_masked": "138****8000",
+      "distance_meters": 120
+    }
+  ],
+  "suggestions": [
+    {
+      "token": "sug_1a2b...",
+      "display_name": "光谷世界城",
+      "address": "武汉市洪山区珞喻路",
+      "city": "",
+      "lat": 30.5,
+      "lng": 114.4
+    }
+  ],
+  "nearest_address_id": "addr_8f3c..."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `saved_addresses` | array | Saved addresses, ordered most-recently-used first |
+| `saved_addresses[].address_id` | string | Gateway address ID (`addr_` prefix); pass as-is to `select_address` or `preview_order` |
+| `saved_addresses[].display_name` | string | Address display name |
+| `saved_addresses[].address_detail` | string | Door number / floor details |
+| `saved_addresses[].city` | string | City (currently always an empty string) |
+| `saved_addresses[].lat` | number \| null | Latitude (GCJ-02) |
+| `saved_addresses[].lng` | number \| null | Longitude (GCJ-02) |
+| `saved_addresses[].contact_name` | string \| null | Recipient name |
+| `saved_addresses[].contact_phone_masked` | string | Recipient phone, masked (e.g. `138****8000`) |
+| `saved_addresses[].distance_meters` | integer \| null | Distance from the request `lat`/`lng` (meters, integer); `null` when no coords were sent or the address has no coords |
+| `suggestions` | array | POI candidate addresses; non-empty only when `keyword` is given and a scope is resolvable |
+| `suggestions[].token` | string | Single-use suggestion token; pass to `select_address` as `suggestion_token` to materialise it into a saved address |
+| `suggestions[].display_name` | string | POI name |
+| `suggestions[].address` | string | POI full address text |
+| `suggestions[].city` | string | City (currently always an empty string) |
+| `suggestions[].lat` | number \| null | POI latitude (GCJ-02) |
+| `suggestions[].lng` | number \| null | POI longitude (GCJ-02) |
+| `nearest_address_id` | string \| null | ID of the saved address closest to the request coords; `null` when no coords were sent or no address is comparable |
+
+<Warning>
+  Always sanity-check the chosen address's `distance_meters` before using `nearest_address_id`: if even the nearest is far away (e.g. tens of km — all saved addresses are in another city), do not auto-pick; ask the user or search a new address by `keyword` instead.
+</Warning>
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | Missing, invalid, or expired consent grant |
+| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent lacks the capability, or the grant does not match the capability |
+| 422 | — | Invalid parameter types (e.g. non-numeric `lat`/`lng`) |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+```json
+{
+  "name": "search_addresses",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "keyword": "光谷世界城",
+    "lat": 30.5,
+    "lng": 114.4,
+    "city": "武汉"
+  }
+}
+```

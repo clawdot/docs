@@ -1,0 +1,68 @@
+---
+title: "Sign Status"
+description: "GET /payment/sign-status — check whether the consented user has completed passwordless payment signing"
+---
+
+## GET /payment/sign-status
+
+Checks whether the current consented user has completed passwordless payment signing with the provider. Before placing an order (`/orders/create`), confirm that `signed` is `true`; if not signed, follow the returned `next_action` to guide the user through signing.
+
+<Note>
+  **Signing flow**: call this endpoint to check `signed` → if `false`, call `/payment/sign-action` to get an H5 signing URL and guide the user to complete signing in a browser → call this endpoint again to confirm `signed` becomes `true` → proceed to the order flow. Signing status is queried live from upstream using the consent context (user, device); the caller does not pass a mobile number or device ID.
+</Note>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
+
+### Request Parameters
+
+This is a `GET` endpoint with **no request body, and no path or query parameters**. The mobile number, device ID, and signing channel needed for the lookup are all derived by the gateway from the consent context; the caller neither needs nor can pass them.
+
+### Response
+
+```json
+{
+  "signed": false,
+  "signed_at": null,
+  "next_action": "get_sign_action"
+}
+```
+
+When already signed:
+
+```json
+{
+  "signed": true,
+  "signed_at": "2026-06-16T08:30:00.123456+00:00",
+  "next_action": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `signed` | boolean | Whether passwordless payment signing is complete |
+| `signed_at` | string \| null | Time this query confirmed signing (ISO 8601, UTC); always `null` when `signed` is `false` |
+| `next_action` | string \| null | `"get_sign_action"` when not signed (hint to call `/payment/sign-action` next); `null` when signed |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
+| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | Missing, invalid, or expired consent grant (expired requires re-authorization) |
+| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent capability not enabled, or grant belongs to a different capability / provider |
+| 502 | `ELEME_ERROR` | Upstream sign-status query failed |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example
+
+```bash
+curl "https://api.clawdot.ai/api/v1/payment/sign-status" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```

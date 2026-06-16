@@ -1,69 +1,119 @@
 ---
-title: "Send Verification Code"
-description: "POST /user/bind/request — Send SMS verification code to phone number"
+title: "Request Binding"
+description: "POST /auth/bind/request — start a user consent binding: SMS mode sends a code / H5 mode returns an auth link"
 ---
 
-## POST /user/bind/request
+## POST /auth/bind/request
 
-Send an SMS verification code to a specified phone number and initiate the user binding process.
+Starts a user consent binding. With `auth_type=sms` the gateway sends a verification code to the phone number; with `auth_type=h5` it returns an authorization link (minisite) where the user signs in to grant access. Neither mode returns a grant immediately — call [Verify Binding](/en/api-reference/user/bind-verify) to complete it.
+
+<Note>
+  **Binding flow (entry point)**: **`/auth/bind/request`** → get `bind_id` (sms) or `request_id` + `h5_url` (h5) → user enters the code / opens the link to authorize → `/auth/bind/verify` exchanges it for a `consent_grant_id` → subsequent business endpoints carry that `consent_grant_id`. This is the first step of the auth flow and **only requires an API Key, not a `consent_grant`**.
+</Note>
 
 ### Request Headers
 
 | Name | Required | Description |
-|------|------|------|
-| `Authorization` | Yes | `Bearer clw_...` |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
 | `Content-Type` | Yes | `application/json` |
+
+As a binding entry point, this endpoint does **not** require `X-Consent-Grant-Id`.
 
 ### Request Body
 
 ```json
 {
-  "phone": "13800138000"
+  "phone": "13800138000",
+  "auth_type": "sms",
+  "callback_url": null,
+  "extra": null
 }
 ```
 
-| Field | Type | Required | Description |
-|------|------|------|------|
-| `phone` | string | Yes | Mainland China phone number (11 digits) |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `phone` | string | Yes | — | User phone number |
+| `auth_type` | string | No | `"sms"` | Binding mode, enum `"sms"` / `"h5"`; other values return 422 |
+| `callback_url` | string \| null | No | `null` | **`h5` only**: the gateway polls the binding result and POSTs a callback (with `consent_grant_id`) to this URL on success or expiry. Must be an absolute http(s) URL; private / loopback hosts are rejected. Passing it in `sms` mode is an error |
+| `extra` | object \| null | No | `null` | Caller passthrough (JSON object, ≤2KB): supplied at request time, echoed back verbatim by `/auth/bind/verify` and the callback. The gateway does not interpret its contents |
 
 ### Response
 
-<Tabs>
-  <Tab title="200 Success">
-    ```json
-    {
-      "bind_id": "550e8400-e29b-41d4-a716-446655440000"
-    }
-    ```
+The response shape depends on `auth_type`.
 
-    | Field | Type | Description |
-    |------|------|------|
-    | `bind_id` | string | Binding session ID (UUID), used in verification step |
-  </Tab>
-  <Tab title="429 Cooldown">
-    ```json
-    {
-      "error": {
-        "code": "SMS_COOLDOWN",
-        "message": "Please wait 60 seconds before resending"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
+**`auth_type=sms`:**
 
-### Notes
+```json
+{
+  "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+  "expires_in": 300,
+  "masked_phone": "138****8000"
+}
+```
 
-- Verification code is sent via Alibaba Cloud SMS service (DySMS)
-- Each phone number has a **60 second cooldown period**
-- Verification code is valid for **10 minutes**
-- `bind_id` is used in the next [verification endpoint](/api-reference/user/bind-verify)
+| Field | Type | Description |
+|-------|------|-------------|
+| `bind_id` | string | Binding session ID; pass it back as `bind_id` to `/auth/bind/verify` |
+| `expires_in` | integer | Session lifetime in seconds; currently `300` (5 minutes) |
+| `masked_phone` | string \| null | Masked phone (e.g. `138****8000`); too-short numbers return `"***"`, empty returns `null` |
+
+**`auth_type=h5`:**
+
+```json
+{
+  "auth_type": "h5",
+  "request_id": "h5b_4f2a...",
+  "h5_url": "https://s.clawdot.ai/abc123",
+  "expires_in": 300,
+  "masked_phone": "138****8000",
+  "callback_registered": false,
+  "next_action": "verify_user_bind"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `auth_type` | string | Always `"h5"` |
+| `request_id` | string | H5 binding session ID; pass it back as `request_id` to `/auth/bind/verify` |
+| `h5_url` | string | User authorization link (shortened URL; falls back to the raw long URL if the shortener is unavailable) |
+| `expires_in` | integer | Link / session lifetime in seconds; currently `300` (5 minutes) |
+| `masked_phone` | string \| null | Masked phone (e.g. `138****8000`) |
+| `callback_registered` | boolean | Whether a callback was registered (`true` when a valid `callback_url` was provided); when `true` the gateway polls and pushes the result, while client polling still works as a fallback |
+| `next_action` | string | Suggested next step, always `"verify_user_bind"` |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
+| 403 | `CAP_NOT_BOUND` | The Agent is not provisioned for the delivery capability |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `auth_type` not sms/h5, `callback_url` passed in `sms` mode, invalid `callback_url` (non-http(s) or private host), or `extra` not a JSON object / over 2KB |
+| 422 | — | Invalid request body field type (e.g. `auth_type` not in the enum) |
+| 429 | `SMS_COOLDOWN` | Verification code is in a 60-second cooldown (`sms` mode only) |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
 
 ### Example
 
+**SMS mode:**
+
 ```bash
-curl -X POST "https://your-gateway/api/v1/user/bind/request" \
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
-  -d '{"phone": "13800138000"}'
+  -d '{"phone": "13800138000", "auth_type": "sms"}'
+```
+
+**H5 mode (with callback):**
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "13800138000",
+    "auth_type": "h5",
+    "callback_url": "https://your-app.example.com/clawdot/bind-callback"
+  }'
 ```

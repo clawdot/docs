@@ -1,138 +1,200 @@
 ---
 title: "Order Flow"
-description: "Complete end-to-end flow from searching for shops to confirming orders"
+description: "The complete end-to-end ordering chain from searching shops to passwordless signing — each step maps to one MCP tool / REST endpoint"
 ---
+
+Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together; the full field table for each endpoint lives in the corresponding [API reference](/en/api-reference/shops/search).
+
+<Note>
+  Examples below use **MCP tools** (tool arguments are identical to the REST body except for `consent_grant_id`). Each tool maps one-to-one to a REST endpoint with the same arguments; for the REST form, see the links at the end of each step and the "Authentication" section below.
+</Note>
 
 ## Overview
 
-Completing an order requires the following steps:
-
 ```mermaid
-flowchart LR
-  A["Search Shops"] --> B["View Menu"]
-  B --> C["Prepare Address"]
-  C --> D["Preview Order"]
-  D --> E["Confirm Order"]
+flowchart TD
+  A["search_shops<br/>POST /shops/search"] -->|"shop_id + cart_id"| B["get_shop_menu<br/>POST /shops/menu"]
+  B -->|"item_id / sku_id"| C["quote_cart<br/>POST /cart/quote"]
+  C -->|"quote_id"| E["preview_order<br/>POST /orders/preview"]
+  D["select_address<br/>POST /addresses/select"] -->|"address_id"| E
+  E -->|"preview_id + confirmation_token"| F["create_order<br/>POST /orders/create"]
+  F -->|"order_id"| G["get_sign_action<br/>POST /payment/sign-action"]
 
   style A fill:#fde8e4,stroke:#E8593C
   style B fill:#fde8e4,stroke:#E8593C
   style C fill:#fde8e4,stroke:#E8593C
   style D fill:#fde8e4,stroke:#E8593C
-  style E fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style E fill:#fde8e4,stroke:#E8593C
+  style F fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style G fill:#fde8e4,stroke:#E8593C
 ```
+
+How IDs flow through the chain:
+
+| Step | Produces | Consumed by |
+|---|---|---|
+| `search_shops` | `shop_id` + `cart_id` | `get_shop_menu` / `quote_cart` / `preview_order` |
+| `get_shop_menu` | `item_id` / `sku_id` / `ingredient_option_ids` | the `items` of `quote_cart` / `preview_order` |
+| `quote_cart` | `quote_id` | `preview_order` (optional; if passed, validates the quote context) |
+| `select_address` | `address_id` | `quote_cart` / `preview_order` |
+| `preview_order` | `preview_id` + `confirmation_token` | `create_order` |
+| `create_order` | `order_id` + `payment_action` | `get_order_status` |
+| `get_sign_action` | a signing `action` (H5 link) | user completes passwordless signing in the browser |
+
+<Warning>
+  All amount fields are in **cents (integers)**, not yuan. For example, `payable_price: 1500` means ¥15.00.
+</Warning>
+
+## The Full Chain
 
 <Steps>
 
-### Search Nearby Shops
+### Search / browse shops
 
-```bash
-GET /api/v1/shops/search?lat=39.9&lng=116.4&keyword=coffee
+```python
+search_shops(
+    consent_grant_id="cg_...",
+    keyword="生椰拿铁",   # omit to browse nearby shops (≤20)
+    address_id="addr_...",  # or pass lat/lng (GCJ-02) directly
+)
 ```
 
-When `keyword` is not passed, the system performs parallel searches across 10 default categories (Recommended, Fast Food, Stir-fry, Western, Light, Dessert, Milk Tea, Coffee, Congee, Barbecue), auto-deduplicates and returns approximately 50 shops.
+Without `keyword` it is **browse mode**, returning up to 20 nearby shops (with decision fields like distance, rating, delivery fee, minimum order). With `keyword` it is **precise search** (~5 shops), accepting a shop name, a category, or a concrete item name; matched shops carry `matched_items` previews.
 
-<Tip>
-  When passing `keyword`, it's an exact search, returning at most 5 shops.
-</Tip>
-
-### View Shop Menu
-
-```bash
-GET /api/v1/shops/E1234567890?lat=39.9&lng=116.4
-```
-
-Returns complete menu, each item includes:
-- **specs** — Specification options (e.g., large/medium cup)
-- **attrs** — Attribute options (e.g., iced/hot)
-- **ingredients** — Extra ingredient options (with exclusion rules)
-- **default_ingredients** — Pre-computed defaults (for quick ordering)
+Every result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop and this delivery location, and is the entry point for the downstream `get_shop_menu` / `quote_cart` / `preview_order`. Pass it **verbatim** — downstream calls then need no lat/lng.
 
 <Note>
-  For detailed explanation of specs/attributes/ingredients system, see [Item Specifications](/gateway/item-specs).
+  Full fields: [Search Shops](/en/api-reference/shops/search). `matched_items` are display-only and carry no IDs; to order you must use the `item_id` / `sku_id` returned by `get_shop_menu`.
 </Note>
 
-### Prepare Delivery Address
+### View the shop menu
 
-If the user doesn't have an address yet, create one first:
-
-```bash
-# 1. Search POI
-POST /api/v1/addresses/search
-{"lat": 39.9, "lng": 116.4, "keyword": "Trade Tower"}
-
-# 2. Select POI (required! Otherwise address creation will fail)
-POST /api/v1/addresses/select
-{"poi_data": {"id": "poi_123", "name": "Trade Tower", ...}}
-
-# 3. Create address
-POST /api/v1/addresses
-{"poi_id": "poi_123", "name": "Zhang San", "phone": "13800138000", "detail": "3rd Floor Room 301"}
+```python
+get_shop_menu(
+    consent_grant_id="cg_...",
+    shop_id="shop_...",   # verbatim from search_shops
+    cart_id="cart_...",   # verbatim from search_shops
+    keyword="拿铁",        # optional: only items matching name/category/description
+    limit=20, offset=0,    # optional: page via next_offset until has_more=false
+)
 ```
 
-<Warning>
-  Must call `/addresses/select` before `/addresses`. Otherwise the food delivery platform will return "address not selected" error.
-</Warning>
+Returns menu items, each carrying an orderable `item_id` / `sku_id` plus the `ingredient_option_ids` for specs / attributes / extra ingredients. Menus can be large (100+ items), so disclose progressively with `keyword` or `limit`/`offset`. IDs fetched earlier on the same `cart_id` remain valid for ordering.
 
-If address already exists, query directly:
+<Note>
+  For the specs / attributes / ingredients model, see [Item Specifications](/en/gateway/item-specs); full fields: [Shop Menu](/en/api-reference/shops/detail).
+</Note>
 
-```bash
-GET /api/v1/addresses
+### Prepare the delivery address
+
+```python
+search_addresses(consent_grant_id="cg_...", keyword="光谷世界城", lat=30.5, lng=114.4)
+# → suggestions[].token (single-use, for select_address) + saved_addresses
+
+select_address(
+    consent_grant_id="cg_...",
+    contact_name="张三",
+    contact_phone="13800138000",
+    suggestion_token="...",     # from one of search_addresses' suggestions
+    address_detail="3 号楼 101",
+)
 ```
 
-### Preview Order
+`select_address` returns the `address_id` for that address, passed to `quote_cart` / `preview_order`. For an existing address, `search_addresses` returns `saved_addresses` (plus `nearest_address_id` when `lat`/`lng` are given), whose `address_id` you can reuse directly.
 
-```bash
-POST /api/v1/orders/preview
-{
-  "shop_id": "E1234567890",
-  "address_id": "addr_123",
-  "items": [
-    {
-      "item_id": "123456789",
-      "sku_id": "987654321",
-      "quantity": 1,
-      "ingredients": [...]
-    }
-  ],
-  "lat": 39.9,
-  "lng": 116.4
-}
+<Note>
+  Address trio: [Search Addresses](/en/api-reference/addresses/search) · [Select / register address](/en/api-reference/addresses/select) · [Update address](/en/api-reference/addresses/update).
+</Note>
+
+### Quote the cart
+
+```python
+quote_cart(
+    consent_grant_id="cg_...",
+    shop_id="shop_...",
+    cart_id="cart_...",
+    address_id="addr_...",
+    items=[{"item_id": "...", "sku_id": "...", "quantity": 1, "ingredient_option_ids": []}],
+)
 ```
 
-The system will:
-1. Render order first (without coupon)
-2. Select the best coupon from available options
-3. Re-render (with coupon) to get final price
+Prices the chosen items and returns a `quote_id` (quote context) plus the price breakdown. The `quote_id` can be passed to `preview_order` to validate the quote context.
 
-The returned `session_id` is **one-time only**, valid for 10 minutes.
+<Note>
+  Full fields: [Quote Cart](/en/api-reference/cart/quote).
+</Note>
 
-<Tip>
-  When AI Agent places orders quickly, can directly use the `default_ingredients` field from the menu without manual ingredient selection.
-</Tip>
+### Preview the order
 
-### Confirm Order
-
-```bash
-POST /api/v1/orders
-{"session_id": "abc-def-ghi"}
+```python
+preview_order(
+    consent_grant_id="cg_...",
+    shop_id="shop_...",
+    cart_id="cart_...",
+    address_id="addr_...",
+    items=[{"item_id": "...", "sku_id": "...", "quantity": 1}],
+    quote_id="...",          # optional; if passed, validates the quote context
+    coupon_ids=None,         # tri-state: omit=auto-pick best; []=no coupon; ["cpn_..."]=specific
+    order_remark="放门口",
+)
 ```
 
-Use the `session_id` returned from preview to confirm order. Returns `order_id` on success.
+Validates the shop / address / items, applies coupons, and returns the final price (`price.payable_price` etc., in cents) plus the `preview_id` + `confirmation_token` used to order (produced by the same preview, must be used as a pair, valid ~10 minutes).
+
+<Note>
+  Full fields and the `coupon_ids` tri-state: [Preview Order](/en/api-reference/orders/preview).
+</Note>
+
+### Create the order
+
+```python
+create_order(
+    consent_grant_id="cg_...",
+    preview_id="prv_...",            # from the same preview_order
+    confirmation_token="cf_...",     # from the same preview_order
+    payment_method=None,
+    callback_url="https://your-app.example.com/clawdot/callback",  # optional: payment-status callback
+)
+```
+
+Places the order with the `preview_id` + `confirmation_token` from the same preview, returning the platform `order_id`, `status`, and (when payment is required) `payment_action`.
+
+<Note>
+  This endpoint is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and POSTs a callback once it leaves the unpaid state; otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/api-reference/orders/create).
+</Note>
+
+### Passwordless signing
+
+```python
+get_sign_action(
+    consent_grant_id="cg_...",
+    return_url="https://your-app.example.com/sign/callback",
+)
+```
+
+Initiates passwordless-payment signing for the user and returns an `action`: when `action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to `return_url`; when it is `none`, the user is already signed. Then poll the result with `get_sign_status` (`GET /payment/sign-status`). Passwordless signing is a prerequisite for passwordless-payment orders.
+
+<Note>
+  Full fields: [Initiate Passwordless Signing](/en/api-reference/payment/sign-action).
+</Note>
 
 </Steps>
 
-## Query Order
+## Query an order
 
-```bash
-GET /api/v1/orders/1234567890
+```python
+get_order_status(consent_grant_id="cg_...", order_id="ord_...")
 ```
 
-Returns order status and details.
+Maps to `GET /orders/{order_id}`, returning the order status and details. See [Get Order](/en/api-reference/orders/get).
 
-## Rate Limiting
+## Authentication
 
-| Operation | Limit |
-|---|---|
-| Ordering (`POST /orders`) | 10 times/minute/Agent |
-| Other endpoints | 60 times/minute/Agent |
-| SMS sending | 60 second cooldown/phone number |
+Every step requires two-layer authentication:
+
+- **API Key** (identifies the Agent): passed via the `Authorization: Bearer clw_...` header, the same for MCP and REST.
+- **User consent grant** (identifies the authorized user, `cg_` prefix):
+  - **MCP:** passed as each tool's `consent_grant_id` argument (not a header).
+  - **REST:** passed via the `X-Consent-Grant-Id` header.
+
+See [Authentication](/en/gateway/authentication). Errors are returned in the uniform shape `{"error": {"code", "message"}}`; see [Error Handling](/en/gateway/error-handling).

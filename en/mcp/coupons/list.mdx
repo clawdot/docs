@@ -1,0 +1,83 @@
+---
+title: "list_coupons"
+description: "MCP tool, maps to REST POST /coupons/list — list the available coupons in the authorized user's account (account-level, not tied to any specific order)"
+---
+
+## list_coupons
+
+Lists the available coupons in the authorized user's account. These are **account-level** coupons and do not indicate whether a given coupon applies to a specific order — whether a coupon is usable for the current cart is decided by `available_coupons` in `preview_order`. Maps to the REST endpoint `POST /coupons/list`.
+
+<Note>
+  This tool identifies the user from `consent_grant_id` and queries the upstream provider for that user's account coupons. The returned `coupon_id` is for display only and **cannot** be passed back to `preview_order`'s `coupon_ids` — when previewing, use that preview's `available_coupons[].coupon_id`.
+</Note>
+
+### Parameters
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix); identifies the consenting user |
+
+### Returns
+
+```json
+{
+  "coupons": [
+    {
+      "coupon_id": "cpn_1a2b...",
+      "name": "5 off over 20",
+      "amount": 500,
+      "threshold": 2000,
+      "threshold_desc": "Usable over ¥20",
+      "begin_time": "2026-06-01T00:00:00",
+      "end_time": "2026-06-30T23:59:59",
+      "status": "NORMAL",
+      "coupon_type": "other",
+      "restrict_desc": ["Delivery orders only"]
+    }
+  ],
+  "total": 1
+}
+```
+
+<Warning>
+  Amount fields (`amount` / `threshold`) are in **cents (integer)**, not yuan. e.g. `amount: 500` means ¥5.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `coupons` | array | Coupon list; empty array when the user has none |
+| `coupons[].coupon_id` | string | Coupon reference ID (`cpn_` prefix), display only; to select coupons on preview use `available_coupons[].coupon_id` from `preview_order` |
+| `coupons[].name` | string | Coupon name (defaults to a generic label) |
+| `coupons[].amount` | integer | Coupon value (cents) |
+| `coupons[].threshold` | integer | Usage threshold (cents); `0` means no threshold |
+| `coupons[].threshold_desc` | string | Threshold text, e.g. "Usable over ¥20" or "No threshold" |
+| `coupons[].begin_time` | string \| null | Start time (ISO 8601 local-time string) |
+| `coupons[].end_time` | string \| null | End time (ISO 8601 local-time string) |
+| `coupons[].status` | string | Coupon status (defaults to `NORMAL`) |
+| `coupons[].coupon_type` | string | Coupon source / type (defaults to `other`) |
+| `coupons[].restrict_desc` | string[] | Usage-restriction texts, e.g. `["Delivery orders only"]`; empty array when unrestricted |
+| `total` | integer | Number of coupons returned (= length of `coupons`) |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing consent grant |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant ID is invalid (no matching binding) |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | The Agent does not have the delivery capability enabled |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability or provider |
+| 502 | `ELEME_ERROR` | Upstream coupon lookup failed |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+```json
+{
+  "name": "list_coupons",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

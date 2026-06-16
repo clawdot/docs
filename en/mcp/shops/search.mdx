@@ -1,0 +1,118 @@
+---
+title: "search_shops"
+description: "MCP tool, maps to REST POST /shops/search — search or browse nearby shops by location; each result carries shop_id + cart_id (which encapsulates the shop and delivery coordinates)"
+---
+
+## search_shops
+
+Searches or browses shops near the delivery location. Each result carries a `shop_id` and a `cart_id`: the `cart_id` encapsulates the shop and the delivery coordinates, and is the entry point for the subsequent `get_shop_menu`, `quote_cart`, and `preview_order` calls.
+
+<Note>
+  **Order flow**: **`search_shops`** → `shop_id` + `cart_id` (carries delivery coordinates) → `get_shop_menu` to pick items → `quote_cart` to price the cart and get `quote_id` → `select_address` to get `address_id` → `preview_order` → `preview_id` + `confirmation_token` → `create_order`. Pass the `shop_id` / `cart_id` to downstream tools as-is; do not synthesize them.
+</Note>
+
+**Two modes (switched by `keyword`):**
+
+- **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
+- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: this mode does **not** return distance / rating / delivery_fee fields (upstream limitation).
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `keyword` | string \| null | No | `null` | Keyword: shop name / category / item name. Omit or leave blank for browse mode |
+| `address_id` | string \| null | No | `null` | Gateway address ID (from `select_address`); resolves the delivery location, takes priority over `lat`/`lng` |
+| `lat` | float \| null | No | `null` | Latitude (GCJ-02) |
+| `lng` | float \| null | No | `null` | Longitude (GCJ-02) |
+| `city` | string \| null | No | `null` | City name to scope the search |
+
+<Note>
+  **How the delivery location is resolved**: in order, ① the coordinates of the saved address behind `address_id` → ② the `lat`/`lng` passed explicitly → ③ the user's most-recently-used saved address / remembered location. If none resolve, the call returns `COORDS_REQUIRED`. So `address_id` and `lat`/`lng` are both optional, but at least one location source must be resolvable.
+</Note>
+
+### Returns
+
+```json
+{
+  "shops": [
+    {
+      "shop_id": "shop_4f2a...",
+      "cart_id": "cart_9b3e...",
+      "name": "瑞幸咖啡(人民广场店)",
+      "brand_name": "瑞幸咖啡",
+      "logo_url": "https://image.url/shop.jpg",
+      "distance_text": "1.2km",
+      "delivery_time_text": "35分钟",
+      "delivery_fee_text": "配送 ¥3",
+      "rating": 4.8,
+      "monthly_sales_text": "月售2000+",
+      "min_order_amount": 0,
+      "available": true,
+      "unavailable_reason": null,
+      "matched_items": [
+        {
+          "name": "生椰拿铁",
+          "description": "椰浆+浓缩咖啡",
+          "price": 1600,
+          "original_price": 2900
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Warning>
+  Amount fields are in **cents (integer)**, not yuan. e.g. `min_order_amount: 0` means ¥0, `price: 1600` means ¥16.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
+| `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `get_shop_menu` / `quote_cart` / `preview_order` as-is |
+| `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
+| `shops[].name` | string | Shop name |
+| `shops[].brand_name` | string \| null | Brand name |
+| `shops[].logo_url` | string \| null | Shop logo URL |
+| `shops[].distance_text` | string \| null | Distance from the delivery location (text; may be `null` in keyword search mode) |
+| `shops[].delivery_time_text` | string \| null | Estimated delivery text (may be `null` in keyword search mode) |
+| `shops[].delivery_fee_text` | string \| null | Delivery fee text (may be `null` in keyword search mode) |
+| `shops[].rating` | float \| null | Rating (may be `null` in keyword search mode) |
+| `shops[].monthly_sales_text` | string \| null | Monthly sales text |
+| `shops[].min_order_amount` | integer \| null | Minimum order amount (cents); `null` when absent |
+| `shops[].available` | boolean | Whether orderable (open and not closed) |
+| `shops[].unavailable_reason` | string \| null | Reason if unavailable |
+| `shops[].matched_items` | array | Matched item previews (keyword search only; **display-only**) |
+| `shops[].matched_items[].name` | string | Item name |
+| `shops[].matched_items[].description` | string \| null | Item description (max 80 chars) |
+| `shops[].matched_items[].price` | integer | Item price (cents) |
+| `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
+
+<Warning>
+  `matched_items` carry **no IDs and no stock state**. To order, you must first call `get_shop_menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
+</Warning>
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | Missing or invalid consent grant |
+| `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid or does not belong to the consented user |
+| `COORDS_REQUIRED` | Neither `address_id` nor `lat`/`lng` was given and no remembered location is available |
+| `ELEME_ERROR` | Upstream search API error |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "search_shops",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "keyword": "生椰拿铁",
+    "address_id": "<from select_address>"
+  }
+}
+```
