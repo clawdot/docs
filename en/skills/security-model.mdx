@@ -82,7 +82,7 @@ The Skills Platform uses an **API Key + user consent grant** two-layer authentic
 
 - **Prefix**: Starts with `clw_`, followed by random characters, e.g. `clw_a1b2c3d4...`
 - **Storage**: Server only stores a hash, never plaintext; each request is compared by hash
-- **Issuance**: Generated when creating an Agent in the [Portal](http://console.hicaspian.com/agents), **displayed only once** — if lost, regenerate it
+- **Issuance**: Generated when creating an Agent in the [Portal](http://console.hicaspian.com), **displayed only once** — if lost, regenerate it
 - **Usage**: In all requests' HTTP Header as `Authorization: Bearer {API_KEY}`; same for MCP and REST
 
 ### Consent Grant (User Identification)
@@ -258,7 +258,7 @@ The authentication chain and the auth level required by each endpoint are detail
 <details>
 <summary>What if the API Key is leaked?</summary>
 
-Immediately disable that API Key in the [Portal](http://console.hicaspian.com/agents); the system will automatically stop all requests using it. Then generate a new API Key and update your application configuration. The database only stores the API Key's hash, so attackers cannot directly leverage a leaked hash.
+Immediately disable that API Key in the [Portal](http://console.hicaspian.com); the system will automatically stop all requests using it. Then generate a new API Key and update your application configuration. The database only stores the API Key's hash, so attackers cannot directly leverage a leaked hash.
 
 </details>
 
