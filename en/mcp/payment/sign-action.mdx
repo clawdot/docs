@@ -1,0 +1,67 @@
+---
+title: "get_sign_action"
+description: "MCP tool, maps to REST POST /payment/sign-action — start passwordless-payment signing for an authorized user and return an action (with the H5 link) to open the signing page"
+---
+
+## get_sign_action
+
+Starts passwordless-payment signing for the current authorized user: the gateway first checks the user's signing status, requests a signing address upstream if not yet signed, and issues an `action` that opens the signing H5 page. Already-signed users get no signing link.
+
+<Note>
+  **Signing flow**: call this tool to get an `action`; if `action.action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to the `return_url` you provided. Then poll the result with `get_sign_status`. If `action.action_type` is `none`, the user is already signed and no page needs to be opened. Signing is a prerequisite for placing passwordless-payment orders.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `return_url` | string | Yes | — | The URL the browser returns to after the user completes signing on the H5 page; provided by the caller and passed through to the upstream signing page as-is |
+
+### Returns
+
+```json
+{
+  "action": {
+    "action_id": "act_7c1d...",
+    "action_type": "open_h5",
+    "action_url": "https://render.alipay.com/p/s/...",
+    "expires_at": "2026-06-16T08:30:00+00:00"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `action` | object | The action to perform |
+| `action.action_id` | string | Action ID (`act_` prefix), issued by the gateway, used to track this action |
+| `action.action_type` | string | `open_h5` (open `action_url` to complete signing) or `none` (user already signed, no action needed) |
+| `action.action_url` | string \| null | Signing H5 page URL; `null` when `action_type` is `none`. Open it in the browser/WebView as-is; do not rewrite it |
+| `action.expires_at` | string | Action expiry time (ISO 8601, UTC); valid for 30 minutes, after which you must start again |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| `SIGN_ADDRESS_NOT_FOUND` | Upstream response did not return a signing address |
+| `ELEME_ERROR` | Taobao Instant Commerce / Ele.me upstream API error |
+| `PROVIDER_NOT_AVAILABLE` | Provider adapter temporarily unavailable |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "get_sign_action",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "return_url": "https://your-app.example.com/sign/callback"
+  }
+}
+```

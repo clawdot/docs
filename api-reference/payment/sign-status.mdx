@@ -1,0 +1,68 @@
+---
+title: "查询签约状态"
+description: "GET /payment/sign-status — 查询当前授权用户是否已完成免密支付签约"
+---
+
+## GET /payment/sign-status
+
+查询当前授权用户在该服务商下是否已完成免密支付签约。下单（`/orders/create`）前应确认 `signed` 为 `true`；未签约时按返回的 `next_action` 引导用户去签约。
+
+<Note>
+  **签约链路**：调用本接口检查 `signed` → 若为 `false`，调用 `/payment/sign-action` 获取 H5 签约链接，引导用户在浏览器完成签约 → 再次调用本接口确认 `signed` 变为 `true` → 进入下单流程。签约状态由网关用授权上下文（用户、设备）向上游实时查询，无需调用方传入手机号或设备 ID。
+</Note>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
+
+### 请求参数
+
+本接口为 `GET`，**无请求体，也无路径参数或查询参数**。签约所需的手机号、设备 ID、签约渠道等均由网关从授权上下文派生，调用方无需也无法传入。
+
+### 响应
+
+```json
+{
+  "signed": false,
+  "signed_at": null,
+  "next_action": "get_sign_action"
+}
+```
+
+已签约时：
+
+```json
+{
+  "signed": true,
+  "signed_at": "2026-06-16T08:30:00.123456+00:00",
+  "next_action": null
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `signed` | boolean | 是否已完成免密支付签约 |
+| `signed_at` | string \| null | 本次查询确认已签约的时间（ISO 8601，UTC）；`signed` 为 `false` 时恒为 `null` |
+| `next_action` | string \| null | 未签约时为 `"get_sign_action"`（提示下一步调用 `/payment/sign-action`）；已签约时为 `null` |
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
+| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 缺少、无效或已过期的用户授权（过期需重新授权）|
+| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent 未开通该能力，或授权属于其它能力 / 服务商 |
+| 502 | `ELEME_ERROR` | 上游查询签约状态失败 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 示例
+
+```bash
+curl "https://api.clawdot.ai/api/v1/payment/sign-status" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```

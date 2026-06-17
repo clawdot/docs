@@ -1,148 +1,178 @@
 ---
 title: "Preview Order"
-description: "POST /orders/preview — Render order and auto-apply best coupon"
+description: "POST /orders/preview — validate a priced cart and return final pricing, available coupons, and the preview_id used to place the order"
 ---
 
 ## POST /orders/preview
 
-Preview an order, automatically select the best coupon, and return the final price and `session_id`.
+Previews an order before creation: validates the shop / address / items, applies coupons, and returns the final price breakdown along with the `preview_id` and `confirmation_token` used to place the order.
+
+<Note>
+  **Order flow**: `/shops/search` → `shop_id` + `cart_id` (carries delivery coordinates) → `/shops/menu` to pick items → `/cart/quote` to price the cart and get `quote_id` → `/addresses/select` to get `address_id` → **`/orders/preview`** → `preview_id` + `confirmation_token` → `/orders/create`. A preview must be based on an existing `cart_id`.
+</Note>
 
 ### Request Headers
 
 | Name | Required | Description |
-|------|------|------|
-| `Authorization` | Yes | `Bearer clw_...` |
-| `X-User-Token` | Yes | User Token |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
 | `Content-Type` | Yes | `application/json` |
 
 ### Request Body
 
 ```json
 {
-  "shop_id": "E1234567890123",
-  "address_id": "1234567890",
+  "shop_id": "<from /shops/search>",
+  "cart_id": "<from /shops/search>",
+  "quote_id": "<from /cart/quote, optional>",
+  "address_id": "<from /addresses/select>",
   "items": [
     {
-      "item_id": "123456789",
-      "sku_id": "987654321",
+      "item_id": "670685166551",
+      "sku_id": "5014584502270",
       "quantity": 1,
-      "specs": [
-        {"name": "Size", "value": "Large"}
-      ],
-      "attrs": [
-        {"name": "Temperature", "value": "Iced"}
-      ],
-      "ingredients": [
-        {
-          "item_id": "11111",
-          "sku_id": "22222",
-          "package_id": "33333",
-          "buy_amount": 1
-        }
-      ]
+      "ingredient_option_ids": [],
+      "remark": ""
     }
   ],
-  "lat": 39.9,
-  "lng": 116.4,
-  "note": "Less ice"
+  "coupon_ids": null,
+  "order_remark": "Leave at the door"
 }
 ```
 
-| Field | Type | Required | Description |
-|------|------|------|------|
-| `shop_id` | string | Yes | Shop ID (E prefix) |
-| `address_id` | string | Yes | Delivery address ID |
-| `items` | array | Yes | Items list |
-| `items[].item_id` | string | Yes | Item Taobao ID (from menu) |
-| `items[].sku_id` | string | Yes | SKU Taobao ID (from menu) |
-| `items[].quantity` | integer | Yes | Quantity |
-| `items[].specs` | array | No | Specification selections |
-| `items[].attrs` | array | No | Attribute selections |
-| `items[].ingredients` | array | No | Add-on selections |
-| `lat` | float | Yes | Latitude |
-| `lng` | float | Yes | Longitude |
-| `note` | string | No | Special instructions |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `shop_id` | string | Yes | — | Shop ID (from `/shops/search`) |
+| `cart_id` | string | Yes | — | Cart context ID (from `/shops/search`; carries shop & delivery coordinates, so no lat/lng is needed here) |
+| `quote_id` | string | No | `null` | Quote ID (from `/cart/quote`); validates the quote context when provided |
+| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `address_id` returned by `/addresses/select` as-is |
+| `items` | array | Yes | — | Item list (see below) |
+| `items[].item_id` | string | Yes | — | Item ID (from `/shops/menu`) |
+| `items[].sku_id` | string | No | `null` | SKU ID |
+| `items[].quantity` | integer | Yes | — | Quantity, ≥ 1 |
+| `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options) |
+| `items[].remark` | string | No | `""` | Per-item note |
+| `coupon_ids` | string[] \| null | No | `null` | Coupon selection, three states below |
+| `order_remark` | string | No | `""` | Order note (for the rider) |
 
-### Quick Ordering (Recommended for Agents)
+<Warning>
+  The body **rejects undefined fields** (`extra=forbid`); extra fields return 422. Fields from older docs — `lat`/`lng`, `specs`/`attrs`/nested `ingredients`, `note`, `session_id` — no longer exist.
+</Warning>
 
-Directly use `default_ingredients` from the menu without manually selecting specs/attrs/add-ons:
+**`coupon_ids` three states:**
 
-```json
-{
-  "shop_id": "E1234567890123",
-  "address_id": "1234567890",
-  "items": [
-    {
-      "item_id": "123456789",
-      "sku_id": "987654321",
-      "quantity": 1,
-      "ingredients": [
-        {"item_id": "11111", "sku_id": "22222", "package_id": "33333", "buy_amount": 1}
-      ]
-    }
-  ],
-  "lat": 39.9,
-  "lng": 116.4
-}
-```
+- **Omit the field** → the gateway auto-selects the best coupon
+- **Pass `[]` (empty array)** → explicitly use no coupon
+- **Pass `["<coupon_id>", ...]`** → use the specified coupons (IDs come from a previous preview's `available_coupons[].coupon_id`)
 
 ### Response
 
 ```json
 {
-  "session_id": "abc-def-ghi",
-  "shop_name": "Luckin Coffee (Guomao Branch)",
+  "preview_id": "prv_4f2a...",
+  "confirmation_token": "cf_9b3e...",
+  "shop": { "name": "Luckin Coffee (People's Square)" },
+  "address": {
+    "display_name": "Huangpu District, Shanghai...",
+    "address_detail": "Building 3, Room 101",
+    "city": ""
+  },
   "items": [
+    { "name": "Coconut Latte", "quantity": 1, "price": 1600 }
+  ],
+  "price": {
+    "goods_price": 1600,
+    "delivery_fee": 300,
+    "packing_fee": 100,
+    "discount": 500,
+    "payable_price": 1500
+  },
+  "delivery": {
+    "estimated_time_text": "35 min",
+    "delivery_type": null
+  },
+  "payment": {
+    "requires_payment": true,
+    "available_methods": ["default"]
+  },
+  "warnings": [],
+  "available_coupons": [
     {
-      "name": "Fresh Coconut Latte",
-      "price": 9.9,
-      "quantity": 1,
-      "description": "Large, Iced"
+      "coupon_id": "cpn_1a2b...",
+      "name": "5 off over 20",
+      "amount": 500,
+      "threshold": 2000,
+      "available": true,
+      "unavailable_reason": null
     }
   ],
-  "packing_fee": 0.0,
-  "delivery_fee": 0.0,
-  "discount": 1.5,
-  "total": 8.4,
-  "estimated_delivery_time": "35 minutes"
+  "selected_coupons": [
+    { "coupon_id": "cpn_1a2b...", "name": "5 off over 20", "amount": 500 }
+  ]
 }
 ```
 
+<Warning>
+  All amount fields are in **cents (integer)**, not yuan. e.g. `payable_price: 1500` means ¥15.00.
+</Warning>
+
 | Field | Type | Description |
-|------|------|------|
-| `session_id` | string | Order session ID (one-time use, valid for 10 minutes) |
-| `shop_name` | string | Shop name |
-| `items` | array | Item details |
-| `packing_fee` | float | Packing fee |
-| `delivery_fee` | float | Delivery fee |
-| `discount` | float | Discount amount |
-| `total` | float | Final total price |
-| `estimated_delivery_time` | string | Estimated delivery time |
+|-------|------|-------------|
+| `preview_id` | string | Preview ID (`prv_`), passed to `/orders/create`; valid for ~10 minutes |
+| `confirmation_token` | string | Confirmation token (`cf_`), passed with `preview_id` to `/orders/create` |
+| `shop.name` | string | Shop name |
+| `address.display_name` | string | Address display name |
+| `address.address_detail` | string | Door number / details |
+| `address.city` | string | City (currently always an empty string) |
+| `items[].name` | string | Item name |
+| `items[].quantity` | integer | Quantity |
+| `items[].price` | integer | Item price (cents) |
+| `price.goods_price` | integer | Goods subtotal (cents) |
+| `price.delivery_fee` | integer | Delivery fee (cents) |
+| `price.packing_fee` | integer | Packing fee (cents) |
+| `price.discount` | integer | Discount amount (cents) |
+| `price.payable_price` | integer | Payable amount (cents) = goods + delivery + packing − discount |
+| `delivery.estimated_time_text` | string \| null | Estimated delivery text |
+| `delivery.delivery_type` | string \| null | Delivery type (currently `null`) |
+| `payment.requires_payment` | boolean | Whether payment is required |
+| `payment.available_methods` | string[] | Available payment methods |
+| `warnings` | array | Preview warnings (e.g. item changes) |
+| `available_coupons` | array | Available coupons; `coupon_id` can be passed back via `coupon_ids` |
+| `available_coupons[].amount` | integer | Coupon value (cents) |
+| `available_coupons[].threshold` | integer | Usage threshold (cents) |
+| `available_coupons[].available` | boolean | Whether usable |
+| `available_coupons[].unavailable_reason` | string \| null | Reason if unusable |
+| `selected_coupons` | array | Coupons applied this time (with `coupon_id` / `name` / `amount`) |
 
-### Automatic Coupon Selection
+### Error Codes
 
-The system automatically performs two renders:
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `X-Consent-Grant-Id` consent grant |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | Capability is not enabled for this agent |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| 422 | (request validation) | On the REST path, body field type / required / constraint violations are caught by pydantic and return FastAPI's default 422 (a structured validation body, not `{error:{code}}`). e.g. `items[].quantity` not an integer or < 1 (`Field(ge=1)`), or undefined fields in the body or `items[]` (`extra=forbid`) |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `address_id` invalid |
+| 502 | `ELEME_ERROR` | Upstream preview API error; retry later |
 
-1. **First render** (no coupon) — Get available coupon list
-2. **Select best** — Filter valid coupons, prioritize promotional coupons, then highest amount
-3. **Second render** (with coupon) — Return discounted price
-
-<Note>
-  `session_id` is one-time use and becomes invalid after use or 10 minutes. Need to preview again.
-</Note>
+See [Error Handling](/en/gateway/error-handling) for the full list.
 
 ### Example
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/orders/preview" \
+curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
-    "shop_id": "E1234567890123",
-    "address_id": "1234567890",
-    "items": [{"item_id": "123456789", "sku_id": "987654321", "quantity": 1}],
-    "lat": 39.9,
-    "lng": 116.4
+    "shop_id": "<from /shops/search>",
+    "cart_id": "<from /shops/search>",
+    "address_id": "<from /addresses/select>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
   }'
 ```

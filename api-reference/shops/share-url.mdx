@@ -1,0 +1,74 @@
+---
+title: "店铺分享链接"
+description: "POST /shops/share-url — 为指定店铺生成一条 H5 分享短链"
+---
+
+## POST /shops/share-url
+
+为某个店铺生成一条可分享的 H5 短链（短 URL）。网关把服务商原始 scheme（内含内部 ID 与 UA）包装成短链返回，调用方只会看到我们的短链，不会接触到内部 ID。
+
+<Note>
+  **链路**：`/shops/search` 得 `shop_id` → **`/shops/share-url`** 得 `share_url`。`shop_id` 必须原样使用 `/shops/search` 返回的值，不要自行拼造。
+</Note>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "shop_id": "<来自 /shops/search>"
+}
+```
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `shop_id` | string | 是 | — | 店铺 ID（`shop_` 前缀，来自 `/shops/search`），原样回传 |
+
+### 响应
+
+```json
+{
+  "share_url": "https://s.clawdot.ai/abc123"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `share_url` | string | 店铺 H5 分享短链。短链服务未配置或出错时，降级返回服务商原始 scheme（此时内部信息可能可见）|
+
+<Note>
+  本接口返回中不含任何金额字段，也不回显 `shop_id`（同步单店调用，调用方已持有）。
+</Note>
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `X-Consent-Grant-Id`）|
+| 401 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `shop_id` 无效、过期或不属于当前授权用户 |
+| 502 | `ELEME_ERROR` | 上游未能生成分享 scheme |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 示例
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/shops/share-url" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<来自 /shops/search>"
+  }'
+```

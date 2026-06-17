@@ -1,0 +1,100 @@
+---
+title: "get_order_status"
+description: "MCP tool, maps to REST GET /orders/{order_id} — query an order's real-time status, shop, item summary, and payable amount by platform order ID"
+---
+
+## get_order_status
+
+Queries the current status of a single order by its platform order ID. The gateway first tries to fetch real-time status from upstream, falls back to the local snapshot on failure, and normalizes the result to a unified platform status enum.
+
+<Note>
+  **Order flow**: `preview_order` → `preview_id` + `confirmation_token` → `create_order` → `order_id` → **`get_order_status`** to check status. The `order_id` (`ord_` prefix) must be used as-is from the `create_order` response — do not fabricate or rewrite it.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `order_id` | string | Yes | — | Platform order ID (`ord_` prefix), used as-is from the `create_order` response |
+
+### Returns
+
+```json
+{
+  "order_id": "ord_7c1a...",
+  "status": "delivering",
+  "status_text": "配送中",
+  "shop_name": "Luckin Coffee (People's Square)",
+  "items_summary": "Coconut Latte x1，Americano x2",
+  "payable_price": 1500,
+  "delivery": {
+    "status": "DELIVERING",
+    "estimated_time_text": null
+  },
+  "created_at": "2026-06-16T10:20:00+00:00",
+  "paid_at": null,
+  "completed_at": null
+}
+```
+
+<Warning>
+  The amount field `payable_price` is in **cents (integer)**, not yuan. e.g. `payable_price: 1500` means ¥15.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Platform order ID, echoed back from the request |
+| `status` | string | Normalized platform status enum (see table below) |
+| `status_text` | string | Localized (Chinese) status label, one-to-one with `status` |
+| `shop_name` | string | Shop name (empty string if unavailable) |
+| `items_summary` | string | Item summary; first 3 items joined as `name x quantity`, separated by the Chinese comma `，` |
+| `payable_price` | integer | Payable amount (cents) |
+| `delivery` | object \| null | Delivery info; `null` when no real-time delivery data is available upstream, or when the real-time lookup fails and falls back to the local snapshot |
+| `delivery.status` | string \| null | Raw upstream delivery status |
+| `delivery.estimated_time_text` | string \| null | Estimated delivery text (currently always `null`; upstream does not return this field yet) |
+| `created_at` | string \| null | Order creation time (ISO 8601) |
+| `paid_at` | string \| null | Payment time (currently always `null`; upstream does not return this field yet) |
+| `completed_at` | string \| null | Completion time (currently always `null`; upstream does not return this field yet) |
+
+**`status` enum vs `status_text`:**
+
+| `status` | `status_text` |
+|------|------|
+| `created` | 订单已创建 |
+| `pending_payment` | 待支付 |
+| `paid` | 已支付 |
+| `preparing` | 商家备餐中 |
+| `delivering` | 配送中 |
+| `completed` | 已完成 |
+| `cancelled` | 已取消 |
+| `failed` | 下单或履约失败 |
+| `refunded` | 已退款 |
+
+Unrecognized upstream statuses safely fall back to `created` and never leak the channel's raw status code to the caller.
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+| `PUBLIC_REFERENCE_INVALID` | `order_id` invalid, expired, or not owned by the consenting user |
+| `ORDER_FAILED` | Order not found (no local record and real-time lookup missed) |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "get_order_status",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from create_order>"
+  }
+}
+```

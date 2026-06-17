@@ -1,0 +1,123 @@
+---
+title: "更新地址"
+description: "POST /addresses/update — 编辑一个已保存地址：仅改 tag，或用 suggestion_token + address_detail 改位置 / 门牌"
+---
+
+## POST /addresses/update
+
+编辑用户已保存的某个地址。只允许两种改法：**单独改 `tag`**（重新打标，配送目标不变），或 **`suggestion_token` + `address_detail`** 改位置 / 门牌（网关会用新 POI 在上游重新注册地址，并把同一条记录指向新地址）。收货人姓名 / 电话在这里**不可改**（如需改请走 `/addresses/select`）。`address_id` 保持不变。
+
+<Note>
+  **地址链路**：`/addresses/search` 搜地点得到 `suggestion_token` → `/addresses/select` 保存地址得到 `address_id` → **`/addresses/update`** 编辑已保存地址。改位置 / 门牌前必须先调 `/addresses/search` 拿到对应地点的 `suggestion_token`，因为上游只认已注册的配送地址，改位置实质是「重新注册」而非文本编辑。
+</Note>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "address_id": "<来自 /addresses/select>",
+  "suggestion_token": "<来自 /addresses/search，改位置时必填>",
+  "address_detail": "3 号楼 101",
+  "tag": "home"
+}
+```
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `address_id` | string | 是 | — | 要编辑的已保存地址 ID，原样使用 `/addresses/select` 返回的 `address_id` |
+| `suggestion_token` | string | 否 | `null` | 地址建议 token（来自 `/addresses/search`）。**改位置 / 门牌时必填**；仅改 `tag` 时省略 |
+| `address_detail` | string | 否 | `null` | 新门牌 / 楼层 / 房间号。传了 `suggestion_token` 时**必填且不能为空白** |
+| `tag` | string | 否 | `null` | 新标签 —— `home` / `work` / `school` / 空串 |
+
+<Warning>
+  请求体**不接受未定义字段**（`extra=forbid`），多传会返回 422。收货人姓名 / 电话、`lat` / `lng`、`eleme_address_id` 等均**不可在此编辑**，传了会被拒。
+</Warning>
+
+**两种改法：**
+
+- **仅改 `tag`（不传 `suggestion_token`）** → 直接更新标签，配送目标不动。此时若 `address_detail` 与当前值不同且非空，返回 `ADDRESS_UPDATE_REQUIRES_TOKEN`。
+- **传 `suggestion_token` + `address_detail`** → 用新 POI 在上游重新注册配送地址，沿用该记录原有收货人，写回同一条记录的位置 / 门牌；`address_id` 与收货人不变。此时 `address_detail` 为空白返回 `DETAIL_REQUIRED`。
+
+### 响应
+
+```json
+{
+  "address_id": "addr_7c1e...",
+  "display_name": "上海市黄浦区南京东路 100 号",
+  "address_detail": "3 号楼 101",
+  "city": "",
+  "lat": 31.2304,
+  "lng": 121.4737,
+  "contact_name": "张三",
+  "contact_phone_masked": "138****1234"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `address_id` | string | 网关地址 ID（`addr_`）；更新后保持不变，可直接传给 `/orders/preview` 等 |
+| `display_name` | string | 地址显示名（重新注册后为新选中 POI 的名称）|
+| `address_detail` | string | 门牌 / 楼层等详情 |
+| `city` | string | 城市（当前恒为空串）|
+| `lat` | number \| null | 纬度 |
+| `lng` | number \| null | 经度 |
+| `contact_name` | string \| null | 收货人姓名（此接口不可改，沿用原值）|
+| `contact_phone_masked` | string \| null | 脱敏后的收货人手机号（仅展示，不回传明文）|
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少 `X-Consent-Grant-Id` |
+| 401 | `CONSENT_GRANT_INVALID` | 授权 ID 无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 该授权属于其它能力 / 渠道 |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `address_id` 无效、过期或不属于当前授权用户 |
+| 400 | `ADDRESS_UPDATE_REQUIRES_TOKEN` | 改位置 / 门牌却未传 `suggestion_token`；仅改 `tag` 无需 |
+| 400 | `DETAIL_REQUIRED` | 传了 `suggestion_token` 但 `address_detail` 为空 / 空白 |
+| 400 | `SUGGESTION_EXPIRED` | `suggestion_token` 无效或已过期，需重新调 `/addresses/search` |
+| 502 | `ELEME_ERROR` | 上游饿了么 / 淘宝闪购返回错误（如重新注册地址失败）|
+
+<Note>
+  公开端点的 `address_id` 一律先经公共引用解析，地址不存在 / 不属于当前授权用户时统一返回 400 `PUBLIC_REFERENCE_INVALID`。仅在极端并发竞态下（解析通过后、内部更新前该地址恰被删除）才会出现 404 `ADDRESS_NOT_FOUND`，正常调用不会遇到。
+</Note>
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 示例
+
+仅改标签：
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/update" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address_id": "<来自 /addresses/select>",
+    "tag": "home"
+  }'
+```
+
+改位置 / 门牌（需先搜地址）：
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/update" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address_id": "<来自 /addresses/select>",
+    "suggestion_token": "<来自 /addresses/search>",
+    "address_detail": "3 号楼 101"
+  }'
+```

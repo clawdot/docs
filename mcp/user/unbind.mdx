@@ -1,0 +1,50 @@
+---
+title: "revoke_user_bind"
+description: "MCP 工具，对应 REST POST /auth/unbind — 解除当前用户授权，滞空凭证使旧 consent_grant 即刻失效"
+---
+
+## revoke_user_bind
+
+解除当前用户的授权：滞空 binding 行上的凭证，使本次使用的 `consent_grant_id` 在 REST 与 MCP 两个入口同步即刻失效。Agent 的凭证不受影响。对应 REST 端点 `POST /auth/unbind`。
+
+<Note>
+  **授权链路**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用 → **`revoke_user_bind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达。
+</Note>
+
+### 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `consent_grant_id` | string | 是 | 用户授权 ID（`cg_...`）；要解除的就是它自身 |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `revoked` | boolean | 是否已解除，恒为 `true` |
+| `next_action` | string | 下一步建议动作，恒为 `request_user_bind`（重新发起绑定）|
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` | 缺少 Agent 认证 |
+| `AUTH_INVALID` | Agent 凭证无效或已禁用 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已失效（例如已被解除）|
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期 |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "revoke_user_bind",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

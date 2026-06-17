@@ -1,0 +1,80 @@
+---
+title: "Auth Status"
+description: "GET /auth/status — check whether a consent_grant_id is still a valid binding and return its scopes, expiry, and suggested next action"
+---
+
+## GET /auth/status
+
+Checks the current status of a `consent_grant_id`: whether it is still a valid binding, the capability `scopes` it covers, its expiry time, and the suggested `next_action` when it is not bound.
+
+<Note>
+  **Authorization flow**: `/auth/bind/request` → `/auth/bind/verify` to get `consent_grant_id` → call **`/auth/status`** to probe it before business calls. This endpoint requires the `X-Consent-Grant-Id` header (the grant to check, required); when missing it returns `CONSENT_GRANT_REQUIRED`. An Agent can bind multiple users, so without a grant there is no way to say which authorization to check.
+</Note>
+
+<Note>
+  **Invalid/expired does not error**: when the `consent_grant_id` is invalid, expired, or belongs to a different capability, this endpoint does not raise an error — it returns `bound: false` with `next_action: "request_bind"` (re-run the bind flow). Decide based on the `bound` field in the response body, not on an HTTP error code.
+</Note>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | The user consent grant ID (`cg_...`) to check; missing returns `CONSENT_GRANT_REQUIRED` |
+
+### Request Body
+
+No request body. This is a GET request; the grant to check is identified by the `X-Consent-Grant-Id` header. There are no path or query parameters.
+
+### Response
+
+When still a valid binding:
+
+```json
+{
+  "bound": true,
+  "consent_grant_id": "cg_your_consent_grant",
+  "scopes": ["taobao_flash.delivery"],
+  "expires_at": "2026-09-14T10:00:00+00:00",
+  "next_action": null
+}
+```
+
+When invalid / expired / capability mismatch (no error, returns the unbound state):
+
+```json
+{
+  "bound": false,
+  "consent_grant_id": null,
+  "scopes": [],
+  "expires_at": null,
+  "next_action": "request_bind"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bound` | boolean | Whether the `consent_grant_id` is still a valid binding. `false` means invalid / expired / capability mismatch |
+| `consent_grant_id` | string \| null | When bound, echoes back the `consent_grant_id` used for the query; `null` when unbound |
+| `scopes` | string[] | Capability scopes covered by the grant, formatted as `<provider_code>.<cap_code>` (e.g. `taobao_flash.delivery`); empty array when unbound |
+| `expires_at` | string \| null | Grant expiry time, ISO 8601 with UTC timezone (e.g. `2026-09-14T10:00:00+00:00`); `null` when unbound |
+| `next_action` | string \| null | Suggested next action. `null` when bound; `request_bind` when unbound (re-run the bind flow) |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `AUTH_REQUIRED` | Missing `Authorization` header |
+| 401 | `AUTH_INVALID` | API Key invalid or disabled |
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `X-Consent-Grant-Id` header |
+| 403 | `CAP_NOT_BOUND` | The Agent has not been granted this capability |
+
+An invalid / expired / capability-mismatched `consent_grant_id` **does not error**; it returns `bound: false` instead (see above). See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example
+
+```bash
+curl "https://api.clawdot.ai/api/v1/auth/status" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```

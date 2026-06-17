@@ -1,124 +1,106 @@
 ---
 title: "保存地址"
-description: "POST /addresses/select — 保存地址建议到网关地址簿"
+description: "POST /addresses/select — 把一条地址搜索建议落库为网关地址，或重新选用已保存地址，返回下单链路用的 address_id"
 ---
 
 ## POST /addresses/select
 
-将搜索建议中的地址保存到网关地址簿。返回的 `id` 可直接用于下单。
+把一条地址搜索建议（`suggestion_token`）连同收货人信息落库为一条网关地址，或直接重新选用一条已保存的地址（`address_id`），返回网关地址 ID `address_id`，供后续 `/shops/search`、`/orders/preview` 等使用。
 
 <Note>
-  这是地址管理的核心操作。只有通过此接口保存的地址才能在下单时使用。
+  **地址链路**：`/addresses/search` 得建议的 `token` → **`/addresses/select`**（带 `token` + 收货人）得 `address_id` → 用于 `/shops/search`（定位）/ `/orders/preview`（下单）。`address_id` 由网关签发并原样回传，不要自造。
+</Note>
+
+<Note>
+  **两种用法（二选一）**：
+  - **新建**：传 `suggestion_token`（来自 `/addresses/search` 的 `token`）+ `contact_name` + `contact_phone` + `address_detail`，网关在上游注册一条新配送地址并落库。
+  - **重选**：传已保存的 `address_id`，直接取回该地址（仍需带 `contact_name` / `contact_phone`，但不会改动已存记录）。
+
+  两者都不传会返回 `PUBLIC_REFERENCE_INVALID`。
 </Note>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
-| `X-User-Token` | 是 | 用户 Token |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
 | `Content-Type` | 是 | `application/json` |
 
 ### 请求体
 
-<Tabs>
-  <Tab title="POI 来源">
-    保存 POI 搜索结果中的地址：
+```json
+{
+  "suggestion_token": "<来自 /addresses/search 的 token>",
+  "address_id": null,
+  "contact_name": "张三",
+  "contact_phone": "13800138000",
+  "address_detail": "3 号楼 101 室"
+}
+```
 
-    ```json
-    {
-      "source": "poi",
-      "poi_data": {
-        "id": "poi-123456",
-        "name": "国贸大厦",
-        "address": "上海市黄浦区...",
-        "latitude": 31.2304,
-        "longitude": 121.4737
-      },
-      "contact_name": "张三",
-      "contact_phone": "13800138000",
-      "detail": "3楼301室",
-      "tag": "work"
-    }
-    ```
-  </Tab>
-  <Tab title="饿了么历史来源">
-    保存饿了么历史地址：
-
-    ```json
-    {
-      "source": "eleme_history",
-      "eleme_address_id": "22872378801",
-      "contact_name": "张三",
-      "contact_phone": "13800138000",
-      "address": "上海市黄浦区人民大道200号",
-      "detail": "3楼301室"
-    }
-    ```
-  </Tab>
-</Tabs>
-
-### 参数说明
-
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `source` | string | 是 | — | `"poi"` 或 `"eleme_history"` |
-| `poi_data` | object | source=poi 时必填 | null | 搜索建议中的完整 POI 对象 |
-| `eleme_address_id` | string | source=eleme_history 时必填 | null | 饿了么地址 ID |
-| `contact_name` | string | 否 | `""` | 收件人姓名 |
-| `contact_phone` | string | 否 | `""` | 收件人电话 |
-| `address` | string | 否 | `""` | 地址文本（source=poi 时自动从 POI 填充） |
-| `detail` | string | 否 | `""` | 门牌号/楼层/房间号 |
-| `tag` | string | 否 | `""` | 标签：`"home"`、`"work"`、`"school"` 或空 |
-| `lat` | float | 否 | null | 纬度（source=poi 时自动从 POI 填充） |
-| `lng` | float | 否 | null | 经度（source=poi 时自动从 POI 填充） |
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `suggestion_token` | string \| null | 否 | `null` | 地址建议 token（来自 `/addresses/search` 返回的 `token`）；新建地址时必传 |
+| `address_id` | string \| null | 否 | `null` | 已保存的网关地址 ID（来自上一次 `/addresses/select`）；重选已存地址时传此字段。与 `suggestion_token` 二选一，两者都不传会报错 |
+| `contact_name` | string | 是 | — | 收货人姓名 |
+| `contact_phone` | string | 是 | — | 收货人手机号 |
+| `address_detail` | string | 否 | `""` | 门牌 / 楼层 / 房间号。新建 POI 地址时**必须非空**（上游拒绝空白门牌），否则返回 `DETAIL_REQUIRED` |
 
 ### 响应
 
 ```json
 {
-  "id": 1,
-  "contact_name": "张三",
-  "contact_phone": "13800138000",
-  "address": "上海市黄浦区人民大道200号",
-  "detail": "3楼301室",
+  "address_id": "addr_8c1f...",
+  "display_name": "上海市黄浦区人民广场",
+  "address_detail": "3 号楼 101 室",
+  "city": "",
   "lat": 31.2304,
   "lng": 121.4737,
-  "tag": "work"
+  "contact_name": "张三",
+  "contact_phone_masked": "138****8000"
 }
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | integer | **网关地址 ID**，用于下单时的 `address_id` 参数 |
+| `address_id` | string | **网关地址 ID（`addr_` 前缀，字符串）**，原样回传给 `/shops/search`、`/orders/preview` 等；重选时同一地址保持不变 |
+| `display_name` | string | 地址显示名（建议中选中的 POI 名称）|
+| `address_detail` | string | 门牌 / 楼层 / 房间号 |
+| `city` | string | 城市（重选已存地址时恒为空串）|
+| `lat` | number \| null | 纬度 |
+| `lng` | number \| null | 经度 |
+| `contact_name` | string \| null | 收货人姓名 |
+| `contact_phone_masked` | string | 脱敏后的收货人手机号（中间四位掩码，如 `138****8000`），不返回完整号码。严格而言为 `string \| null`（空号码→`null`，不足 7 位→`***`），实务上保存地址恒有手机号，故几乎总为非空掩码串 |
 
-### 行为说明
+### 错误码
 
-- **source=poi**：先尝试复用附近 100m 内已有的饿了么地址（避免重复创建）。无匹配时调用饿了么 API 创建新地址。创建失败时放宽到 200m 查找备用地址
-- **source=eleme_history**：地址已存在于饿了么，仅在网关创建映射记录
-- **幂等性**：同一 agent + user + eleme_address_id 的组合不会重复创建，返回已有记录
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未带 `X-Consent-Grant-Id`）|
+| 401 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `address_id` 无效 / 不属于当前授权用户，或 `suggestion_token` 与 `address_id` 都未传 |
+| 400 | `SUGGESTION_EXPIRED` | `suggestion_token` 无效或已过期，需重新调用 `/addresses/search` |
+| 400 | `CONTACT_REQUIRED` | 缺收货人姓名或手机号 |
+| 400 | `DETAIL_REQUIRED` | 新建 POI 地址时缺非空门牌 / 楼层 |
+| 502 | `ELEME_ERROR` | 上游注册地址失败 |
 
-### 完整地址流程
-
-```
-1. POST /addresses/search         → 搜索地址建议
-2. POST /addresses/select          → 保存建议到网关 → 获得 id
-3. POST /orders/preview            → 使用 address_id=id 预览订单
-```
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
 ```bash
 curl -X POST "https://api.clawdot.ai/api/v1/addresses/select" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
-    "source": "poi",
-    "poi_data": {"id": "poi-123", "name": "国贸大厦", "address": "上海市黄浦区...", "latitude": 31.23, "longitude": 121.47},
+    "suggestion_token": "<来自 /addresses/search 的 token>",
     "contact_name": "张三",
     "contact_phone": "13800138000",
-    "detail": "3楼301室",
-    "tag": "work"
+    "address_detail": "3 号楼 101 室"
   }'
 ```

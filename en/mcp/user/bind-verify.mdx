@@ -1,0 +1,125 @@
+---
+title: "verify_user_bind"
+description: "MCP tool: complete user authorization and exchange for consent_grant_id / scopes / expires_at (maps to REST POST /auth/bind/verify)"
+---
+
+## verify_user_bind
+
+Completes a user authorization started by `request_user_bind`: `auth_type=sms` verifies with `bind_id` + the verification `code`; `auth_type=h5` polls the authorization status via `request_id`. On success, it mints and returns the `consent_grant_id` used by subsequent business tools. This is the closing step of the binding flow and needs only the Agent identity (connection-layer `Authorization: Bearer clw_`); it does **not** take a `consent_grant_id` parameter.
+
+<Note>
+  **Binding flow (the closing step)**: `request_user_bind` → get `bind_id` (sms) or `request_id` (h5) → user receives the code / opens the link to authorize → **`verify_user_bind`** → exchange for `consent_grant_id` → call business tools with that `consent_grant_id`.
+</Note>
+
+<Warning>
+  **Re-authorization rotates the grant**: every successful binding for the same user mints a new `consent_grant_id`, and the old one stops working. The plaintext `consent_grant_id` is returned only once in this response (only its hash is stored); save it carefully.
+</Warning>
+
+### Parameters
+
+The parameters required differ depending on `auth_type`.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `auth_type` | string | No | `"sms"` | Binding mode, enum `"sms"` / `"h5"`; other values return an error |
+| `bind_id` | string | Required for `sms` | `null` | Binding session ID; pass back the `bind_id` returned by `request_user_bind` (sms) as-is |
+| `code` | string | Required for `sms` | `null` | The SMS verification code received by the user |
+| `request_id` | string | Required for `h5` | `null` | H5 binding session ID; pass back the `request_id` returned by `request_user_bind` (h5) as-is |
+
+<Warning>
+  Field requirements are conditional on `auth_type`: missing `bind_id` or `code` in `sms` mode, or missing `request_id` in `h5` mode, returns an error. These IDs must be passed back from `request_user_bind` as-is — do not fabricate them.
+</Warning>
+
+### Returns
+
+**Success (authorized):**
+
+```json
+{
+  "bound": true,
+  "status": "success",
+  "consent_grant_id": "cg_4f2a...",
+  "scopes": ["eleme.delivery"],
+  "expires_at": "2026-09-14T08:30:00+00:00",
+  "extra": null,
+  "next_action": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bound` | boolean | Whether bound; `true` on success |
+| `status` | string | Binding status, `"success"` on success |
+| `consent_grant_id` | string | User consent grant ID (`cg_...`), passed via the `consent_grant_id` parameter on subsequent business tools. Plaintext returned only here |
+| `scopes` | string[] | Authorization scopes, shaped like `["<provider_code>.<cap_code>"]` (e.g. `["eleme.delivery"]`) |
+| `expires_at` | string | Grant expiration time (ISO 8601, UTC) |
+| `extra` | object \| null | The `extra` passed through at `request_user_bind`, echoed back as-is; `null` if none |
+| `next_action` | string \| null | Suggested next step; `null` on success |
+
+<Note>
+  **Not yet authorized when polling in H5 mode**: while the user has not finished authorizing in the link, this tool returns a pending state rather than an error. Clients should retry later per `next_action`, and must not treat the pending state as a failure.
+</Note>
+
+**H5 pending / expired:**
+
+```json
+{
+  "bound": false,
+  "status": "pending",
+  "consent_grant_id": null,
+  "scopes": [],
+  "expires_at": null,
+  "extra": null,
+  "next_action": "verify_user_bind"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bound` | boolean | `false` here |
+| `status` | string | `"pending"` (user has not authorized yet) or `"expired"` (session expired) |
+| `consent_grant_id` | string \| null | `null` when pending / expired |
+| `scopes` | string[] | Empty array `[]` when pending / expired |
+| `expires_at` | string \| null | `null` when pending / expired |
+| `extra` | object \| null | The `extra` passed through at request time, echoed back as-is; `null` if none |
+| `next_action` | string | `pending` → `"verify_user_bind"` (retry this tool later); `expired` → `"request_bind"` (start a new binding) |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid Agent credential |
+| `SMS_CODE_INVALID` | Verification code invalid or expired (`sms` mode) |
+| `ELEME_USER_NOT_FOUND` | No bindable Taobao Instant / Ele.me account for this phone number |
+| `BINDING_LIMIT_REACHED` | This Agent has reached its binding quota |
+| `PUBLIC_REFERENCE_INVALID` | Invalid tool arguments, or a required field missing for the given `auth_type`: `auth_type` not `sms`/`h5`, missing `bind_id`/`code` in `sms` mode, or missing `request_id` in `h5` mode (MCP tool arguments have no `Literal` / model validation; the same invalid input returns 422 on REST) |
+| `ELEME_ERROR` | Taobao Instant / Ele.me upstream API error |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+**SMS mode:**
+
+```json
+{
+  "name": "verify_user_bind",
+  "arguments": {
+    "auth_type": "sms",
+    "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+    "code": "123456"
+  }
+}
+```
+
+**H5 mode:**
+
+```json
+{
+  "name": "verify_user_bind",
+  "arguments": {
+    "auth_type": "h5",
+    "request_id": "h5b_4f2a..."
+  }
+}
+```

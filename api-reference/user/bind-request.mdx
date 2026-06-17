@@ -1,69 +1,119 @@
 ---
-title: "发送验证码"
-description: "POST /user/bind/request — 动态绑定用户：发送 SMS 验证码"
+title: "发起绑定"
+description: "POST /auth/bind/request — 发起用户授权绑定：SMS 模式发码 / H5 模式返回授权链接"
 ---
 
-## POST /user/bind/request
+## POST /auth/bind/request
 
-动态绑定用户第一步：向指定手机号发送 SMS 验证码。用户收到验证码后，调用 [验证绑定](/api-reference/user/bind-verify) 完成绑定。
+发起一次用户授权绑定。`auth_type=sms` 向手机号下发验证码；`auth_type=h5` 返回一条授权链接（minisite），用户在链接中完成登录授权。两种模式都不会立即返回授权，需再调用 [验证绑定](/api-reference/user/bind-verify) 完成。
+
+<Note>
+  **绑定链路（绑定入口）**：**`/auth/bind/request`** → 拿到 `bind_id`（sms）或 `request_id` + `h5_url`（h5）→ 用户收验证码 / 打开链接授权 → `/auth/bind/verify` 换取 `consent_grant_id` → 后续业务接口带该 `consent_grant_id` 调用。本接口是授权流程的第一步，**只需 API Key，不需要 `consent_grant`**。
+</Note>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
 | `Content-Type` | 是 | `application/json` |
+
+本接口为绑定入口，**不需要** `X-Consent-Grant-Id`。
 
 ### 请求体
 
 ```json
 {
-  "phone": "13800138000"
+  "phone": "13800138000",
+  "auth_type": "sms",
+  "callback_url": null,
+  "extra": null
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `phone` | string | 是 | 中国大陆手机号（需在饿了么注册） |
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `phone` | string | 是 | — | 用户手机号 |
+| `auth_type` | string | 否 | `"sms"` | 绑定模式，枚举 `"sms"` / `"h5"`；其它值返回 422 |
+| `callback_url` | string \| null | 否 | `null` | **仅 `h5` 有效**：网关侧轮询绑定结果，成功或过期后向该地址 POST 回调（含 `consent_grant_id`）。须为绝对 http(s) URL，禁止内网 / 环回地址。`sms` 模式传入会报错 |
+| `extra` | object \| null | 否 | `null` | 调用方业务透传（JSON 对象，≤2KB）：发起时传入，绑定完成时由 `/auth/bind/verify` 响应与回调原样回传，网关不解释其内容 |
 
 ### 响应
 
-<Tabs>
-  <Tab title="200 成功">
-    ```json
-    {
-      "bind_id": "550e8400-e29b-41d4-a716-446655440000"
-    }
-    ```
+响应结构随 `auth_type` 不同。
 
-    | 字段 | 类型 | 说明 |
-    |------|------|------|
-    | `bind_id` | string | 绑定会话 ID（UUID），用于 [验证步骤](/api-reference/user/bind-verify) |
-  </Tab>
-  <Tab title="429 冷却中">
-    ```json
-    {
-      "error": {
-        "code": "SMS_COOLDOWN",
-        "message": "SMS sent too recently, wait 60 seconds"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
+**`auth_type=sms`：**
 
-### 说明
+```json
+{
+  "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+  "expires_in": 300,
+  "masked_phone": "138****8000"
+}
+```
 
-- 验证码通过阿里云短信服务（DySMS）发送
-- 每个手机号有 **60 秒冷却期**
-- 验证码 **10 分钟** 内有效
-- 手机号必须已在饿了么注册
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bind_id` | string | 绑定会话 ID，原样回传到 `/auth/bind/verify` 的 `bind_id` |
+| `expires_in` | integer | 本次会话有效期（秒），当前为 `300`（5 分钟）|
+| `masked_phone` | string \| null | 脱敏手机号（如 `138****8000`）；号码过短返回 `"***"`，空值返回 `null` |
+
+**`auth_type=h5`：**
+
+```json
+{
+  "auth_type": "h5",
+  "request_id": "h5b_4f2a...",
+  "h5_url": "https://s.clawdot.ai/abc123",
+  "expires_in": 300,
+  "masked_phone": "138****8000",
+  "callback_registered": false,
+  "next_action": "verify_user_bind"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `auth_type` | string | 恒为 `"h5"` |
+| `request_id` | string | H5 绑定会话 ID，原样回传到 `/auth/bind/verify` 的 `request_id` |
+| `h5_url` | string | 用户授权链接（短链；短链服务不可用时回退为原始长链）|
+| `expires_in` | integer | 链接 / 会话有效期（秒），当前为 `300`（5 分钟）|
+| `masked_phone` | string \| null | 脱敏手机号（如 `138****8000`）|
+| `callback_registered` | boolean | 是否已登记回调（传了合法 `callback_url` 即为 `true`）；为 `true` 时网关代为轮询并推送结果，客户端轮询仍可作兜底 |
+| `next_action` | string | 下一步建议，恒为 `"verify_user_bind"` |
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
+| 403 | `CAP_NOT_BOUND` | 当前 Agent 未开通外卖能力 |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `auth_type` 非 sms/h5、`sms` 模式传了 `callback_url`、`callback_url` 非法（非 http(s) 或内网地址）、或 `extra` 非 JSON 对象 / 超过 2KB |
+| 422 | — | 请求体字段类型不合法（如 `auth_type` 非枚举值）|
+| 429 | `SMS_COOLDOWN` | 验证码 60 秒冷却中（仅 `sms` 模式）|
+
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
+**SMS 模式：**
+
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/user/bind/request" \
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
-  -d '{"phone": "13800138000"}'
+  -d '{"phone": "13800138000", "auth_type": "sms"}'
+```
+
+**H5 模式（含回调）：**
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "13800138000",
+    "auth_type": "h5",
+    "callback_url": "https://your-app.example.com/clawdot/bind-callback"
+  }'
 ```

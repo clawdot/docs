@@ -1,0 +1,81 @@
+---
+title: "quote_cart"
+description: "MCP tool, maps to REST POST /cart/quote — price a cart of selected items and return the price breakdown plus the quote_id used for preview"
+---
+
+## quote_cart
+
+Prices the items selected in a cart: validates the shop / cart / items, calls the upstream pricing engine, and returns the price breakdown, whether checkout is allowed, and the `quote_id` used in the next preview step.
+
+<Note>
+  **Order flow**: `search_shops` → `shop_id` + `cart_id` (carries shop & delivery coordinates) → `get_shop_menu` to pick items → **`quote_cart`** to price the cart and get `quote_id` → `select_address` to get `address_id` → `preview_order` (can pass `quote_id` back) → `preview_id` + `confirmation_token` → `create_order`. `shop_id` / `cart_id` / `address_id` and item `item_id` all come from upstream endpoints — pass them back as-is, do not fabricate them.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `shop_id` | string | Yes | — | Shop ID (from `search_shops`) |
+| `cart_id` | string | Yes | — | Cart context ID (from `search_shops`; carries shop & delivery coordinates, so no lat/lng is needed here) |
+| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `address_id` returned by `select_address` as-is |
+| `items` | array | Yes | — | Item list (see below, at least one) |
+| `items[].item_id` | string | Yes | — | Item ID (from `get_shop_menu`) |
+| `items[].sku_id` | string | No | `null` | SKU ID (from the menu item's optional SKUs) |
+| `items[].quantity` | integer | Yes | — | Quantity, ≥ 1 |
+| `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options) |
+| `items[].remark` | string | No | `""` | Per-item note |
+
+### Returns
+
+<Warning>
+  All amount fields are in **cents (integer)**, not yuan. e.g. `payable_price: 1200` means ¥12.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `quote_id` | string | Quote ID (`qt_`), passed to `preview_order` to validate the quote context |
+| `can_checkout` | boolean | Whether checkout is allowed (`false` when items are unavailable or the upstream forbids checkout) |
+| `blocking_reason` | string \| null | Reason checkout is blocked (`null` when `can_checkout` is `true`) |
+| `goods_price` | integer | Goods subtotal (cents) |
+| `delivery_fee` | integer | Delivery fee (cents) |
+| `packing_fee` | integer | Packing fee (cents) |
+| `discount` | integer | Discount amount (cents) |
+| `payable_price` | integer | Payable amount (cents) |
+| `minimum_order_gap` | integer \| null | Amount short of the order minimum (cents); `null` when not applicable |
+| `items` | array | Priced item details |
+| `items[].name` | string | Item name |
+| `items[].quantity` | integer | Quantity |
+| `items[].price` | integer | Item price (cents) |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | Capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| `PUBLIC_REFERENCE_INVALID` | `cart_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `item_id` not part of this `cart_id`. `address_id` is only validated when the primary pricing call (`cats_price`) fails and falls back to the `render_quote` branch; an invalid `address_id` maps to this code there |
+| `CART_PRICE_INVALID` | `items[].quantity` is not an integer or is less than 1. MCP passes raw dicts that bypass pydantic, so the service validates them internally |
+| `ELEME_ERROR` | Upstream pricing call failed |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "quote_cart",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<from search_shops>",
+    "cart_id": "<from search_shops>",
+    "address_id": "<from select_address>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
+  }
+}
+```

@@ -1,49 +1,110 @@
 ---
 title: "API Overview"
-description: "Clawdot Gateway REST API Documentation"
+description: "Clawdot Gateway REST API and MCP overview: base URL, two-layer authentication, unified error format, and the ordering flow"
 ---
+
+Clawdot Gateway exposes both a **REST API** and an **MCP** interface, both backed by the same service layer. REST targets conventional backend integration; MCP (Model Context Protocol) targets direct AI Agent integration. Both cover exactly the same 18 capabilities.
 
 ## Base URL
 
+REST API:
+
 ```
-https://your-gateway/api/v1
+https://api.clawdot.ai/api/v1
+```
+
+MCP (Streamable HTTP) endpoint:
+
+```
+https://api.clawdot.ai/mcp/v1
 ```
 
 ## Authentication
 
-All endpoints (except Agent registration) require API Key authentication. Most business endpoints also require a User Token.
+The Gateway uses **two-layer authentication**: the **API Key** identifies the Agent, and the **user authorization (consent grant)** identifies an authorized food-delivery user.
 
-```bash
-# API Key authentication
-Authorization: Bearer clw_your_api_key
+<Tabs>
+  <Tab title="REST">
+    - **API Key (identifies the Agent):** required on every `/api/v1/*` request, passed via a header:
 
-# User Token authentication (required for business endpoints)
-X-User-Token: your_user_token
-```
+      ```bash
+      Authorization: Bearer clw_<random_hex>
+      ```
 
-See [Authentication Mechanism](/gateway/authentication) for details.
+    - **Consent grant (identifies the authorized user):** additionally required by endpoints that operate on user resources, passed via a header (except the binding endpoints):
+
+      ```bash
+      X-Consent-Grant-Id: cg_<...>
+      ```
+
+      `consent_grant_id` is sent only in the header — do not put it in the JSON body.
+  </Tab>
+  <Tab title="MCP">
+    - **API Key (identifies the Agent):** sent via the Streamable HTTP `Authorization: Bearer clw_...` header.
+    - **Consent grant (identifies the authorized user):** not sent as a header; instead passed as the **`consent_grant_id` parameter on each tool**.
+  </Tab>
+</Tabs>
+
+<Note>
+  API Keys and Agents are created in the [Portal](https://portal.clawdot.ai). The `consent_grant_id` (`cg_` prefix) is returned by the user binding flow — see [Authentication](/en/gateway/authentication).
+</Note>
 
 ## Endpoint Groups
 
+### REST API
+
 <Columns cols={2}>
-  <Card title="Auth" icon="key" href="/api-reference/auth/register-agent">
-    Agent registration and API Key retrieval.
+  <Card title="User Binding" icon="user-plus" href="/en/api-reference/user/bind-request">
+    User authorization binding (SMS / H5), authorization status, unbind, and homepage URL.
   </Card>
-  <Card title="User Binding" icon="user-plus" href="/api-reference/user/bind-request">
-    SMS verification to bind food delivery users.
+  <Card title="Addresses" icon="location-dot" href="/en/api-reference/addresses/search">
+    Address search, selection, and update.
   </Card>
-  <Card title="Shops" icon="store" href="/api-reference/shops/search">
-    Shop search and menu queries.
+  <Card title="Shops" icon="store" href="/en/api-reference/shops/search">
+    Shop search, menu queries, and share URLs.
   </Card>
-  <Card title="Addresses" icon="location-dot" href="/api-reference/addresses/search-pois">
-    POI search and address management.
+  <Card title="Cart & Coupons" icon="cart-shopping" href="/en/api-reference/cart/quote">
+    Cart pricing and coupon listing.
   </Card>
-  <Card title="Orders" icon="receipt" href="/api-reference/orders/preview">
-    Order preview, creation, and queries.
+  <Card title="Orders" icon="receipt" href="/en/api-reference/orders/preview">
+    Order preview, creation, and status queries.
+  </Card>
+  <Card title="Payment" icon="credit-card" href="/en/api-reference/payment/sign-action">
+    No-password sign action and sign status.
   </Card>
 </Columns>
 
+### MCP Tools
+
+<Card title="MCP Overview" icon="plug" href="/en/mcp/overview">
+  18 MCP tools, each mapping to one REST endpoint, sharing the same service layer and built for AI Agent integration.
+</Card>
+
+<Note>
+  MCP tools map one-to-one to REST endpoints: parameters match the REST request body except for `consent_grant_id` (which is a tool parameter, not a header). For example, `search_shops` ↔ `POST /shops/search`, `create_order` ↔ `POST /orders/create`, `get_order_status` ↔ `GET /orders/{order_id}`.
+</Note>
+
+## Ordering Flow
+
+The IDs produced by each endpoint chain together into a complete ordering flow:
+
+```mermaid
+flowchart LR
+  A["/shops/search<br/>→ shop_id + cart_id"] --> B["/shops/menu<br/>pick items"]
+  B --> C["/cart/quote<br/>→ quote_id"]
+  C --> D["/addresses/select<br/>→ address_id"]
+  D --> E["/orders/preview<br/>→ preview_id + confirmation_token"]
+  E --> F["/orders/create<br/>→ order_id"]
+  F --> G["/payment/sign-action<br/>no-password sign"]
+```
+
+<Warning>
+  All amount fields are in **cents (integers)**, not yuan. For example, `payable_price: 1500` means ¥15.00.
+</Warning>
+
 ## Unified Error Format
+
+Every endpoint returns errors in the same structure:
 
 ```json
 {
@@ -54,14 +115,36 @@ See [Authentication Mechanism](/gateway/authentication) for details.
 }
 ```
 
-See [Error Handling](/gateway/error-handling) for details.
+Common error codes:
 
-## Rate Limiting
+| Code | HTTP | Description |
+|------|------|------|
+| `AUTH_REQUIRED` | 401 | Missing API Key |
+| `AUTH_INVALID` | 401 | API Key invalid or disabled |
+| `CONSENT_GRANT_REQUIRED` | 401 | Missing `consent_grant_id` |
+| `CONSENT_GRANT_INVALID` | 401 | `consent_grant_id` invalid or expired |
+| `CONSENT_GRANT_EXPIRED` | 401 | User authorization expired; re-authorization required |
+| `CAP_NOT_BOUND` | 403 | The Agent has not been granted this capability |
+| `CONSENT_GRANT_WRONG_CAP` | 403 | The grant belongs to a different capability / provider |
+| `PUBLIC_REFERENCE_INVALID` | 400 | A platform ID (shop / address / order, etc.) is invalid, expired, or does not belong to the current authorized user |
+| `SHOP_NOT_FOUND` | 404 | Shop not found |
+| `ADDRESS_NOT_FOUND` | 404 | Address not found or not owned by the current Agent |
+| `RATE_LIMITED` | 429 | Request rate exceeded |
+| `SMS_COOLDOWN` | 429 | Verification code is in 60-second cooldown |
+| `QUOTA_EXCEEDED` | 429 | Daily quota exhausted |
+| `ORDER_FAILED` | 500 | Order creation failed |
+| `ELEME_ERROR` | 502 | Upstream API error; retry later |
+
+Full error codes and handling guidance: see [Error Handling](/en/gateway/error-handling).
+
+## Rate Limiting and Quota
+
+A Redis sliding window enforces per-Agent rate limits:
 
 | Operation | Limit |
 |------|------|
-| Place order (`POST /orders`) | 10 requests/minute/Agent |
+| Place order (`POST /orders/create`) | 10 requests/minute/Agent |
 | Other endpoints | 60 requests/minute/Agent |
-| SMS sending | 60 second cooldown/phone number |
+| SMS sending | 60-second cooldown/phone number |
 
-Exceeding limits returns `429` status code and `RATE_LIMITED` error code.
+Exceeding the limit returns `429 RATE_LIMITED` (SMS cooldown returns `SMS_COOLDOWN`). The daily quota varies by developer tier; exceeding it returns `429 QUOTA_EXCEEDED`.

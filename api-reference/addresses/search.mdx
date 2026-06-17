@@ -1,154 +1,123 @@
 ---
 title: "搜索地址"
-description: "POST /addresses/search — 搜索已保存地址和地址建议"
+description: "POST /addresses/search — 列出用户已保存的收货地址，并按关键词搜索新的 POI 候选地址"
 ---
 
 ## POST /addresses/search
 
-搜索配送地址。返回已保存的网关地址 + 外部建议。
+列出当前授权用户在网关侧已保存的收货地址（`saved_addresses`），并在传入 `keyword` 时返回 POI 候选地址（`suggestions`）。传入 `lat`/`lng` 时，会为每个已保存地址标注 `distance_meters`，并把最近的一个地址 ID 放在顶层 `nearest_address_id`。
+
+<Note>
+  **下单链路位置**：本接口拿到的 `address_id`（已保存地址）或 `suggestions[].token`（POI 候选）用于下一步 `/addresses/select`，由 select 返回正式的 `address_id`，再用于 `/orders/preview` 与 `/orders/create`。
+</Note>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
-| `X-User-Token` | 是 | 用户 Token |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
 | `Content-Type` | 是 | `application/json` |
 
 ### 请求体
 
 ```json
 {
-  "keyword": "国贸",
-  "lat": 31.2304,
-  "lng": 121.4737
+  "keyword": "光谷世界城",
+  "lat": 30.5,
+  "lng": 114.4,
+  "city": "武汉"
 }
 ```
 
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `keyword` | string | 否 | `""` | 搜索关键词（地址名、联系人等） |
-| `lat` | float | 有 keyword 时必填 | null | 纬度 |
-| `lng` | float | 有 keyword 时必填 | null | 经度 |
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `keyword` | string \| null | 否 | `null` | POI 搜索关键词；省略则只列出已保存地址，不返回 `suggestions` |
+| `lat` | number \| null | 否 | `null` | 用户当前纬度（GCJ-02）；启用 `distance_meters` 与 `nearest_address_id`，并为 POI 搜索提供坐标偏好 |
+| `lng` | number \| null | 否 | `null` | 用户当前经度（GCJ-02）|
+| `city` | string \| null | 否 | `null` | 城市名，用于限定 POI 搜索范围；传入后优先于 `lat`/`lng` 决定搜索范围 |
+
+<Note>
+  全部字段均为可选。仅当同时具备 `keyword` 与一个范围信号（`lat`+`lng` 坐标对，或可解析的 `city`）时才返回 POI `suggestions`；否则 `suggestions` 为空数组，只返回 `saved_addresses`。
+</Note>
 
 ### 响应
 
-<Tabs>
-  <Tab title="无 keyword">
-    返回已保存的网关地址 + 饿了么历史地址建议：
-
-    ```json
+```json
+{
+  "saved_addresses": [
     {
-      "saved": [
-        {
-          "id": 1,
-          "contact_name": "张三",
-          "contact_phone": "13800138000",
-          "address": "上海市黄浦区人民大道200号",
-          "detail": "3楼301室",
-          "lat": 31.2304,
-          "lng": 121.4737,
-          "tag": "work"
-        }
-      ],
-      "suggestions": [
-        {
-          "source": "eleme_history",
-          "eleme_address_id": "22872378801",
-          "contact_name": "李四",
-          "contact_phone": "13900139000",
-          "address": "上海市静安区南京西路1000号",
-          "detail": "5楼",
-          "lat": 31.229,
-          "lng": 121.456
-        }
-      ]
+      "address_id": "addr_8f3c...",
+      "display_name": "武汉市洪山区光谷世界城",
+      "address_detail": "3 号楼 101",
+      "city": "",
+      "lat": 30.5,
+      "lng": 114.4,
+      "contact_name": "张三",
+      "contact_phone_masked": "138****8000",
+      "distance_meters": 120
     }
-    ```
-  </Tab>
-  <Tab title="有 keyword">
-    模糊匹配已保存地址 + POI 搜索结果 + 饿了么历史地址：
-
-    ```json
+  ],
+  "suggestions": [
     {
-      "saved": [
-        {
-          "id": 1,
-          "contact_name": "张三",
-          "contact_phone": "13800138000",
-          "address": "上海市黄浦区人民大道200号",
-          "detail": "3楼301室",
-          "lat": 31.2304,
-          "lng": 121.4737,
-          "tag": "work"
-        }
-      ],
-      "suggestions": [
-        {
-          "source": "poi",
-          "poi_data": {
-            "id": "poi-123456",
-            "name": "国贸大厦",
-            "address": "上海市黄浦区...",
-            "latitude": 31.2304,
-            "longitude": 121.4737
-          },
-          "name": "国贸大厦",
-          "address": "上海市黄浦区...",
-          "lat": 31.2304,
-          "lng": 121.4737
-        },
-        {
-          "source": "eleme_history",
-          "eleme_address_id": "22872378801",
-          "contact_name": "李四",
-          "contact_phone": "13900139000",
-          "address": "上海市黄浦区国贸中心",
-          "detail": "B1",
-          "lat": 31.23,
-          "lng": 121.47
-        }
-      ]
+      "token": "sug_1a2b...",
+      "display_name": "光谷世界城",
+      "address": "武汉市洪山区珞喻路",
+      "city": "",
+      "lat": 30.5,
+      "lng": 114.4
     }
-    ```
-  </Tab>
-</Tabs>
-
-### 字段说明
-
-**saved（已保存地址）:**
+  ],
+  "nearest_address_id": "addr_8f3c..."
+}
+```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | integer | 网关地址 ID，**可直接用于下单** |
-| `contact_name` | string | 收件人姓名 |
-| `contact_phone` | string | 收件人电话 |
-| `address` | string | 地址文本 |
-| `detail` | string | 门牌号/楼层 |
-| `lat` | float \| null | 纬度 |
-| `lng` | float \| null | 经度 |
-| `tag` | string | 标签（home/work/school） |
+| `saved_addresses` | array | 已保存地址列表，按最近使用优先排序 |
+| `saved_addresses[].address_id` | string | 网关地址 ID（`addr_` 前缀），原样传给 `/addresses/select` 或 `/orders/preview` |
+| `saved_addresses[].display_name` | string | 地址显示名 |
+| `saved_addresses[].address_detail` | string | 门牌 / 楼层等详情 |
+| `saved_addresses[].city` | string | 城市（当前恒为空串）|
+| `saved_addresses[].lat` | number \| null | 纬度（GCJ-02）|
+| `saved_addresses[].lng` | number \| null | 经度（GCJ-02）|
+| `saved_addresses[].contact_name` | string \| null | 收货人姓名 |
+| `saved_addresses[].contact_phone_masked` | string | 收货人手机号（脱敏，如 `138****8000`）|
+| `saved_addresses[].distance_meters` | integer \| null | 与请求 `lat`/`lng` 的距离（米，整数）；未传坐标或该地址无坐标时为 `null` |
+| `suggestions` | array | POI 候选地址列表；仅在传 `keyword` 且范围可解析时非空 |
+| `suggestions[].token` | string | 单次有效的建议 token，传给 `/addresses/select` 的 `suggestion_token` 以落地为已保存地址 |
+| `suggestions[].display_name` | string | POI 名称 |
+| `suggestions[].address` | string | POI 详细地址文案 |
+| `suggestions[].city` | string | 城市（当前恒为空串）|
+| `suggestions[].lat` | number \| null | POI 纬度（GCJ-02）|
+| `suggestions[].lng` | number \| null | POI 经度（GCJ-02）|
+| `nearest_address_id` | string \| null | 距请求坐标最近的已保存地址 ID；未传坐标或无可比对地址时为 `null` |
 
-**suggestions（地址建议）:**
+<Warning>
+  使用 `nearest_address_id` 前务必核对对应地址的 `distance_meters`：若连最近的地址都很远（如几十公里，说明所有已保存地址都在另一个城市），不要自动选用，应让用户确认或改用 `keyword` 搜新地址。
+</Warning>
 
-| 字段 | 类型 | 说明 |
+### 错误码
+
+| HTTP | code | 说明 |
 |------|------|------|
-| `source` | string | `"poi"`（POI 搜索）或 `"eleme_history"`（饿了么历史） |
-| `poi_data` | object | 完整 POI 对象（仅 source=poi），用于 select_address |
-| `eleme_address_id` | string | 饿了么地址 ID（仅 source=eleme_history） |
+| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 缺少、无效或已过期的用户授权 |
+| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent 未开通该能力，或授权与能力不匹配 |
+| 422 | — | 请求体字段类型不合法（如 `lat`/`lng` 非数字）|
 
-### 行为说明
-
-- **无 keyword**：返回所有已保存的网关地址，并从饿了么获取历史地址作为建议（已保存的不会出现在 suggestions 中）
-- **有 keyword**：在已保存地址中模糊匹配，同时并行搜索 POI 和饿了么历史地址
-- suggestions 中的地址**需通过 [保存地址](/api-reference/addresses/select) 接口保存后才能用于下单**
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
 ```bash
 curl -X POST "https://api.clawdot.ai/api/v1/addresses/search" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
-  -d '{"keyword": "国贸", "lat": 31.23, "lng": 121.47}'
+  -d '{
+    "keyword": "光谷世界城",
+    "lat": 30.5,
+    "lng": 114.4,
+    "city": "武汉"
+  }'
 ```

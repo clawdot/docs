@@ -1,0 +1,123 @@
+---
+title: "Update Address"
+description: "POST /addresses/update — edit a saved address: change tag alone, or use suggestion_token + address_detail to move the location / detail"
+---
+
+## POST /addresses/update
+
+Edits one of the user's saved addresses. Only two kinds of edit are allowed: **change `tag` alone** (relabel; the delivery target stays put), or **`suggestion_token` + `address_detail`** to change the location / unit detail (the gateway re-registers the address upstream with the new POI and repoints the same row to it). Recipient name / phone are **not editable here** (use `/addresses/select` for that). The `address_id` stays the same.
+
+<Note>
+  **Address flow**: `/addresses/search` to find a place → `suggestion_token` → `/addresses/select` to save the address → `address_id` → **`/addresses/update`** to edit a saved address. Before changing the location / detail you must call `/addresses/search` to get a `suggestion_token` for the new place: upstream only honours a registered delivery address, so a move is a re-registration, not a text edit.
+</Note>
+
+### Request Headers
+
+| Name | Required | Description |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
+| `Content-Type` | Yes | `application/json` |
+
+### Request Body
+
+```json
+{
+  "address_id": "<from /addresses/select>",
+  "suggestion_token": "<from /addresses/search, required to move>",
+  "address_detail": "Building 3, Room 101",
+  "tag": "home"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `address_id` | string | Yes | — | ID of the saved address to edit; use the `address_id` returned by `/addresses/select` as-is |
+| `suggestion_token` | string | No | `null` | Suggestion token (from `/addresses/search`). **Required to change the location / detail**; omit when only changing `tag` |
+| `address_detail` | string | No | `null` | New apartment / floor / room number. **Required and non-blank** when `suggestion_token` is given |
+| `tag` | string | No | `null` | New label — `home` / `work` / `school` / empty string |
+
+<Warning>
+  The body **rejects undefined fields** (`extra=forbid`); extra fields return 422. Recipient name / phone, `lat` / `lng`, and `eleme_address_id` are **not editable here** and will be rejected.
+</Warning>
+
+**Two kinds of edit:**
+
+- **Change `tag` only (no `suggestion_token`)** → the label is updated directly; the delivery target is untouched. If `address_detail` differs from the current value and is non-blank, this returns `ADDRESS_UPDATE_REQUIRES_TOKEN`.
+- **Pass `suggestion_token` + `address_detail`** → the delivery address is re-registered upstream with the new POI, reusing the row's existing recipient, and the same row's location / detail are overwritten; `address_id` and recipient stay stable. A blank `address_detail` here returns `DETAIL_REQUIRED`.
+
+### Response
+
+```json
+{
+  "address_id": "addr_7c1e...",
+  "display_name": "100 Nanjing East Rd, Huangpu District, Shanghai",
+  "address_detail": "Building 3, Room 101",
+  "city": "",
+  "lat": 31.2304,
+  "lng": 121.4737,
+  "contact_name": "Zhang San",
+  "contact_phone_masked": "138****1234"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `address_id` | string | Gateway address ID (`addr_`); unchanged after the update, can be passed directly to `/orders/preview` etc. |
+| `display_name` | string | Address display name (the newly selected POI's name after a re-registration) |
+| `address_detail` | string | Door number / floor details |
+| `city` | string | City (currently always an empty string) |
+| `lat` | number \| null | Latitude |
+| `lng` | number \| null | Longitude |
+| `contact_name` | string \| null | Recipient name (not editable here; carried over from the original) |
+| `contact_phone_masked` | string \| null | Masked recipient phone (display only; the plaintext is never returned) |
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `X-Consent-Grant-Id` |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant ID is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | The delivery capability is not enabled for this Agent |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to a different capability / provider |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid, expired, or does not belong to the consenting user |
+| 400 | `ADDRESS_UPDATE_REQUIRES_TOKEN` | Changing location / detail without a `suggestion_token`; not needed for `tag`-only edits |
+| 400 | `DETAIL_REQUIRED` | `suggestion_token` was given but `address_detail` is empty / blank |
+| 400 | `SUGGESTION_EXPIRED` | `suggestion_token` is invalid or expired; re-run `/addresses/search` |
+| 502 | `ELEME_ERROR` | Upstream Eleme / Taobao Instant returned an error (e.g. re-registering the address failed) |
+
+<Note>
+  A public-endpoint `address_id` is always resolved through the public-reference layer first, which returns 400 `PUBLIC_REFERENCE_INVALID` when the address is missing or not owned by the consenting user. 404 `ADDRESS_NOT_FOUND` is only reachable under an extreme concurrent race (the row is deleted after resolution passes but before the internal update), so a normal call will never see it.
+</Note>
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example
+
+Change the label only:
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/update" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address_id": "<from /addresses/select>",
+    "tag": "home"
+  }'
+```
+
+Change the location / detail (search first):
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/update" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address_id": "<from /addresses/select>",
+    "suggestion_token": "<from /addresses/search>",
+    "address_detail": "Building 3, Room 101"
+  }'
+```

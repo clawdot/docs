@@ -1,156 +1,50 @@
 ---
-title: "Tool Reference"
-description: "Complete MCP tool parameters documentation"
+title: "MCP Tools"
+description: "One-line MCP tools overview; the authoritative full reference lives at /en/mcp/overview"
 ---
 
-## Common Parameters for All Tools
+Clawdot Gateway exposes **18 tools** over MCP (Model Context Protocol). Each tool maps one-to-one to a public REST endpoint, covering the full delivery flow — consent binding, addresses, shops, cart, coupons, ordering, and password-free payment.
 
-Each tool requires `user_token` parameter (for business operations like shop search and ordering):
+<Note>
+  This page is an overview only. The **complete parameters, return values, and endpoint mapping for all 18 tools are authoritatively documented in the [MCP Tool Reference](/en/mcp/overview)** — this page does not duplicate field tables.
+</Note>
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `user_token` | string | Yes | User Token (from binding process) |
+## Integration essentials
 
----
+- **Mount and endpoint:** The MCP app is mounted on the gateway via `app.mount("/mcp", create_mcp_app())`. FastMCP versions its route, so the public endpoint is `/mcp/v1`. Transport is streamable HTTP.
+- **Agent identity:** Same as REST — pass the API Key via the `Authorization: Bearer clw_...` header.
+- **User authorization:** `consent_grant_id` (`cg_` prefix) is passed as a **parameter on every tool**, **not** the `X-Consent-Grant-Id` header (that's the REST convention).
+- **Parameter parity:** Apart from `consent_grant_id`, tool parameters match the request body of the corresponding REST endpoint.
+- **Amount unit:** cents (integer).
+- **Errors:** Unified `{"error": {"code", "message"}}` shape; see [Error Handling](/en/gateway/error-handling).
 
-## search_shops
+The auth model (API Key identifies the Agent + consent grant identifies the authorized user) is detailed in [Authentication](/en/gateway/authentication).
 
-Search nearby shops.
+## Tool → endpoint mapping
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `lat` | float | Yes | — | Latitude |
-| `lng` | float | Yes | — | Longitude |
-| `user_token` | string | Yes | — | User Token |
-| `keyword` | string | No | — | Search keyword |
-| `offset` | integer | No | 0 | Pagination offset |
-| `limit` | integer | No | 20 | Items per page |
+| MCP Tool | REST Endpoint |
+|---|---|
+| `request_user_bind` | `POST /auth/bind/request` |
+| `verify_user_bind` | `POST /auth/bind/verify` |
+| `get_user_auth_status` | `GET /auth/status` |
+| `revoke_user_bind` | `POST /auth/unbind` |
+| `get_homepage_url` | `POST /auth/homepage-url` |
+| `search_addresses` | `POST /addresses/search` |
+| `select_address` | `POST /addresses/select` |
+| `update_address` | `POST /addresses/update` |
+| `search_shops` | `POST /shops/search` |
+| `get_shop_menu` | `POST /shops/menu` |
+| `get_shop_share_url` | `POST /shops/share-url` |
+| `quote_cart` | `POST /cart/quote` |
+| `list_coupons` | `POST /coupons/list` |
+| `preview_order` | `POST /orders/preview` |
+| `create_order` | `POST /orders/create` |
+| `get_order_status` | `GET /orders/{order_id}` |
+| `get_sign_action` | `POST /payment/sign-action` |
+| `get_sign_status` | `GET /payment/sign-status` |
 
-**Returns:** `{"shops": [...]}`
+## Ordering flow
 
----
+`search_shops` returns `shop_id` + `cart_id` → `get_shop_menu` to pick items → `quote_cart` returns `quote_id` → `select_address` returns `address_id` → `preview_order` returns `preview_id` + `confirmation_token` → `create_order` returns `order_id` → `get_sign_action` completes password-free signing.
 
-## get_shop_detail
-
-Get shop details and complete menu.
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `shop_id` | string | Yes | Shop ID |
-| `lat` | float | Yes | Latitude |
-| `lng` | float | Yes | Longitude |
-| `user_token` | string | Yes | User Token |
-
-**Returns:** `{"shop": {...}, "menu": [...]}`
-
----
-
-## search_pois
-
-Search points of interest (POI).
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lat` | float | Yes | Latitude |
-| `lng` | float | Yes | Longitude |
-| `keyword` | string | Yes | Search keyword |
-| `user_token` | string | Yes | User Token |
-
-**Returns:** `[{id, name, address, latitude, longitude, city, district}, ...]`
-
----
-
-## select_address
-
-Select POI (must call before creating address).
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `poi_data` | object | Yes | Complete POI object (from `search_pois`) |
-| `user_token` | string | Yes | User Token |
-
-**Returns:** `"Address selected"`
-
----
-
-## list_addresses
-
-Get saved delivery addresses.
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `user_token` | string | Yes | User Token |
-
-**Returns:** `[{id, address, lat, lng}, ...]`
-
----
-
-## create_address
-
-Create new delivery address.
-
-| Parameter | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `poi_id` | string | Yes | — | POI ID |
-| `name` | string | Yes | — | Recipient name |
-| `phone` | string | Yes | — | Recipient phone |
-| `detail` | string | Yes | — | Address details |
-| `user_token` | string | Yes | — | User Token |
-| `sex` | integer | No | 0 | Gender |
-| `tag` | string | No | `""` | Tag |
-
-**Returns:** `"address-id-string"`
-
----
-
-## preview_order
-
-Preview order and auto-apply coupon.
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `shop_id` | string | Yes | Shop ID |
-| `address_id` | string | Yes | Address ID |
-| `items_json` | string | Yes | Items JSON **string** |
-| `lat` | float | Yes | Latitude |
-| `lng` | float | Yes | Longitude |
-| `user_token` | string | Yes | User Token |
-| `note` | string | No | Notes |
-
-<Warning>
-  `items_json` must be a JSON string, not an array.
-</Warning>
-
-**items_json format:**
-
-```json
-"[{\"item_id\": \"123456789\", \"sku_id\": \"987654321\", \"quantity\": 1, \"ingredients\": [{\"item_id\": \"11111\", \"sku_id\": \"22222\", \"package_id\": \"33333\", \"buy_amount\": 1}]}]"
-```
-
-**Returns:** `{session_id, shop_name, items, packing_fee, delivery_fee, discount, total, estimated_delivery_time}`
-
----
-
-## confirm_order
-
-Confirm order.
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `session_id` | string | Yes | Session ID returned from preview |
-| `user_token` | string | Yes | User Token |
-
-**Returns:** `{order_id, status, shop_name, total_amount}`
-
----
-
-## get_order
-
-Query order status.
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `order_id` | string | Yes | Order ID |
-| `user_token` | string | Yes | User Token |
-
-**Returns:** `{order_id, status, shop_name, total_amount, created_at}`
+See the [MCP Tool Reference](/en/mcp/overview).

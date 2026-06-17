@@ -1,0 +1,59 @@
+---
+title: "解除授权"
+description: "POST /auth/unbind — 解除当前用户授权，滞空凭证使旧 consent_grant 即刻失效"
+---
+
+## POST /auth/unbind
+
+解除当前用户的授权：滞空 binding 行上的凭证，使本次使用的 `consent_grant_id` 在 REST 与 MCP 两个入口同步即刻失效。Agent 的 API Key 不受影响。
+
+<Note>
+  **授权链路**：`/auth/bind/request` → `/auth/bind/verify` 得 `consent_grant_id` → 业务调用 → **`/auth/unbind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达。
+</Note>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）；要解除的就是它自身 |
+
+### 请求体
+
+无请求体。要解除的授权由请求头 `X-Consent-Grant-Id` 指定。
+
+### 响应
+
+```json
+{
+  "revoked": true,
+  "next_action": "request_user_bind"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `revoked` | boolean | 是否已解除，恒为 `true` |
+| `next_action` | string | 下一步建议动作，恒为 `request_user_bind`（重新发起绑定）|
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `AUTH_REQUIRED` | 缺少 `Authorization` 头 |
+| 401 | `AUTH_INVALID` | API Key 无效或已禁用 |
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少 `X-Consent-Grant-Id` 头 |
+| 401 | `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已失效（例如已被解除）|
+| 401 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期 |
+| 403 | `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 示例
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/auth/unbind" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```

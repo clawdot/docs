@@ -1,28 +1,52 @@
 ---
 title: "Search Shops"
-description: "GET /shops/search — Search nearby food delivery shops by location and keyword"
+description: "POST /shops/search — search or browse nearby shops by location; each result carries shop_id + cart_id (which encapsulates the shop and delivery coordinates)"
 ---
 
-## GET /shops/search
+## POST /shops/search
 
-Search food delivery shops near specified coordinates.
+Searches or browses shops near the delivery location. Each result carries a `shop_id` and a `cart_id`: the `cart_id` encapsulates the shop and the delivery coordinates, and is the entry point for the subsequent `/shops/menu`, `/cart/quote`, and `/orders/preview` calls.
+
+<Note>
+  **Order flow**: **`/shops/search`** → `shop_id` + `cart_id` (carries delivery coordinates) → `/shops/menu` to pick items → `/cart/quote` to price the cart and get `quote_id` → `/addresses/select` to get `address_id` → `/orders/preview` → `preview_id` + `confirmation_token` → `/orders/create`. Pass the `shop_id` / `cart_id` to downstream calls as-is; do not synthesize them.
+</Note>
+
+**Two modes (switched by `keyword`):**
+
+- **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
+- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / delivery_fee fields are usually `null` (upstream limitation; `rating` may carry a value depending on the upstream).
 
 ### Request Headers
 
 | Name | Required | Description |
-|------|------|------|
-| `Authorization` | Yes | `Bearer clw_...` |
-| `X-User-Token` | Yes | User Token |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
+| `Content-Type` | Yes | `application/json` |
 
-### Query Parameters
+### Request Body
 
-| Parameter | Type | Required | Default | Description |
-|------|------|------|--------|------|
-| `lat` | float | Yes | — | Latitude |
-| `lng` | float | Yes | — | Longitude |
-| `keyword` | string | No | — | Search keyword |
-| `offset` | integer | No | 0 | Pagination offset |
-| `limit` | integer | No | 20 | Results per page (maximum 20) |
+```json
+{
+  "keyword": "生椰拿铁",
+  "address_id": "<from /addresses/select>",
+  "lat": 31.23,
+  "lng": 121.47,
+  "city": "上海"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `keyword` | string | No | `null` | Keyword: shop name / category / item name. Omit or leave blank for browse mode |
+| `address_id` | string | No | `null` | Gateway address ID (from `/addresses/select`); resolves the delivery location, takes priority over `lat`/`lng` |
+| `lat` | float | No | `null` | Latitude (GCJ-02) |
+| `lng` | float | No | `null` | Longitude (GCJ-02) |
+| `city` | string | No | `null` | City name to scope the search |
+
+<Note>
+  **How the delivery location is resolved**: in order, ① the coordinates of the saved address behind `address_id` → ② the `lat`/`lng` passed explicitly → ③ the user's most-recently-used saved address / remembered location. If none resolve, the call returns `COORDS_REQUIRED`. So `address_id` and `lat`/`lng` are both optional, but at least one location source must be resolvable.
+</Note>
 
 ### Response
 
@@ -30,23 +54,25 @@ Search food delivery shops near specified coordinates.
 {
   "shops": [
     {
-      "id": "E1234567890123",
-      "name": "Luckin Coffee (Guomao Branch)",
-      "brand_name": "Luckin Coffee",
-      "image": "https://image.url/shop.jpg",
-      "delivery_fee": 0.0,
-      "delivery_time_minutes": 35,
-      "min_order_amount": 10.0,
-      "is_ad": false,
-      "items": [
+      "shop_id": "shop_4f2a...",
+      "cart_id": "cart_9b3e...",
+      "name": "瑞幸咖啡(人民广场店)",
+      "brand_name": "瑞幸咖啡",
+      "logo_url": "https://image.url/shop.jpg",
+      "distance_text": "1.2km",
+      "delivery_time_text": "35分钟",
+      "delivery_fee_text": "配送 ¥3",
+      "rating": 4.8,
+      "monthly_sales_text": "月售2000+",
+      "min_order_amount": 0,
+      "available": true,
+      "unavailable_reason": null,
+      "matched_items": [
         {
-          "name": "Fresh Coconut Latte",
-          "price": 9.9,
-          "original_price": 19.0,
-          "description": "Coconut milk + concentrated espresso",
-          "image": "https://image.url/item.jpg",
-          "packing_fee": 0.0,
-          "item_type": "NORMAL"
+          "name": "生椰拿铁",
+          "description": "椰浆+浓缩咖啡",
+          "price": 1600,
+          "original_price": 2900
         }
       ]
     }
@@ -54,29 +80,60 @@ Search food delivery shops near specified coordinates.
 }
 ```
 
-### Search Behavior
+<Warning>
+  Amount fields are in **cents (integer)**, not yuan. e.g. `min_order_amount: 0` means ¥0, `price: 1600` means ¥16.00.
+</Warning>
 
-<Tabs>
-  <Tab title="Keyword Search">
-    When `keyword` is provided, performs a single precise search returning up to 5 shops.
+| Field | Type | Description |
+|-------|------|-------------|
+| `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
+| `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `/shops/menu` / `/cart/quote` / `/orders/preview` as-is |
+| `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream calls reuse it instead of passing lat/lng |
+| `shops[].name` | string | Shop name |
+| `shops[].brand_name` | string \| null | Brand name |
+| `shops[].logo_url` | string \| null | Shop logo URL |
+| `shops[].distance_text` | string \| null | Distance from the delivery location (text; may be `null` in keyword search mode) |
+| `shops[].delivery_time_text` | string \| null | Estimated delivery text (may be `null` in keyword search mode) |
+| `shops[].delivery_fee_text` | string \| null | Delivery fee text (may be `null` in keyword search mode) |
+| `shops[].rating` | float \| null | Rating (may be `null` in keyword search mode) |
+| `shops[].monthly_sales_text` | string \| null | Monthly sales text |
+| `shops[].min_order_amount` | integer \| null | Minimum order amount (cents); `null` when absent |
+| `shops[].available` | boolean | Whether orderable (open and not closed) |
+| `shops[].unavailable_reason` | string \| null | Reason if unavailable |
+| `shops[].matched_items` | array | Matched item previews (keyword search only; **display-only**) |
+| `shops[].matched_items[].name` | string | Item name |
+| `shops[].matched_items[].description` | string \| null | Item description (max 80 chars) |
+| `shops[].matched_items[].price` | integer | Item price (cents) |
+| `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
 
-    ```bash
-    GET /shops/search?lat=39.9&lng=116.4&keyword=Starbucks
-    ```
-  </Tab>
-  <Tab title="Default Category Search">
-    When `keyword` is omitted, the system searches 10 default categories in parallel:
+<Warning>
+  `matched_items` carry **no IDs and no stock state**. To order, you must first call `/shops/menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
+</Warning>
 
-    > Recommended, Fast Food, Stir-fry, Western, Light Meals, Desserts, Milk Tea, Coffee, Congee, BBQ
+### Error Codes
 
-    Results are deduplicated by `id` and return approximately 50 shops (approximately 1.3 seconds).
-  </Tab>
-</Tabs>
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `consent_grant` (no consent grant passed) |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | This capability is not enabled for the Agent |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability or provider |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid or does not belong to the consented user |
+| 400 | `COORDS_REQUIRED` | Neither `address_id` nor `lat`/`lng` was given and no remembered location is available |
+| 502 | `ELEME_ERROR` | Upstream search API error |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
 
 ### Example
 
 ```bash
-curl -X GET "https://your-gateway/api/v1/shops/search?lat=39.9&lng=116.4&keyword=coffee" \
+curl -X POST "https://api.clawdot.ai/api/v1/shops/search" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token"
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keyword": "生椰拿铁",
+    "address_id": "<from /addresses/select>"
+  }'
 ```

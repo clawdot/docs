@@ -1,11 +1,11 @@
 ---
 title: "Error Handling"
-description: "Unified error format and all error code reference"
+description: "Unified error format and full error-code reference"
 ---
 
-## Unified Error Format
+## Unified error format
 
-All error responses follow unified format:
+All error responses (HTTP and MCP alike) follow a unified format:
 
 ```json
 {
@@ -16,56 +16,95 @@ All error responses follow unified format:
 }
 ```
 
-## Error Code Reference
+The error body contains only `code` and `message`.
 
-### Authentication Errors (401)
+## Error code reference
 
-| Error Code | Description | Handling Suggestion |
+### Authentication (401)
+
+| Error code | Description | Suggestion |
 |---|---|---|
-| `AUTH_REQUIRED` | Missing `Authorization` request header | Add `Bearer clw_...` header |
-| `AUTH_INVALID` | Invalid or disabled API Key | Check if Key is correct, contact admin to confirm status |
-| `USER_TOKEN_REQUIRED` | Missing `X-User-Token` request header | Get Token through SMS binding process |
-| `USER_TOKEN_INVALID` | Invalid or expired User Token | Re-bind user (Token valid 90 days by default) |
+| `AUTH_REQUIRED` | Missing API Key | Add `Authorization: Bearer clw_...` |
+| `AUTH_INVALID` | Invalid or disabled API Key | Check the Key, or contact the platform |
+| `CONSENT_GRANT_REQUIRED` | Missing `consent_grant_id` | REST: `X-Consent-Grant-Id` header / MCP: `consent_grant_id` parameter |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` is invalid or expired | Re-run the binding flow to get a new one |
+| `CONSENT_GRANT_EXPIRED` | User authorization has expired | Re-run the binding flow to re-authorize |
 
-### Client Errors (400)
+### Permission / capability (403)
 
-| Error Code | Description | Handling Suggestion |
+| Error code | Description | Suggestion |
 |---|---|---|
-| `SMS_CODE_INVALID` | Invalid or expired OTP | OTP valid for 10 minutes, resend |
+| `CAP_NOT_BOUND` | This Agent has not enabled the capability | Ask the platform to enable it for the Agent |
+| `CONSENT_GRANT_WRONG_CAP` | Grant belongs to a different capability / provider | Use a grant matching the capability |
 
-### Rate Limiting Errors (429)
+### Client / parameters (400)
 
-| Error Code | Description | Handling Suggestion |
+| Error code | Description | Suggestion |
 |---|---|---|
-| `SMS_COOLDOWN` | Repeated OTP send within 60 seconds | Wait for cooldown to end |
-| `RATE_LIMITED` | Exceeded request frequency limit | Reduce request frequency (ordering 10/min, others 60/min) |
+| `PUBLIC_REFERENCE_INVALID` | A platform ID (shop / address / order, etc.) is invalid, expired, or not owned by the current user | Re-fetch the resource ID |
+| `CART_PRICE_INVALID` | Cart quote request is invalid | Check `items` / `cart_id` |
+| `SMS_CODE_INVALID` | OTP is invalid or expired | Resend the OTP |
+| `CONTACT_REQUIRED` | Selecting an address requires a recipient | Pass `contact_name` and `contact_phone` |
+| `DETAIL_REQUIRED` | POI address missing apartment / floor | Have the user provide a non-empty detail |
+| `SUGGESTION_EXPIRED` | Address suggestion token expired | Re-run address search |
+| `COORDS_REQUIRED` | Coordinates missing | Pass `lat`/`lng` explicitly, or run a shop search first |
+| `ADDRESS_UPDATE_REQUIRES_TOKEN` | Changing an address location / detail needs a POI token | Search the address for a token; changing only `tag` needs none |
+| `DEVICE_ID_REQUIRED` | Missing `device_id` (≤48 chars) | Pass a valid `device_id` |
 
-### Resource Errors (404)
+### Not found (404)
 
-| Error Code | Description | Handling Suggestion |
+| Error code | Description | Suggestion |
 |---|---|---|
-| `SHOP_NOT_FOUND` | Shop ID doesn't exist | Check shop_id format (should start with E) |
+| `SHOP_NOT_FOUND` | Shop does not exist | Check `shop_id` (platform ID, `shop_` prefix) |
+| `ADDRESS_NOT_FOUND` | Address not found or not owned by this Agent | Check `address_id` |
+| `ELEME_USER_NOT_FOUND` | The phone number has no bindable Taobao Flash / Eleme account | Have the user log in or register with that number first |
 
-### Server Errors (500)
+### Conflict (409)
 
-| Error Code | Description | Handling Suggestion |
+| Error code | Description | Suggestion |
 |---|---|---|
-| `ORDER_FAILED` | Order creation or preview failed | session_id may have expired (10 min), re-preview |
+| `IDEMPOTENCY_CONFLICT` | The same confirmation token was used for different order params | Re-preview to get a new confirmation token |
+| `BINDING_LIMIT_REACHED` | Bound-user quota reached | Unbind an existing user or raise the quota |
 
-### Upstream Errors (502)
+### Rate limiting (429)
 
-| Error Code | Description | Handling Suggestion |
+| Error code | Description | Suggestion |
 |---|---|---|
-| `UPSTREAM_ERROR` | Food delivery platform API returned error | Retry later, check if parameters are correct |
+| `RATE_LIMITED` | Request rate exceeded | Slow down and retry |
+| `SMS_COOLDOWN` | OTP is in a 60-second cooldown | Wait for the cooldown to end |
+| `QUOTA_EXCEEDED` | Quota exhausted | Wait for reset or request an increase |
 
-## HTTP Status Code Summary
+### Server (500)
 
-| Status Code | Meaning |
+| Error code | Description | Suggestion |
+|---|---|---|
+| `ORDER_FAILED` | Order creation failed | Re-preview and retry |
+
+### Upstream (502)
+
+| Error code | Description | Suggestion |
+|---|---|---|
+| `ELEME_ERROR` | Taobao Flash / Eleme upstream API error | Retry later |
+| `SIGN_ADDRESS_NOT_FOUND` | Upstream response returned no sign address | Retry later |
+
+### Service unavailable (503)
+
+| Error code | Description | Suggestion |
+|---|---|---|
+| `PROVIDER_NOT_AVAILABLE` | Provider adapter is temporarily unavailable | Retry later |
+| `HOMEPAGE_URL_CONFIG_MISSING` | Server is missing the secret required to generate the homepage URL | Contact the platform |
+
+## HTTP status code summary
+
+| Status | Meaning |
 |---|---|
-| 200 | Request successful |
+| 200 | Success |
 | 400 | Client parameter error |
-| 401 | Authentication failed |
+| 401 | Authentication / authorization failed |
+| 403 | Capability or grant scope mismatch |
 | 404 | Resource not found |
-| 429 | Request frequency exceeded |
+| 409 | Conflict (idempotency / quota) |
+| 429 | Request rate exceeded |
 | 500 | Server internal error |
-| 502 | Upstream API unavailable |
+| 502 | Upstream API error |
+| 503 | Service temporarily unavailable |

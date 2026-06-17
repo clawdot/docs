@@ -1,0 +1,127 @@
+---
+title: "购物车算价"
+description: "POST /cart/quote — 对已选商品的购物车算价，返回价格明细与下单预览用的 quote_id"
+---
+
+## POST /cart/quote
+
+对一个购物车里已选的商品算价：校验店铺 / 购物车 / 商品，调用上游算价，返回价格明细、是否可结算，以及供下一步预览使用的 `quote_id`。
+
+<Note>
+  **下单链路**：`/shops/search` 得 `shop_id` + `cart_id`（已封装店铺与配送坐标）→ `/shops/menu` 选商品 → **`/cart/quote`** 算价得 `quote_id` → `/addresses/select` 得 `address_id` → `/orders/preview`（可回传 `quote_id`）得 `preview_id` + `confirmation_token` → `/orders/create`。`shop_id` / `cart_id` / `address_id` 与商品 `item_id` 均来自上游接口，原样回传，不要自造。
+</Note>
+
+### 请求头
+
+| 名称 | 必填 | 说明 |
+|------|------|------|
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
+| `Content-Type` | 是 | `application/json` |
+
+### 请求体
+
+```json
+{
+  "shop_id": "<来自 /shops/search>",
+  "cart_id": "<来自 /shops/search>",
+  "address_id": "<来自 /addresses/select>",
+  "items": [
+    {
+      "item_id": "670685166551",
+      "sku_id": "5014584502270",
+      "quantity": 1,
+      "ingredient_option_ids": [],
+      "remark": ""
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `shop_id` | string | 是 | — | 店铺 ID（来自 `/shops/search`）|
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `/shops/search`，已封装店铺与配送坐标，故算价无需再传经纬度）|
+| `address_id` | string | 是 | — | **网关地址 ID（字符串）**，原样使用 `/addresses/select` 返回的 `address_id` |
+| `items` | array | 是 | — | 商品列表（见下，至少一项）|
+| `items[].item_id` | string | 是 | — | 商品 ID（来自 `/shops/menu`）|
+| `items[].sku_id` | string | 否 | `null` | SKU ID（来自菜单项的可选 SKU）|
+| `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
+| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项）|
+| `items[].remark` | string | 否 | `""` | 单品备注 |
+
+<Warning>
+  `items[]` 中的每个商品对象**不接受未定义字段**（`extra=forbid`），多传会返回 422。请求体本体（`shop_id` / `cart_id` / `address_id` / `items`）不强制 `extra=forbid`，本体多传的未知字段会被忽略。
+</Warning>
+
+### 响应
+
+```json
+{
+  "quote_id": "qt_4f2a...",
+  "can_checkout": true,
+  "blocking_reason": null,
+  "goods_price": 1600,
+  "delivery_fee": 0,
+  "packing_fee": 100,
+  "discount": 500,
+  "payable_price": 1200,
+  "minimum_order_gap": null,
+  "items": [
+    { "name": "生椰拿铁", "quantity": 1, "price": 1600 }
+  ]
+}
+```
+
+<Warning>
+  所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1200` 表示 ¥12.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `quote_id` | string | 报价 ID（`qt_`），传给 `/orders/preview` 校验报价上下文 |
+| `can_checkout` | boolean | 是否可结算（有不可结算商品或上游禁止结算时为 `false`）|
+| `blocking_reason` | string \| null | 不可结算原因（`can_checkout` 为 `true` 时为 `null`）|
+| `goods_price` | integer | 商品小计（分）|
+| `delivery_fee` | integer | 配送费（分）|
+| `packing_fee` | integer | 打包费（分）|
+| `discount` | integer | 优惠金额（分）|
+| `payable_price` | integer | 应付金额（分）|
+| `minimum_order_gap` | integer \| null | 距起送差额（分）；不适用时为 `null` |
+| `items` | array | 算价商品明细 |
+| `items[].name` | string | 商品名 |
+| `items[].quantity` | integer | 数量 |
+| `items[].price` | integer | 单品价（分）|
+
+### 错误码
+
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少 `X-Consent-Grant-Id` |
+| 401 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通对应能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 提供方 |
+| 422 | （参数校验） | REST 端请求体字段类型 / 必填 / 约束不满足由 pydantic 拦截，返回 FastAPI 默认 422（结构化校验体，非 `{error:{code}}`）。例如 `items[].quantity` 非整数或 < 1（`Field(ge=1)`）、`items[]` 多传未定义字段（`extra=forbid`） |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `item_id` 不属于该 `cart_id`。`address_id` 仅在主算价（`cats_price`）失败、回退到 `render_quote` 分支时才会校验，无效时也归到此码 |
+| 400 | `CART_PRICE_INVALID` | `items[].quantity` 非整数或小于 1。**仅 MCP 工具路径可达**：MCP 传入原始 dict 绕过 pydantic，由 service 内部校验；REST 端该类非法值已在入口被 pydantic 拦成 422 |
+| 502 | `ELEME_ERROR` | 上游算价接口异常 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 示例
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<来自 /shops/search>",
+    "cart_id": "<来自 /shops/search>",
+    "address_id": "<来自 /addresses/select>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
+  }'
+```

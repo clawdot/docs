@@ -1,104 +1,105 @@
 ---
-title: "Authentication Mechanism"
-description: "Dual-layer authentication system: API Key and User Token"
+title: "Authentication"
+description: "API Key identifies the Agent; a consent grant identifies the authorized user"
 ---
 
-Clawdot Gateway uses dual-layer authentication: **API Key** identifies Agent identity, **User Token** identifies food delivery user identity.
+Clawdot Gateway uses dual-layer authentication: an **API Key** identifies the Agent, and a **consent grant** identifies the authorized food-delivery user.
 
-## Authentication Chain
+## Authentication chain
 
 ```mermaid
 flowchart LR
-  A["Request"] --> B["require_agent()"]
-  B --> C{"API Key<br/>Valid?"}
-  C -- Yes --> D["agent_id"]
+  A["Request"] --> B["Verify API Key"]
+  B --> C{"API Key valid?"}
   C -- No --> E["401 AUTH_INVALID"]
-  D --> F["require_user()"]
-  F --> G{"User Token<br/>Valid?"}
-  G -- Yes --> H["(agent_id, user_id)"]
-  G -- No --> I["401 USER_TOKEN_INVALID"]
+  C -- Yes --> D["agent_id"]
+  D --> F{"Endpoint needs<br/>user authorization?"}
+  F -- No --> Z["Pass<br/>(binding endpoints)"]
+  F -- Yes --> G["Verify consent_grant_id<br/>+ capability binding"]
+  G -- Invalid/expired --> H["401 CONSENT_GRANT_INVALID"]
+  G -- Capability not enabled --> I["403 CAP_NOT_BOUND"]
+  G -- Valid --> J["(agent_id, authorized user)"]
 ```
 
 Different endpoints require different authentication levels:
 
-| Endpoint | API Key | User Token |
+| Endpoint | API Key | Consent grant |
 |---|---|---|
-| `POST /auth/agents` | Not required (use Admin Secret) | Not required |
-| `POST /user/bind/*` | Required | Not required |
-| `GET /shops/*` | Required | Required |
-| `*/addresses/*` | Required | Required |
-| `*/orders/*` | Required | Required |
+| `POST /api/v1/auth/bind/request` · `bind/verify` | Required | Not required (this is how you obtain a grant) |
+| `GET /api/v1/auth/status` | Required | Required |
+| `POST /api/v1/auth/unbind` · `auth/homepage-url` | Required | Required |
+| `/api/v1/addresses/*` · `/shops/*` · `/cart/*` | Required | Required |
+| `/api/v1/orders/*` · `/payment/*` | Required | Required |
+
+<Note>
+  MCP tools do not use the `X-Consent-Grant-Id` header — pass `consent_grant_id` as a parameter in each tool call instead.
+</Note>
 
 ## API Key
 
 <AccordionGroup>
-  <Accordion title="Format" icon="key">
-    ```
-    clw_<32 hexadecimal characters>
-    ```
+  <Accordion title="Format and transport" icon="key">
+    A `clw_` prefix followed by random characters, e.g. `clw_a1b2c3d4...`.
 
-    Example: `clw_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6`
-
-    Passed via `Authorization: Bearer clw_...` request header.
+    Passed via the `Authorization: Bearer clw_...` header; required on every `/api/v1/*` and MCP request. Generated when you create an Agent in the Portal.
   </Accordion>
 
-  <Accordion title="Storage Method" icon="database">
-    API Key is stored as **SHA-256 hash** in the database, plaintext is not retained on server. Each request hashes the incoming Key and compares with database.
-
-    Also stores the first 8 characters of the Key as `prefix` for logging and debugging (doesn't expose complete Key).
-  </Accordion>
-
-  <Accordion title="Verification Process" icon="check">
-    1. Extract Bearer Token from `Authorization` header
-    2. Calculate SHA-256 hash
-    3. Look up matching `key_hash` in `api_keys` table
-    4. Verify `is_active = true`
-    5. Return associated `agent_id`
+  <Accordion title="Security" icon="shield">
+    The API Key is stored only as a hash — the server never keeps plaintext — and each request is matched by hash. Disabled keys stop working immediately.
   </Accordion>
 </AccordionGroup>
 
-## User Token
+## Consent grant
+
+Represents "a food-delivery user has authorized a specific Agent to use a specific capability."
 
 <AccordionGroup>
-  <Accordion title="Acquisition" icon="mobile">
-    Obtained through SMS verification binding process:
+  <Accordion title="How to obtain" icon="mobile">
+    Obtained through the binding flow (SMS code or H5 mode):
 
-    1. Call `POST /user/bind/request` to send OTP
-    2. Call `POST /user/bind/verify` to get Token after verification
+    1. `POST /api/v1/auth/bind/request` to start authorization (SMS sends a code; H5 returns an authorization link)
+    2. `POST /api/v1/auth/bind/verify` to confirm — returns `consent_grant_id` on success
 
-    Token is UUID v4 format, valid for 90 days by default.
+    See [Start binding](/api-reference/user/bind-request) and [Verify binding](/api-reference/user/bind-verify).
   </Accordion>
 
-  <Accordion title="Passing Method" icon="arrow-right">
-    - **REST API:** Passed via `X-User-Token` request header
-    - **MCP:** Passed as `user_token` parameter for each tool
+  <Accordion title="How to pass" icon="arrow-right">
+    - **REST API:** via the `X-Consent-Grant-Id: <consent_grant_id>` header (except binding endpoints). The `consent_grant_id` goes in the header only — never in the JSON body.
+    - **MCP:** as the `consent_grant_id` parameter on each tool call.
   </Accordion>
 
-  <Accordion title="Security Design" icon="shield">
-    Food delivery user ID associated with Token is stored with **AES-256-GCM** encryption:
+  <Accordion title="Scope and expiry" icon="clock">
+    `verify_user_bind` returns on success:
 
-    - Encryption key: Environment variable `ENCRYPTION_KEY` (base64-encoded 32-byte key)
-    - Phone number: Stored as SHA-256 hash (used for deduplication under same Agent)
-    - Only one binding per Agent + phone combination
+    - `consent_grant_id` — the user-authorization record id (`cg_` prefix)
+    - `scopes` — granted capability scope, e.g. `["taobao_flash.delivery"]`
+    - `expires_at` — expiry time (ISO 8601)
+
+    After expiry, or after `revoke_user_bind` (`POST /api/v1/auth/unbind`), the `consent_grant_id` stops working on all endpoints immediately; re-run the binding flow to get a new one. The user's saved data (addresses, etc.) is retained and becomes available again after re-authorization.
   </Accordion>
 </AccordionGroup>
 
-## Error Responses
+## Error responses
 
-Authentication failure returns unified format:
+Authentication / authorization failures return a unified format:
 
 ```json
 {
   "error": {
-    "code": "AUTH_REQUIRED",
-    "message": "Authorization header is required"
+    "code": "CONSENT_GRANT_REQUIRED",
+    "message": "Consent grant id is required"
   }
 }
 ```
 
-| Error Code | HTTP Status | Description |
+| Error code | HTTP | Description |
 |---|---|---|
 | `AUTH_REQUIRED` | 401 | Missing API Key |
 | `AUTH_INVALID` | 401 | Invalid or disabled API Key |
-| `USER_TOKEN_REQUIRED` | 401 | Missing User Token |
-| `USER_TOKEN_INVALID` | 401 | Invalid or expired User Token |
+| `CONSENT_GRANT_REQUIRED` | 401 | Missing consent_grant_id |
+| `CONSENT_GRANT_INVALID` | 401 | consent_grant_id is invalid or expired |
+| `CONSENT_GRANT_EXPIRED` | 401 | User authorization has expired; re-authorize |
+| `CONSENT_GRANT_WRONG_CAP` | 403 | Grant belongs to a different capability / provider |
+| `CAP_NOT_BOUND` | 403 | This Agent has not enabled the capability |
+
+See [Error handling](/gateway/error-handling) for the full list.

@@ -1,0 +1,105 @@
+---
+title: "get_shop_menu"
+description: "MCP 工具，对应 REST POST /shops/menu — 拉取店铺的可下单菜单，返回下单用的 item_id / sku_id，支持关键词过滤与分页"
+---
+
+## get_shop_menu
+
+拉取一个店铺的菜单。返回的每个菜单项带网关生成的 `item_id`（及可选 `sku_id` / `option_id`），这些 ID 是后续 `quote_cart`、`preview_order`、`create_order` 唯一可用的下单凭据。菜单可能很大（100+ 项），支持 `keyword` 过滤与 `limit` / `offset` 分页（渐进式披露）。
+
+<Note>
+  **下单链路**：`search_shops` 得 `shop_id` + `cart_id`（已含配送坐标）→ **`get_shop_menu`** 选商品得 `item_id` / `sku_id` → `quote_cart` 算价得 `quote_id` → `select_address` 得 `address_id` → `preview_order` 得 `preview_id` + `confirmation_token` → `create_order`。菜单必须基于一个已存在的 `cart_id`，且 `shop_id` 必须与该 `cart_id` 匹配（同一次 `search_shops` 返回）。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `shop_id` | string | 是 | — | 店铺 ID（来自 `search_shops`），原样回传 |
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`，已封装店铺与配送坐标）|
+| `address_id` | string \| null | 否 | `null` | 网关地址 ID（来自 `select_address`）；提供后用其坐标解析配送位置 |
+| `lat` | float \| null | 否 | `null` | 配送位置纬度；不传则回退到 `cart_id` 内已封装的坐标 |
+| `lng` | float \| null | 否 | `null` | 配送位置经度；不传则回退到 `cart_id` 内已封装的坐标 |
+| `keyword` | string \| null | 否 | `null` | 关键词过滤，按商品名 / 分类名 / 描述匹配（大小写不敏感）|
+| `limit` | integer \| null | 否 | `null` | 本页返回数量，≥ 1；不传则返回（过滤后的）全部 |
+| `offset` | integer | 否 | `0` | 分页偏移，≥ 0；与上一次响应的 `next_offset` 配合翻页 |
+
+<Note>
+  `address_id` / `lat` / `lng` 三者用于解析配送坐标，通常无需传：`cart_id` 已封装搜索时的坐标。三者同时不传时使用 `cart_id` 内坐标。
+</Note>
+
+### 返回
+
+<Warning>
+  所有金额字段（`price` / `original_price` / `price_delta`）单位为**分（整数）**，不是元。例如 `price: 1600` 表示 ¥16.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `shop.shop_id` | string | 店铺 ID（原样回传请求中的 `shop_id`）|
+| `shop.cart_id` | string | 购物车上下文 ID（原样回传请求中的 `cart_id`）|
+| `shop.name` | string | 店铺名称 |
+| `shop.available` | boolean | 店铺是否可下单（当前恒为 `true`）|
+| `categories` | array | 本页商品按分类的轻量索引 |
+| `categories[].name` | string | 分类名 |
+| `categories[].items` | array | 该分类下的商品（仅 `item_id` + `name`）|
+| `items` | array | 本页完整商品列表（见下）|
+| `items[].item_id` | string | 商品 ID（`item_`），**下单必需**；传给 `quote_cart`、`preview_order` 的 `items[].item_id` |
+| `items[].name` | string | 商品名 |
+| `items[].category_name` | string \| null | 所属分类名 |
+| `items[].description` | string \| null | 商品描述 |
+| `items[].image_url` | string \| null | 商品图片 URL |
+| `items[].price` | integer | 当前价（分）|
+| `items[].original_price` | integer \| null | 原价（分）；无折扣时为 `null` |
+| `items[].available` | boolean | 是否有货 |
+| `items[].unavailable_reason` | string \| null | 不可用原因；售罄时为 `"sold_out"`，否则 `null` |
+| `items[].sku_options` | array | 规格选项（如杯型）；下单时在 `items[].sku_id` 传所选 `sku_id` |
+| `items[].sku_options[].sku_id` | string | SKU ID（`sku_`），原样回传到下单的 `sku_id` |
+| `items[].sku_options[].name` | string | 规格名（如「大杯」）|
+| `items[].sku_options[].price` | integer | 该规格价（分）|
+| `items[].sku_options[].available` | boolean | 该规格是否可选 |
+| `items[].ingredient_options` | array | 配料 / 做法选项（如温度、糖度）|
+| `items[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），原样回传到下单的 `items[].ingredient_option_ids` |
+| `items[].ingredient_options[].group_name` | string | 选项组名（如「糖度」）|
+| `items[].ingredient_options[].name` | string | 选项名（如「标准糖」）|
+| `items[].ingredient_options[].price_delta` | integer | 该选项加价（分），默认 `0` |
+| `items[].ingredient_options[].selected_by_default` | boolean | 是否为默认选项 |
+| `items[].ingredient_options[].available` | boolean | 该选项是否可选 |
+| `total_items` | integer | 过滤（`keyword`）后的商品总数 |
+| `has_more` | boolean | 是否还有下一页 |
+| `next_offset` | integer \| null | 下一页的 `offset`；`has_more` 为 `false` 时为 `null` |
+
+<Tip>
+  **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。
+</Tip>
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `PUBLIC_REFERENCE_INVALID` | `cart_id` 无效或过期，`shop_id` 无效，或 `shop_id` 与 `cart_id` 不匹配 |
+| `ELEME_ERROR` | 上游获取菜单失败 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "get_shop_menu",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<来自 search_shops>",
+    "cart_id": "<来自 search_shops>",
+    "keyword": "拿铁",
+    "limit": 20,
+    "offset": 0
+  }
+}
+```

@@ -1,384 +1,202 @@
 ---
 title: "Architecture Overview"
-description: "Three-layer architecture design and merchant onboarding modes of Clawdot Gateway"
+description: "Clawdot Gateway's dual entry points, authentication model, and ordering flow"
 ---
 
-## Gateway's Position in Clawdot
-
-Clawdot adopts a 4-layer architecture, with Gateway at layer 3, serving as **protocol layer + discovery layer**:
-
-```
-┌─────────────────────────────────────────────┐
-│  Layer 4 - Application Layer                │
-│  AI Agent / User Applications / Third-party Integration │
-└──────────────┬──────────────────────────────┘
-               │ Standard Protocol
-┌──────────────▼──────────────────────────────┐
-│  Layer 3 - Gateway (Protocol + Discovery)   │
-│  ├─ Standard protocol definition (Menu, Orders, Reservations) │
-│  ├─ Merchant discovery and routing          │
-│  └─ Protocol versioning and evolution       │
-└──────────────┬──────────────────────────────┘
-               │ Internal REST/MCP
-┌──────────────▼──────────────────────────────┐
-│  Layer 2 - Gateway Internal Services        │
-│  ├─ ShopService / OrderService / etc        │
-│  ├─ Protocol adaptation (Proxy conversion logic) │
-│  └─ Data and authentication management      │
-└──────────────┬──────────────────────────────┘
-               │ HTTP / Internal API
-┌──────────────▼──────────────────────────────┐
-│  Layer 1 - Merchant Layer                   │
-│  ├─ Proxy (proxy Eleme/Meituan/Amap)        │
-│  └─ Independent Merchant Agent (self-built systems) │
-└─────────────────────────────────────────────┘
-```
+Clawdot Gateway exposes food-delivery capabilities over **standard protocols**. The same service layer is mounted on two entry points at once: a REST API and an MCP Server. An Agent presents its identity with an API Key and asserts "I have been authorized by a given food-delivery user" with a consent_grant. The gateway routes the request to the upstream platform accordingly and converts the response into a unified standard format.
 
 ## Overall Architecture
 
 ```mermaid
 graph LR
-  REST["REST API\n/api/v1/*"] --> Services
-  MCP["MCP Server\n/mcp"] --> Services
-  Services --> ProxyClient["Proxy Client<br/>Conversion Layer"]
-  Services --> MerchantAgent["Merchant Agent<br/>Independent Implementation"]
-  ProxyClient --> Platform1["Meituan API"]
-  ProxyClient --> Platform2["Eleme API"]
-  Services --> Models["Models\n(SQLAlchemy)"] --> MySQL
+  Agent["AI Agent"]
+  REST["REST API<br/>/api/v1/*"]
+  MCP["MCP Server<br/>/mcp/v1"]
+  Service["Service Layer<br/>PublicGatewayService"]
+  Gate["Auth + Capability Gate<br/>API Key · consent_grant · cap binding"]
+  Provider["Provider Adapter<br/>convert to upstream platform API"]
+  Upstream["Upstream Platform<br/>(Eleme / …)"]
+  DB[("MySQL")]
+  Redis[("Redis")]
 
-  style Services fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-  style ProxyClient fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-  style MerchantAgent fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+  Agent -->|Bearer clw_| REST
+  Agent -->|Bearer clw_| MCP
+  REST --> Service
+  MCP --> Service
+  Service --> Gate
+  Service --> Provider
+  Provider --> Upstream
+  Service --> DB
+  Service --> Redis
+
+  style Service fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style Gate fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style Provider fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
 ```
 
-Clawdot Gateway adopts a three-layer internal architecture, with REST and MCP as two entry points sharing the same service layer. Gateway manages two types of merchants through **standard protocol**:
-- **Proxy layer** — Proxy merchants from Eleme, Meituan, Amap and other platforms
-- **Independent Agent** — Large merchants with independent implementation
+- **Two entry points share one service layer** — REST and MCP expose the same capabilities; they differ only in how parameters are passed: REST uses Header + JSON body, MCP uses tool parameters.
+- **Auth + capability gate** — Before execution, every public entry point passes the same gate: validate the API Key (identify the Agent), validate the consent_grant (identify the authorized user), and check whether the Agent has the corresponding capability enabled (cap binding).
+- **Provider adapter** — Converts standard-protocol requests into upstream platform API calls, and converts platform responses back into the unified standard format and error codes.
+- **State storage** — MySQL holds records for Agents / API Keys / user bindings / orders; Redis carries short-lived state such as pricing context, single-flight locks, and shop-list caches.
 
-## Merchant Onboarding Modes
+<Note>
+  This page only covers the **public** contract: the `/api/v1/*` REST endpoints and the `/mcp/v1` MCP tools. Operational actions such as creating an Agent, issuing an API Key, and enabling a capability go through the Portal ([portal.clawdot.ai](https://portal.clawdot.ai)) and are not part of the public API.
+</Note>
 
-Before diving into the detailed three-layer architecture, first understand how Gateway manages two merchant types:
+## Two Entry Points
 
 <Tabs>
-  <Tab title="Proxy Layer (Cold Start)">
-    **Goal:** Quick coverage of existing platform merchants
+  <Tab title="REST API">
+    Mounted under the `/api/v1` prefix, with 18 endpoints covering the full chain: authorization, addresses, shops, cart, coupons, orders, and payment signing.
 
-    ```mermaid
-    graph TB
-      Agent["AI Agent"]
-      Gateway["Gateway"]
-      Proxy["Proxy Conversion Layer"]
-      Platform["Meituan/Eleme"]
-      Merchant["Platform Merchant<br/>No Changes Needed"]
+    - **Agent identity** — `Authorization: Bearer clw_...` request header.
+    - **User authorization** — `X-Consent-Grant-Id: cg_...` request header (except for binding endpoints). `consent_grant_id` travels only in the header, never in the JSON body.
+    - **Request/response** — JSON body; all amount fields are in **cents (integers)**.
 
-      Agent -->|Standard Protocol| Gateway
-      Gateway -->|Convert to Platform API| Proxy
-      Proxy -->|Meituan API / Eleme API| Platform
-      Platform -->|Orders| Merchant
-
-      style Proxy fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-    ```
-
-    **Workflow:**
-    1. Agent calls Gateway using standard protocol
-    2. Gateway's Proxy Client handles request format conversion
-    3. Proxy converts request to corresponding platform API call
-    4. Platform response converted back to standard protocol format
-    5. Return to Agent
-
-    **Advantages:**
-    - Merchants require no changes
-    - Quick coverage of large merchant base
-    - Clawdot maintains complete data control
+    See the [API Reference](/en/api-reference/user/bind-request).
   </Tab>
 
-  <Tab title="Independent Agent (Ecosystem)">
-    **Goal:** Deep integration and autonomy for large merchants
+  <Tab title="MCP Server">
+    Mounted via `app.mount("/mcp", create_mcp_app())`. FastMCP versions its routes, so the public endpoint is **`/mcp/v1`**, and the transport is streamable HTTP. It exposes 18 tools, one-to-one with the 18 REST endpoints.
 
-    ```mermaid
-    graph TB
-      Agent["AI Agent"]
-      Gateway["Gateway"]
-      Merchant["Merchant Agent<br/>Directly Implements Standard Protocol"]
+    - **Agent identity** — Also via `Authorization: Bearer clw_...`, validated by the MCP middleware which injects `agent_id`.
+    - **User authorization** — Passed as the **`consent_grant_id` parameter** of each tool (not the `X-Consent-Grant-Id` header — that one is for REST).
+    - **Parameters** — Apart from `consent_grant_id`, a tool's parameters match the body fields of its corresponding REST endpoint.
 
-      Agent -->|Standard Protocol| Gateway
-      Gateway -->|Standard Protocol| Merchant
-      Merchant -->|Business Logic| MerchantSystem["Merchant Internal Systems"]
-
-      style Merchant fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-    ```
-
-    **Workflow:**
-    1. Agent calls Gateway using standard protocol
-    2. Gateway finds corresponding merchant Agent
-    3. Directly forward request to merchant implementation
-    4. Merchant handles business logic
-    5. Return response in standard protocol format
-
-    **Requirements:**
-    - Merchant must implement all standard protocol interfaces
-    - Must pass Clawdot's review and testing
-    - Commit to SLA and security requirements
-
-    **Advantages:**
-    - Merchants have complete control over business logic
-    - Support for deep customization
-    - Enable future ecosystem expansion
+    See [MCP Tools](/en/mcp/overview).
   </Tab>
 </Tabs>
 
-## Internal Three-Layer Architecture
+### REST Endpoint ↔ MCP Tool Mapping
 
-### Layer Descriptions
+The 18 MCP tools map one-to-one with the 18 REST endpoints:
 
-<AccordionGroup>
-  <Accordion title="Gateway Layer — Entry Point and Routing" icon="door-open">
-    **Location:** `src/gateway/`
+| MCP Tool | REST Endpoint |
+|---|---|
+| `request_user_bind` | `POST /auth/bind/request` |
+| `verify_user_bind` | `POST /auth/bind/verify` |
+| `get_user_auth_status` | `GET /auth/status` |
+| `revoke_user_bind` | `POST /auth/unbind` |
+| `get_homepage_url` | `POST /auth/homepage-url` |
+| `search_addresses` | `POST /addresses/search` |
+| `select_address` | `POST /addresses/select` |
+| `update_address` | `POST /addresses/update` |
+| `search_shops` | `POST /shops/search` |
+| `get_shop_menu` | `POST /shops/menu` |
+| `get_shop_share_url` | `POST /shops/share-url` |
+| `quote_cart` | `POST /cart/quote` |
+| `list_coupons` | `POST /coupons/list` |
+| `preview_order` | `POST /orders/preview` |
+| `create_order` | `POST /orders/create` |
+| `get_order_status` | `GET /orders/{order_id}` |
+| `get_sign_action` | `POST /payment/sign-action` |
+| `get_sign_status` | `GET /payment/sign-status` |
 
-    Responsible for protocol adaptation, merchant routing, and input validation, without containing business logic.
+## Authentication Model
 
-    - **REST routers** — FastAPI routes, handle HTTP request/response serialization
-    - **MCP tools** — 9 MCP tool definitions, convert MCP calls to service layer calls
-    - **Merchant router** — Query merchant type by merchant ID or shop_id, decide whether to forward to Proxy or independent Agent
-    - **Auth middleware** — `require_agent()` and `require_user()` dependency injection
+The gateway uses a two-layer identity:
 
-    The only difference between the two entry points is parameter passing: REST uses Header, MCP uses parameters.
-  </Accordion>
+- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores only the SHA-256 hash, never the plaintext, and compares by hash on every request; a disabled key fails immediately. Issued when an Agent is created in the Portal.
+- **consent_grant identifies the authorized user** — prefix `cg_`, representing "a given food-delivery user has authorized a given Agent to use a given capability." Obtained through the binding flow (`request_user_bind` + `verify_user_bind`), and revocable instantly via `revoke_user_bind`.
 
-  <Accordion title="Service Layer — Business Logic and Routing" icon="gears">
-    **Location:** `src/services/`
+```mermaid
+flowchart LR
+  A["Request"] --> B["Validate API Key<br/>(identify Agent)"]
+  B -- invalid --> E["401 AUTH_INVALID"]
+  B -- valid --> C["agent_id"]
+  C --> D{"User<br/>authorization required?"}
+  D -- no --> Z["Pass through<br/>(binding endpoints)"]
+  D -- yes --> F["Capability gate<br/>+ consent_grant resolution"]
+  F -- Agent lacks capability --> G["403 CAP_NOT_BOUND"]
+  F -- grant invalid/expired --> H["401 CONSENT_GRANT_*"]
+  F -- grant belongs to other cap/provider --> I["403 CONSENT_GRANT_WRONG_CAP"]
+  F -- pass --> J["(agent_id, authorized user)"]
+```
 
-    Core business logic location, receives dependencies through constructor (DB session, Proxy Client, merchant registry):
+For the full auth chain, error codes, and how credentials are passed, see [Authentication](/en/gateway/authentication).
 
-    - **AuthService** — Agent registration, API Key generation and validation
-    - **UserService** — SMS sending, OTP verification, user binding
-    - **ShopService** — Merchant search (including parallel multi-category search), menu retrieval
-      - For Proxy merchants — Call via Proxy Client
-      - For independent Agent — Direct API call to merchant
-    - **AddressService** — POI search, address selection and creation
-    - **OrderService** — Order preview, creation and query
-      - Support ordering logic for both merchant types
-    - **MerchantRegistry** — Merchant registry, records each merchant's type and onboarding approach
-  </Accordion>
+### Agent — Capability — Provider
 
-  <Accordion title="Client Layer — API Encapsulation and Adaptation" icon="cloud">
-    **Location:** `src/client/`
+Authorization is not "the Agent directly gets the user"; it is bound to a specific **capability (cap)** and **provider**:
 
-    HTTP client encapsulation supporting three types of APIs:
+- **Capability binding (cap binding)** — An `(agent_id, cap_code)` record declaring that a given Agent has a given capability enabled (the cap code for the food-delivery chain is `delivery`), carrying the provider coordinate (`provider_code`) on that record. Before any public entry point executes, it must first resolve an `active` capability binding; otherwise it returns `CAP_NOT_BOUND`.
+- **User binding (consent_grant)** — When a user authorizes, a user-binding record is written down recording which `agent_id`, which `cap_code`, and which `provider_code` it belongs to. When a request comes in, the gateway hashes `consent_grant_id` to look up this record and verifies that its capability/provider coordinates match the Agent's capability binding — a mismatch yields `CONSENT_GRANT_WRONG_CAP`.
 
-    **Proxy Client (Platform API Encapsulation):**
-    - **Token management** — `ensure_token` auto-refreshes expired tokens
-    - **Request signing** — Sign according to Meituan/Eleme signing algorithms
-    - **UA management** — Different User-Agent for different endpoints (Order uses MTOPSDK format, search uses Rajax format)
-    - **Error handling** — Unified conversion of platform API errors to standard protocol error codes
+In other words, a successful call must satisfy three things at once: **the API Key is valid** (the Agent is trusted), **the capability is enabled** (the Agent is allowed to use this capability), and **the consent_grant is valid with matching coordinates** (the user did authorize this Agent to use this capability).
 
-    **Merchant HTTP Client (Independent Merchant Agent Calls):**
-    - **API Key management** — Merchant authentication credentials
-    - **Request signing** — Sign according to merchant's security requirements (if needed)
-    - **Timeout and retry** — Handle merchant API instability
-    - **Error handling** — Convert merchant errors to standard protocol format
-  </Accordion>
-</AccordionGroup>
+## Ordering Flow
 
-## Data Flow
-
-### Typical Search Request
-
-#### Scenario 1: Proxy Merchant Search
+In a standard ordering flow, upstream-and-downstream IDs are chained hop by hop, with each step's output feeding the next:
 
 ```mermaid
 sequenceDiagram
   participant Agent
-  participant Gateway as REST / MCP
-  participant Shop as ShopService
-  participant Proxy as Proxy Client
-  participant Platform as Meituan/Eleme API
+  participant GW as REST / MCP
+  participant Svc as PublicGatewayService
+  participant Up as Upstream Platform
 
-  Agent->>Gateway: Search shops (shop_id from proxy merchant)
-  Gateway->>Shop: _search_default()
-  Shop->>Shop: Check shop_id type (Proxy)
-  par 10 parallel searches
-    Shop->>Proxy: searchByKeyWords("Recommended")
-    Shop->>Proxy: searchByKeyWords("Fast Food")
-    Shop->>Proxy: ...
-  end
-  Proxy->>Platform: Platform API call
-  Platform-->>Proxy: Platform response
-  Proxy->>Proxy: Convert to standard protocol format
-  Proxy-->>Shop: Standard format results
-  Shop->>Shop: Deduplicate by encryptShopId
-  Shop-->>Gateway: ~50 shops
-  Gateway-->>Agent: Search results
+  Agent->>GW: search_shops / POST /shops/search
+  GW->>Svc: gate + route
+  Svc->>Up: platform search
+  Up-->>Svc: shops
+  Svc-->>Agent: shop_id + cart_id
+
+  Agent->>GW: get_shop_menu / POST /shops/menu
+  Svc-->>Agent: menu (item_id / sku_id / option_id)
+
+  Agent->>GW: quote_cart / POST /cart/quote
+  Svc-->>Agent: quote_id (pricing)
+
+  Agent->>GW: select_address / POST /addresses/select
+  Svc-->>Agent: address_id
+
+  Agent->>GW: preview_order / POST /orders/preview
+  Svc->>Up: render + coupon selection
+  Svc-->>Agent: preview_id + confirmation_token + price breakdown
+
+  Agent->>GW: create_order / POST /orders/create
+  Svc->>Up: place order
+  Up-->>Svc: platform order
+  Svc-->>Agent: order_id
+
+  Agent->>GW: get_sign_action / POST /payment/sign-action
+  Svc-->>Agent: password-free signing action
 ```
 
-#### Scenario 2: Independent Merchant Search
+1. `search_shops` → get `shop_id` + `cart_id` (`cart_id` already encapsulates the shop and delivery coordinates)
+2. `get_shop_menu` → pick items, get `item_id` / `sku_id` / `option_id`
+3. `quote_cart` → get `quote_id` (pricing)
+4. `select_address` → get `address_id`
+5. `preview_order` → get `preview_id` + `confirmation_token` and the final price breakdown
+6. `create_order` → get `order_id`
+7. `get_sign_action` → password-free signing action (`get_sign_status` queries the signing status)
 
-```mermaid
-sequenceDiagram
-  participant Agent
-  participant Gateway as REST / MCP
-  participant Shop as ShopService
-  participant MerchantClient as Merchant HTTP Client
-  participant Merchant as Merchant Agent
+<Note>
+  All amount fields are in **cents (integers)**; everything exposed externally is an opaque ID issued by the gateway (`shop_id` / `cart_id` / `quote_id` / `address_id` / `preview_id` / `order_id`), and the upstream platform's raw IDs are never leaked.
+</Note>
 
-  Agent->>Gateway: Search shops (merchant ID)
-  Gateway->>Shop: search_by_merchant()
-  Shop->>Shop: Query merchant registry
-  Shop->>MerchantClient: Call merchant API
-  MerchantClient->>Merchant: GET /search (standard protocol)
-  Merchant->>Merchant: Handle business logic
-  Merchant-->>MerchantClient: Standard protocol response
-  MerchantClient-->>Shop: Return results
-  Shop-->>Gateway: Search results
-  Gateway-->>Agent: Search results
+## Error Handling
+
+All errors return a unified structure, with no extra fields like `next_action`:
+
+```json
+{
+  "error": {
+    "code": "CONSENT_GRANT_INVALID",
+    "message": "..."
+  }
+}
 ```
 
-### Typical Order Request
-
-#### Scenario 1: Proxy Merchant Ordering
-
-```mermaid
-sequenceDiagram
-  participant Agent
-  participant Gateway as REST / MCP
-  participant Order as OrderService
-  participant Proxy as Proxy Client
-  participant Platform as Food Delivery Platform API
-  participant Cache as In-Memory Cache
-  participant DB as MySQL
-
-  Agent->>Gateway: POST /orders/preview
-  Gateway->>Order: preview()
-  Order->>Order: Check merchant type (Proxy)
-  Order->>Proxy: First render (no coupon)
-  Proxy->>Platform: Platform API call
-  Platform-->>Proxy: Available coupon list
-  Proxy->>Proxy: Convert to standard format
-  Proxy-->>Order: Standard response
-  Order->>Order: Select best coupon
-  Order->>Proxy: Second render (with coupon)
-  Proxy->>Platform: Platform API call
-  Platform-->>Proxy: Final price
-  Proxy-->>Order: Standard response
-  Order->>Cache: Cache render result (10 min TTL)
-  Order-->>Agent: session_id + price details
-
-  Agent->>Gateway: POST /orders
-  Gateway->>Order: create()
-  Order->>Cache: Get render data
-  Order->>Proxy: Create order
-  Proxy->>Platform: Platform API call
-  Platform-->>Proxy: order_id
-  Proxy-->>Order: Standard response
-  Order->>DB: Save order record
-  Order-->>Agent: order_id + status
-```
-
-#### Scenario 2: Independent Merchant Ordering
-
-```mermaid
-sequenceDiagram
-  participant Agent
-  participant Gateway as REST / MCP
-  participant Order as OrderService
-  participant MerchantClient as Merchant HTTP Client
-  participant Merchant as Merchant Agent
-  participant MerchantDB as Merchant DB
-
-  Agent->>Gateway: POST /orders/preview
-  Gateway->>Order: preview()
-  Order->>Order: Check merchant type (Independent)
-  Order->>MerchantClient: Call merchant API
-  MerchantClient->>Merchant: POST /orders/preview (standard protocol)
-  Merchant->>MerchantDB: Query inventory and prices
-  MerchantDB-->>Merchant: Data
-  Merchant-->>MerchantClient: Standard response (with coupons)
-  MerchantClient-->>Order: Return results
-  Order-->>Agent: session_id + price details
-
-  Agent->>Gateway: POST /orders
-  Gateway->>Order: create()
-  Order->>MerchantClient: Create order
-  MerchantClient->>Merchant: POST /orders (standard protocol)
-  Merchant->>MerchantDB: Save order
-  MerchantDB-->>Merchant: Order ID
-  Merchant-->>MerchantClient: Standard response
-  MerchantClient-->>Order: Return results
-  Order->>Order: Save order record (complete interaction log)
-  Order-->>Agent: order_id + status
-```
-
-## Database Models
-
-<Tabs>
-  <Tab title="merchants">
-    | Field | Type | Description |
-    |---|---|---|
-    | id | int (PK) | Auto-increment primary key |
-    | name | varchar(200) | Merchant name |
-    | merchant_type | enum | Proxy / Independent |
-    | platform | varchar(50) | Platform name (Meituan/Eleme/Amap, Proxy only) |
-    | platform_shop_id | varchar(100) | Platform shop_id (Proxy only) |
-    | api_endpoint | varchar(500) | API endpoint (Independent only) |
-    | api_key | varchar(256) | API Key (encrypted storage, Independent only) |
-    | is_active | boolean | Enabled status |
-    | verified_at | datetime | Verification timestamp (Independent only) |
-    | created_at / updated_at | datetime | Timestamps |
-  </Tab>
-
-  <Tab title="agents">
-    | Field | Type | Description |
-    |---|---|---|
-    | id | int (PK) | Auto-increment primary key |
-    | name | varchar(100) | Agent name |
-    | is_active | boolean | Enabled status |
-    | created_at | datetime | Creation timestamp |
-  </Tab>
-  <Tab title="api_keys">
-    | Field | Type | Description |
-    |---|---|---|
-    | id | int (PK) | Auto-increment primary key |
-    | agent_id | int (FK) | Associated Agent |
-    | key_hash | varchar(64) | SHA-256 hash |
-    | prefix | varchar(8) | Key prefix (e.g., `clw_a1b2`) |
-    | is_active | boolean | Enabled status |
-    | created_at | datetime | Creation timestamp |
-  </Tab>
-  <Tab title="user_bindings">
-    | Field | Type | Description |
-    |---|---|---|
-    | id | int (PK) | Auto-increment primary key |
-    | agent_id | int (FK) | Associated Agent |
-    | phone_hash | varchar(64) | Phone number SHA-256 |
-    | encrypted_user_id | varchar(256) | AES-256-GCM encrypted |
-    | user_token | varchar(36) | UUID, unique index |
-    | token_expires_at | datetime | Token expiration timestamp |
-    | created_at / updated_at | datetime | Timestamps |
-  </Tab>
-  <Tab title="orders">
-    | Field | Type | Description |
-    |---|---|---|
-    | id | int (PK) | Auto-increment primary key |
-    | agent_id | int (FK) | Associated Agent |
-    | user_binding_id | int (FK) | Associated user binding |
-    | merchant_id | int (FK) | Associated merchant (new) |
-    | merchant_order_id | varchar(64) | Merchant order ID |
-    | shop_name | varchar(200) | Shop name |
-    | total_amount | decimal(10,2) | Order total |
-    | status | varchar(32) | Order status |
-    | merchant_type | enum | Proxy / Independent |
-    | raw_request | JSON | Original request (for audit) |
-    | raw_response | JSON | Original response |
-    | created_at / updated_at | datetime | Timestamps |
-  </Tab>
-</Tabs>
+REST and MCP share the same set of error codes. For the full list, see [Error Handling](/en/gateway/error-handling).
 
 ## Security Design
 
 | Mechanism | Implementation |
-|---|---|
-| API Key Storage | SHA-256 hash, plaintext not stored in database |
-| Phone Storage | SHA-256 hash, used for deduplication |
-| User ID Storage | AES-256-GCM encryption (base64-encoded 32-byte key) |
-| User Token | UUID v4 (128 bits entropy) |
-| Admin Authentication | Single `X-Admin-Secret` request header |
+|------|------|
+| API Key storage | SHA-256 hash; no plaintext in the database; disabling takes effect immediately |
+| consent_grant storage | Only the SHA-256 hash (`consent_grant_hash`) is stored; the original value is never persisted |
+| Phone number storage | Encrypted at rest, with a SHA-256 hash used for deduplication |
+| User ID storage | AES-256-GCM encryption |
+| External IDs | All are opaque IDs issued by the gateway, decoupled from the upstream platform's raw IDs |
+| Public-surface boundary | Externally exposes only `/api/v1/*` and `/mcp/v1`; operational / administrative actions (creating an Agent, enabling a capability, etc.) go through the Portal and are not part of the public API |

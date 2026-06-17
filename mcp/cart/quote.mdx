@@ -1,0 +1,81 @@
+---
+title: "quote_cart"
+description: "MCP 工具，对应 REST POST /cart/quote — 对已选商品的购物车算价，返回价格明细与下单预览用的 quote_id"
+---
+
+## quote_cart
+
+对一个购物车里已选的商品算价：校验店铺 / 购物车 / 商品，调用上游算价，返回价格明细、是否可结算，以及供下一步预览使用的 `quote_id`。
+
+<Note>
+  **下单链路**：`search_shops` 得 `shop_id` + `cart_id`（已封装店铺与配送坐标）→ `get_shop_menu` 选商品 → **`quote_cart`** 算价得 `quote_id` → `select_address` 得 `address_id` → `preview_order`（可回传 `quote_id`）得 `preview_id` + `confirmation_token` → `create_order`。`shop_id` / `cart_id` / `address_id` 与商品 `item_id` 均来自上游接口，原样回传，不要自造。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `shop_id` | string | 是 | — | 店铺 ID（来自 `search_shops`）|
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`，已封装店铺与配送坐标，故算价无需再传经纬度）|
+| `address_id` | string | 是 | — | **网关地址 ID（字符串）**，原样使用 `select_address` 返回的 `address_id` |
+| `items` | array | 是 | — | 商品列表（见下，至少一项）|
+| `items[].item_id` | string | 是 | — | 商品 ID（来自 `get_shop_menu`）|
+| `items[].sku_id` | string | 否 | `null` | SKU ID（来自菜单项的可选 SKU）|
+| `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
+| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项）|
+| `items[].remark` | string | 否 | `""` | 单品备注 |
+
+### 返回
+
+<Warning>
+  所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1200` 表示 ¥12.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `quote_id` | string | 报价 ID（`qt_`），传给 `preview_order` 校验报价上下文 |
+| `can_checkout` | boolean | 是否可结算（有不可结算商品或上游禁止结算时为 `false`）|
+| `blocking_reason` | string \| null | 不可结算原因（`can_checkout` 为 `true` 时为 `null`）|
+| `goods_price` | integer | 商品小计（分）|
+| `delivery_fee` | integer | 配送费（分）|
+| `packing_fee` | integer | 打包费（分）|
+| `discount` | integer | 优惠金额（分）|
+| `payable_price` | integer | 应付金额（分）|
+| `minimum_order_gap` | integer \| null | 距起送差额（分）；不适用时为 `null` |
+| `items` | array | 算价商品明细 |
+| `items[].name` | string | 商品名 |
+| `items[].quantity` | integer | 数量 |
+| `items[].price` | integer | 单品价（分）|
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通对应能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 提供方 |
+| `PUBLIC_REFERENCE_INVALID` | `cart_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `item_id` 不属于该 `cart_id`。`address_id` 仅在主算价（`cats_price`）失败、回退到 `render_quote` 分支时才会校验，无效时也归到此码 |
+| `CART_PRICE_INVALID` | `items[].quantity` 非整数或小于 1。MCP 传入原始 dict 绕过 pydantic，由 service 内部校验 |
+| `ELEME_ERROR` | 上游算价接口异常 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "quote_cart",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<来自 search_shops>",
+    "cart_id": "<来自 search_shops>",
+    "address_id": "<来自 select_address>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
+  }
+}
+```

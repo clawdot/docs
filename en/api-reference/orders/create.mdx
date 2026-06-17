@@ -1,89 +1,144 @@
 ---
 title: "Create Order"
-description: "POST /orders — Confirm order placement using preview session_id"
+description: "POST /orders/create — place the order using the preview_id + confirmation_token from a preview, returning order_id and the payment_action"
 ---
 
-## POST /orders
+## POST /orders/create
 
-Confirm and create an order using the `session_id` returned from preview.
+Places the order using the `preview_id` and `confirmation_token` returned by a preview. On success it returns the platform order ID `order_id`, the order `status`, the payable amount `payable_price`, and (when payment is required) the `payment_action`.
 
-<Warning>
-  This endpoint has **rate limiting**: maximum 10 requests per minute per Agent. `session_id` is one-time use and becomes invalid after use.
-</Warning>
+<Note>
+  **Order flow**: `/shops/search` → `shop_id` + `cart_id` → `/shops/menu` to pick items → `/cart/quote` to price the cart and get `quote_id` → `/addresses/select` to get `address_id` → `/orders/preview` → `preview_id` + `confirmation_token` → **`/orders/create`** → `order_id` + `payment_action`. The `preview_id` and `confirmation_token` must come from the **same** `/orders/preview` call and be passed back as-is — never fabricate or mix them.
+</Note>
+
+<Note>
+  This endpoint is **idempotent**, keyed on `confirmation_token`. The idempotency fingerprint compares only `preview_id` + `confirmation_token` + `payment_method` (**not** `callback_url`). Repeating the call with the same `confirmation_token`: if `preview_id` and `payment_method` match the first call, it returns the first result; if either differs, it returns `IDEMPOTENCY_CONFLICT`. A token places exactly one order — to order again, run `/orders/preview` for a fresh token. Note: changing only `callback_url` (the other three unchanged) is not a conflict — it replays and **re-registers the poller** (so the callback may be delivered more than once).
+</Note>
 
 ### Request Headers
 
 | Name | Required | Description |
-|------|------|------|
-| `Authorization` | Yes | `Bearer clw_...` |
-| `X-User-Token` | Yes | User Token |
+|------|----------|-------------|
+| `Authorization` | Yes | `Bearer clw_...` (the Agent's API Key) |
+| `X-Consent-Grant-Id` | Yes | User consent grant ID (`cg_...`) |
 | `Content-Type` | Yes | `application/json` |
 
 ### Request Body
 
 ```json
 {
-  "session_id": "abc-def-ghi"
+  "preview_id": "<from /orders/preview>",
+  "confirmation_token": "<from /orders/preview>",
+  "payment_method": null,
+  "callback_url": "https://your-app.example.com/clawdot/callback"
 }
 ```
 
-| Field | Type | Required | Description |
-|------|------|------|------|
-| `session_id` | string | Yes | Session ID from `/orders/preview` |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `preview_id` | string | Yes | — | Preview ID (from `/orders/preview`, passed back as-is) |
+| `confirmation_token` | string | Yes | — | Confirmation token (from the **same** `/orders/preview`, passed back as-is); also the idempotency key |
+| `payment_method` | string \| null | No | `null` | Payment channel; omit to use the default channel |
+| `callback_url` | string \| null | No | `null` | Payment-status callback URL (absolute http(s) URL); when set, the gateway polls order status and POSTs one callback once the order leaves the unpaid state (see below) |
+
+<Warning>
+  The body **rejects undefined fields** (`extra=forbid`); extra fields return 422.
+</Warning>
+
+**About `callback_url`:** must be an absolute `http`/`https` URL; loopback / private / link-local hosts are rejected. When set, the gateway polls order status roughly every 2 seconds and, once the order leaves the unpaid state (`created` / `pending_payment`), POSTs one callback to that URL. The polling window is about **15 minutes** (`POLL_WINDOW_SECONDS = 15 * 60`); if still unpaid when it elapses, the poller finishes with `timeout` so the task always terminates. The callback body always has these 6 keys:
+
+```json
+{
+  "event": "order_payment",
+  "order_id": "ord_...",
+  "ispay": "success",
+  "status": "paid",
+  "status_text": "已支付",
+  "consent_grant_id": "cg_..."
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `event` | Always `order_payment` |
+| `order_id` | Platform order ID |
+| `ispay` | Payment-result enum (see below) |
+| `status` | Order status at callback time (same enum as the response `status`) |
+| `status_text` | Localized (Chinese) text for `status` (e.g. `已支付` / `已取消`) |
+| `consent_grant_id` | The consent grant the order belongs to, for the caller to match |
+
+**`ispay` enum (4 values):**
+
+| Value | Meaning | Triggering order status |
+|-------|---------|-------------------------|
+| `success` | Entered the paid pipeline | `paid` / `preparing` / `delivering` / `completed` / `refunded` |
+| `closed` | Cancelled or closed | `cancelled` / `failed` |
+| `timeout` | ~15-minute polling window elapsed while still unpaid (so the caller is not left hanging) | still `created` / `pending_payment` when the window ends |
+| `unknown` | Consent grant revoked / rotated, or the order reference became invalid — the gateway can no longer query on the user's behalf | — |
+
+Callback delivery is **at-least-once**; an idempotent replay of `create_order` re-registers the poller (the callback may be delivered more than once). A failed callback does not affect the order outcome — without `callback_url` (or as a fallback), poll `/orders/{order_id}` yourself.
 
 ### Response
 
-<Tabs>
-  <Tab title="200 Success">
-    ```json
-    {
-      "order_id": "1234567890",
-      "status": "created",
-      "shop_name": "Luckin Coffee (Guomao Branch)",
-      "total_amount": 8.4
-    }
-    ```
+```json
+{
+  "order_id": "ord_8c1d...",
+  "status": "pending_payment",
+  "payable_price": 1500,
+  "payment_action": {
+    "action_id": "act_3f9a...",
+    "action_type": "open_h5",
+    "action_url": "https://...",
+    "expires_at": "2026-06-16T12:30:00+00:00"
+  },
+  "callback_registered": true
+}
+```
 
-    | Field | Type | Description |
-    |------|------|------|
-    | `order_id` | string | Food delivery order ID |
-    | `status` | string | Order status |
-    | `shop_name` | string | Shop name |
-    | `total_amount` | float | Order total |
-  </Tab>
-  <Tab title="500 Order Failed">
-    ```json
-    {
-      "error": {
-        "code": "ORDER_FAILED",
-        "message": "Session expired or order creation failed"
-      }
-    }
-    ```
+<Warning>
+  The `payable_price` field is in **cents (integer)**, not yuan. e.g. `payable_price: 1500` means ¥15.00.
+</Warning>
 
-    Common causes:
-    - `session_id` expired (> 10 minutes)
-    - `session_id` already used
-    - Food delivery platform API returned error
-  </Tab>
-  <Tab title="429 Rate Limited">
-    ```json
-    {
-      "error": {
-        "code": "RATE_LIMITED",
-        "message": "Too many order requests"
-      }
-    }
-    ```
-  </Tab>
-</Tabs>
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Platform order ID (`ord_` prefix), passed to `/orders/{order_id}` for status |
+| `status` | string | Order status enum (see below) |
+| `payable_price` | integer | Payable amount (cents) |
+| `payment_action` | object \| null | Payment action; returned when payment is required, otherwise `null` |
+| `payment_action.action_id` | string | Action ID (`act_` prefix) |
+| `payment_action.action_type` | string | Action type, currently `open_h5` (open the H5 payment page) |
+| `payment_action.action_url` | string | Payment page URL to guide the user through payment |
+| `payment_action.expires_at` | string | Action expiry (ISO 8601, UTC); valid for ~30 minutes |
+| `callback_registered` | boolean | Whether a payment callback was registered (i.e. whether the request carried a valid `callback_url`) |
+
+**`status` enum:** `created`, `pending_payment`, `paid`, `preparing`, `delivering`, `completed`, `cancelled`, `failed`, `refunded`.
+
+### Error Codes
+
+| HTTP | code | Description |
+|------|------|-------------|
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `X-Consent-Grant-Id` |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | The capability is not enabled for this agent |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to a different capability / provider |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `preview_id` / `confirmation_token` invalid or expired, the two do not match (not from the same preview), or `callback_url` is invalid |
+| 409 | `IDEMPOTENCY_CONFLICT` | The same `confirmation_token` was reused but `preview_id` or `payment_method` differs from the first call; re-preview for a fresh token |
+| 422 | (validation) | Request-body field type / required / undefined-field (`extra=forbid`) violation; REST returns FastAPI's default 422 structure (not `{error:{code}}`) |
+| 500 | `ORDER_FAILED` | Order creation failed; re-preview and retry |
+| 502 | `ELEME_ERROR` | Upstream order API error; retry later |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
 
 ### Example
 
 ```bash
-curl -X POST "https://your-gateway/api/v1/orders" \
+curl -X POST "https://api.clawdot.ai/api/v1/orders/create" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
-  -d '{"session_id": "abc-def-ghi"}'
+  -d '{
+    "preview_id": "<from /orders/preview>",
+    "confirmation_token": "<from /orders/preview>"
+  }'
 ```

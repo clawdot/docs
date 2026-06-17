@@ -1,155 +1,178 @@
 ---
 title: "预览订单"
-description: "POST /orders/preview — 渲染订单并自动应用最优优惠券"
+description: "POST /orders/preview — 校验已算价的购物车，返回最终价格、可用优惠券与下单用的 preview_id"
 ---
 
 ## POST /orders/preview
 
-预览订单，自动选择最优优惠券，返回最终价格和 `session_id`。
+对一个已算价的购物车做下单前预览：校验店铺 / 地址 / 商品、应用优惠券，返回最终价格明细，以及用于正式下单的 `preview_id` 与 `confirmation_token`。
+
+<Note>
+  **下单链路**：`/shops/search` 得 `shop_id` + `cart_id`（已含配送坐标）→ `/shops/menu` 选商品 → `/cart/quote` 算价得 `quote_id` → `/addresses/select` 得 `address_id` → **`/orders/preview`** 得 `preview_id` + `confirmation_token` → `/orders/create`。预览必须基于一个已存在的 `cart_id`。
+</Note>
 
 ### 请求头
 
 | 名称 | 必填 | 说明 |
 |------|------|------|
-| `Authorization` | 是 | `Bearer clw_...` |
-| `X-User-Token` | 是 | 用户 Token |
+| `Authorization` | 是 | `Bearer clw_...`（Agent 的 API Key）|
+| `X-Consent-Grant-Id` | 是 | 用户授权 ID（`cg_...`）|
 | `Content-Type` | 是 | `application/json` |
 
 ### 请求体
 
 ```json
 {
-  "shop_id": "E15074238835124929109",
-  "address_id": 1,
+  "shop_id": "<来自 /shops/search>",
+  "cart_id": "<来自 /shops/search>",
+  "quote_id": "<来自 /cart/quote，可选>",
+  "address_id": "<来自 /addresses/select>",
   "items": [
     {
       "item_id": "670685166551",
       "sku_id": "5014584502270",
       "quantity": 1,
-      "specs": [
-        {"name": "规格", "value": "大杯"}
-      ],
-      "attrs": [
-        {"name": "温度", "value": "冰"}
-      ],
-      "ingredients": [
-        {
-          "item_id": "670685166551",
-          "sku_id": "5014584502270",
-          "package_id": "1234567890",
-          "buy_amount": 1
-        }
-      ]
+      "ingredient_option_ids": [],
+      "remark": ""
     }
   ],
-  "lat": 31.2304,
-  "lng": 121.4737,
-  "note": "少冰"
+  "coupon_ids": null,
+  "order_remark": "放门口"
 }
 ```
 
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `shop_id` | string | 是 | — | 商家 ID（搜索结果的 `id` 字段） |
-| `address_id` | integer | 是 | — | **网关地址 ID**（来自 [保存地址](/api-reference/addresses/select) 返回的 `id`） |
-| `items` | array | 是 | — | 商品列表 |
-| `items[].item_id` | string | 是 | — | 商品 ID（来自菜单的 `item_id`） |
-| `items[].sku_id` | string | 是 | — | SKU ID（来自菜单的 `sku_id`） |
-| `items[].quantity` | integer | 否 | 1 | 数量 |
-| `items[].specs` | array | 否 | `[]` | 规格选择，格式 `{"name": "...", "value": "..."}` |
-| `items[].attrs` | array | 否 | `[]` | 属性选择，格式 `{"name": "...", "value": "..."}` |
-| `items[].ingredients` | array | 否 | `[]` | 配料选择 |
-| `items[].ingredients[].item_id` | string | 是 | — | 配料商品 ID |
-| `items[].ingredients[].sku_id` | string | 是 | — | 配料 SKU ID |
-| `items[].ingredients[].package_id` | string | 是 | — | 配料包裹 ID（tbPackageId） |
-| `items[].ingredients[].buy_amount` | integer | 否 | 1 | 购买数量 |
-| `lat` | float | 是 | — | 配送位置纬度 |
-| `lng` | float | 是 | — | 配送位置经度 |
-| `note` | string | 否 | `""` | 备注（给骑手的留言） |
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `shop_id` | string | 是 | — | 店铺 ID（来自 `/shops/search`）|
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `/shops/search`，已封装店铺与配送坐标，故预览无需再传经纬度）|
+| `quote_id` | string | 否 | `null` | 报价 ID（来自 `/cart/quote`）；提供后会校验报价上下文 |
+| `address_id` | string | 是 | — | **网关地址 ID（字符串）**，原样使用 `/addresses/select` 返回的 `address_id` |
+| `items` | array | 是 | — | 商品列表（见下）|
+| `items[].item_id` | string | 是 | — | 商品 ID（来自 `/shops/menu`）|
+| `items[].sku_id` | string | 否 | `null` | SKU ID |
+| `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
+| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项）|
+| `items[].remark` | string | 否 | `""` | 单品备注 |
+| `coupon_ids` | string[] \| null | 否 | `null` | 优惠券选择，三态见下 |
+| `order_remark` | string | 否 | `""` | 订单备注（给骑手）|
 
 <Warning>
-  `address_id` 是 **integer 类型**（网关地址 ID），不是字符串。必须使用 `/addresses/select` 返回的 `id` 值。
+  请求体**不接受未定义字段**（`extra=forbid`），多传会返回 422。早期文档中的 `lat` / `lng`、`specs` / `attrs` / 嵌套 `ingredients`、`note`、`session_id` 等字段均已不存在。
 </Warning>
 
-### 快速下单（推荐 Agent 使用）
+**`coupon_ids` 三态：**
 
-直接使用菜单项的 `default_ingredients`，无需手动选择规格/属性/配料：
-
-```json
-{
-  "shop_id": "E15074238835124929109",
-  "address_id": 1,
-  "items": [
-    {
-      "item_id": "670685166551",
-      "sku_id": "5014584502270",
-      "quantity": 1,
-      "ingredients": [
-        {"item_id": "...", "sku_id": "...", "package_id": "...", "buy_amount": 1}
-      ]
-    }
-  ],
-  "lat": 31.2304,
-  "lng": 121.4737
-}
-```
+- **不传该字段** → 网关自动选择最优券
+- **传 `[]`（空数组）** → 明确不使用任何券
+- **传 `["<coupon_id>", ...]`** → 使用指定券（券 ID 来自上一次预览返回的 `available_coupons[].coupon_id`）
 
 ### 响应
 
 ```json
 {
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
-  "shop_name": "瑞幸咖啡(人民广场店)",
+  "preview_id": "prv_4f2a...",
+  "confirmation_token": "cf_9b3e...",
+  "shop": { "name": "瑞幸咖啡(人民广场店)" },
+  "address": {
+    "display_name": "上海市黄浦区...",
+    "address_detail": "3 号楼 101",
+    "city": ""
+  },
   "items": [
+    { "name": "生椰拿铁", "quantity": 1, "price": 1600 }
+  ],
+  "price": {
+    "goods_price": 1600,
+    "delivery_fee": 300,
+    "packing_fee": 100,
+    "discount": 500,
+    "payable_price": 1500
+  },
+  "delivery": {
+    "estimated_time_text": "35分钟",
+    "delivery_type": null
+  },
+  "payment": {
+    "requires_payment": true,
+    "available_methods": ["default"]
+  },
+  "warnings": [],
+  "available_coupons": [
     {
-      "name": "生椰拿铁",
-      "price": 16.0,
-      "quantity": 1,
-      "description": "大杯/冰"
+      "coupon_id": "cpn_1a2b...",
+      "name": "满20减5",
+      "amount": 500,
+      "threshold": 2000,
+      "available": true,
+      "unavailable_reason": null
     }
   ],
-  "packing_fee": 1.0,
-  "delivery_fee": 3.0,
-  "discount": 5.0,
-  "total": 15.0,
-  "estimated_delivery_time": "35分钟"
+  "selected_coupons": [
+    { "coupon_id": "cpn_1a2b...", "name": "满20减5", "amount": 500 }
+  ]
 }
 ```
 
+<Warning>
+  所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
+</Warning>
+
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `session_id` | string | 订单会话 ID，**一次性使用**，10 分钟后过期 |
-| `shop_name` | string | 商家名称 |
-| `items` | array | 商品明细 |
-| `packing_fee` | float | 包装费（元） |
-| `delivery_fee` | float | 配送费（元） |
-| `discount` | float | 优惠金额（元），自动应用最优优惠券 |
-| `total` | float | 实付金额 = 商品小计 + 包装费 + 配送费 - 优惠 |
-| `estimated_delivery_time` | string \| null | 预计送达时间 |
+| `preview_id` | string | 预览 ID（`prv_`），传给 `/orders/create`；有效期约 10 分钟 |
+| `confirmation_token` | string | 确认令牌（`cf_`），与 `preview_id` 一起传给 `/orders/create` |
+| `shop.name` | string | 店铺名称 |
+| `address.display_name` | string | 地址显示名 |
+| `address.address_detail` | string | 门牌等详情 |
+| `address.city` | string | 城市（当前恒为空串）|
+| `items[].name` | string | 商品名 |
+| `items[].quantity` | integer | 数量 |
+| `items[].price` | integer | 单品价（分）|
+| `price.goods_price` | integer | 商品小计（分）|
+| `price.delivery_fee` | integer | 配送费（分）|
+| `price.packing_fee` | integer | 打包费（分）|
+| `price.discount` | integer | 优惠金额（分）|
+| `price.payable_price` | integer | 应付金额（分）= 商品 + 配送 + 打包 − 优惠 |
+| `delivery.estimated_time_text` | string \| null | 预计送达文案 |
+| `delivery.delivery_type` | string \| null | 配送类型（当前为 `null`）|
+| `payment.requires_payment` | boolean | 是否需要支付 |
+| `payment.available_methods` | string[] | 可用支付方式 |
+| `warnings` | array | 预览告警（如商品变更）|
+| `available_coupons` | array | 可用优惠券；`coupon_id` 可回传到 `coupon_ids` |
+| `available_coupons[].amount` | integer | 券面额（分）|
+| `available_coupons[].threshold` | integer | 使用门槛（分）|
+| `available_coupons[].available` | boolean | 是否可用 |
+| `available_coupons[].unavailable_reason` | string \| null | 不可用原因 |
+| `selected_coupons` | array | 本次已应用的券（含 `coupon_id` / `name` / `amount`）|
 
-### 自动优惠券逻辑
+### 错误码
 
-系统执行 **两次渲染**：
+| HTTP | code | 说明 |
+|------|------|------|
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少 `X-Consent-Grant-Id` 用户授权 |
+| 401 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通对应能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 该授权属于其它能力 / 服务商 |
+| 422 | （参数校验） | REST 端请求体字段类型 / 必填 / 约束不满足由 pydantic 拦截，返回 FastAPI 默认 422（结构化校验体，非 `{error:{code}}`）。例如 `items[].quantity` 非整数或 < 1（`Field(ge=1)`）、请求体本体或 `items[]` 多传未定义字段（`extra=forbid`） |
+| 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `address_id` 无效 |
+| 502 | `ELEME_ERROR` | 上游预览 API 错误；稍后重试 |
 
-1. **第一次渲染**（无优惠券）— 获取可用优惠券列表
-2. **选择最优** — 过滤有效券（`beRealInValid=false`），优先推荐券，其次最大金额券
-3. **第二次渲染**（带优惠券）— 返回折后价
-
-<Note>
-  `session_id` 是一次性的，用后即失效。超过 10 分钟也会过期，需要重新预览。
-</Note>
+完整错误码见 [错误处理](/gateway/error-handling)。
 
 ### 示例
 
 ```bash
 curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
   -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-User-Token: your_user_token" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
-    "shop_id": "E15074238835124929109",
-    "address_id": 1,
-    "items": [{"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}],
-    "lat": 31.23, "lng": 121.47
+    "shop_id": "<来自 /shops/search>",
+    "cart_id": "<来自 /shops/search>",
+    "address_id": "<来自 /addresses/select>",
+    "items": [
+      {"item_id": "670685166551", "sku_id": "5014584502270", "quantity": 1}
+    ]
   }'
 ```
