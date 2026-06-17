@@ -5,19 +5,24 @@ description: "AI food delivery ordering scenario"
 
 ## Overview
 
-Food delivery ordering is the first deployed scenario for Super Agent and the most typical demonstration of its capabilities. Super Agent connects to food delivery platforms through Clawdot Gateway, enabling AI to complete the entire workflow from searching merchants to confirming orders, providing users with one-tap ordering experience.
+Food delivery ordering is the first deployed scenario for Super Agent and the most typical demonstration of its capabilities. Super Agent connects to food delivery platforms through Clawdot Gateway, enabling AI to complete the entire workflow from searching merchants to creating orders, providing users with one-tap ordering experience.
 
 ## Capability Matrix
 
-Super Agent's core capabilities in food delivery scenarios:
+Super Agent's core capabilities in food delivery scenarios (each capability maps one-to-one to an MCP tool / REST endpoint — 18 tools and 18 endpoints in total):
 
-| Capability | Description | API Tool |
+| Capability | Description | MCP Tool |
 |------|------|--------|
-| Merchant Search | Search by keyword or location, support 10 categories in parallel | `search_shops` |
-| Menu Browsing | Complete menu with specs, attrs, ingredients, and default options | `get_shop_detail` |
-| Address Management | POI search, address creation and list management | `search_pois` / `create_address` / `list_addresses` |
-| Smart Ordering | Two-step preview + confirm workflow, auto-select optimal coupon | `preview_order` / `confirm_order` |
-| Order Tracking | Query order status | `get_order` |
+| Merchant Search | Search by keyword or location / browse nearby | `search_shops` |
+| Menu Browsing | Complete menu with specs, attrs, ingredients, and default options | `get_shop_menu` |
+| Address Management | Keyword POI search, register / reuse delivery address | `search_addresses` / `select_address` |
+| Cart Quote | Price the selected items and get the quote context | `quote_cart` |
+| Smart Ordering | Two-step preview + create workflow, auto-select optimal coupon | `preview_order` / `create_order` |
+| Order Tracking | Query order status | `get_order_status` |
+
+<Note>
+  Ordering is a **stateful chain**: every id returned by one step must be passed verbatim to the next — never fabricate ids or mix them across chains. See [Order Flow](/en/gateway/order-flow) for the full chain and field tables.
+</Note>
 
 ## Typical Dialogue Scenario
 
@@ -38,7 +43,7 @@ Agent: Let me search nearby coffee shops for you.
 
 User: Luckin Coffee
 
-Agent: → Calls get_shop_detail(shop_id="luckin_001")
+Agent: → Calls get_shop_menu(shop_id="shop_...", cart_id="cart_...")
 
       Luckin Coffee bestsellers:
       1. Fresh Coconut Latte ¥9.9 (Original price ¥19)
@@ -50,10 +55,12 @@ Agent: → Calls get_shop_detail(shop_id="luckin_001")
 User: One Fresh Coconut Latte, iced
 
 Agent: → Calls preview_order(
-        shop_id="luckin_001",
+        shop_id="shop_...",
+        cart_id="cart_...",
+        address_id="addr_...",
         items=[{
-          product_id="coconut_latte",
-          sku_specs=default_ingredients,
+          item_id="...",
+          sku_id="...",
           quantity=1
         }]
       )
@@ -63,49 +70,56 @@ Agent: → Calls preview_order(
       - Delivery fee ¥0
       - Coupon discount -¥1.5
       - Total ¥8.4
+      (amount fields are in cents; payable_price=840 means ¥8.40)
 
       Confirm order?
 
 User: Confirmed
 
-Agent: → Calls confirm_order(session_id="sess_abc123...")
+Agent: → Calls create_order(
+        preview_id="prv_...",
+        confirmation_token="cf_..."
+      )
 
       Order placed! Estimated delivery in 35 minutes.
       Order number: 1234567890
 ```
 
+<Note>
+  Searching merchants and viewing menus both require a delivery location first. The address flow is `search_addresses` to get candidates → `select_address` to register and obtain an `address_id`, which is then used for search, quote, and preview. The dialogue above omits this step, assuming the user already has a saved address.
+</Note>
+
 ## Agent Design Recommendations
 
 <AccordionGroup>
   <Accordion title="Use Default Specs" icon="bolt">
-    Each product in the menu has a `default_ingredients` field containing merchant-recommended spec combinations. Unless the user explicitly requests customization ("large to medium", "add extra shot", "no sugar"), use the default values directly.
+    Each product returned by `get_shop_menu` carries `ingredient_option_ids` (the available spec / attribute / ingredient options) and marks the merchant-recommended default combination. Unless the user explicitly requests customization ("large to medium", "add extra shot", "no sugar"), use the default values directly.
 
     Benefits:
     - Avoid handling complex spec mutual exclusion logic (some spec combinations are not allowed)
     - Speed up ordering workflow
     - Select the most popular configuration
 
-    **Example**:
+    **Example** (at order time, `items` is a list; each entry gives `item_id` / `sku_id` and the chosen `ingredient_option_ids`):
     ```
-    {
-      "product_id": "coconut_latte",
-      "name": "Fresh Coconut Latte",
-      "default_ingredients": {
-        "size": "large",      // Large
-        "temperature": "iced", // Iced
-        "sugar_level": "standard"
+    items=[
+      {
+        "item_id": "...",
+        "sku_id": "...",          // the sku for "Large"
+        "quantity": 1,
+        "ingredient_option_ids": ["...", "..."]  // iced, standard sugar, etc.
       }
-    }
+    ]
     ```
   </Accordion>
 
-  <Accordion title="Must Confirm After Preview" icon="circle-check">
+  <Accordion title="Must Create After Preview" icon="circle-check">
     Ordering is a strict two-step process:
 
-    1. **preview_order** → Get final price and `session_id`
-    2. **confirm_order** → Use `session_id` to confirm order
+    1. **preview_order** → Get the final price plus a paired `preview_id` + `confirmation_token`
+    2. **create_order** → Use the `preview_id` + `confirmation_token` from the same preview to place the order
 
-    Always display the details (products, delivery fee, coupon, final price) to the user after the first step and get explicit confirmation before calling confirm. This prevents errors from incorrect ordering.
+    Always display the details (products, delivery fee, coupon, final price) to the user after the first step and get explicit confirmation before calling `create_order`. This prevents errors from incorrect ordering. The `confirmation_token` is the idempotency key — one token can place only one order.
 
     **Wrong approach** ❌:
     ```
@@ -125,14 +139,15 @@ Agent: → Calls confirm_order(session_id="sess_abc123...")
     Address management is key to improving user experience:
 
     **First use**:
-    1. Call `search_pois(keyword="my home", city="Beijing")` to search POI
-    2. Display search results for user to select
-    3. Call `create_address(poi_id, name="My Home")` to save as common address
+    1. Call `search_addresses(keyword="Optics Valley", lat=..., lng=...)` to search POI
+    2. Display the returned `suggestions` for the user to select
+    3. Call `select_address(...)` with the chosen entry's `suggestion_token` to register and obtain an `address_id`
 
     **Subsequent uses**:
-    1. Call `list_addresses()` to get saved addresses
-    2. Use directly, or prompt user to select
-    3. No need to search again each time
+    1. `search_addresses` also returns `saved_addresses[]` (most-recently-used first)
+    2. Reuse its `address_id` directly, or prompt the user to select
+    3. When `lat`/`lng` are passed, it also returns `nearest_address_id` — you can pick the closest one
+    4. No need to search again each time
 
     This greatly reduces repeated interactions, especially for frequent ordering users.
   </Accordion>
@@ -142,7 +157,7 @@ Agent: → Calls confirm_order(session_id="sess_abc123...")
 
     | Error | Cause | Solution |
     |------|------|--------|
-    | `session_id` expired | Over 10 minutes | Call `preview_order` again to get new session_id |
+    | `preview_id` / `confirmation_token` expired | Over ~10 minutes | Call `preview_order` again to get a new token pair |
     | Shop closed | Shop is closing or running consolidated delivery | Prompt user to select other shops, search again |
     | Rate limit error | User operation too frequent | Wait and retry, prompt user to avoid frequent orders |
     | Insufficient inventory | Product sold out | Prompt user to select other products |
@@ -152,19 +167,23 @@ Agent: → Calls confirm_order(session_id="sess_abc123...")
     - Always show friendly error messages to users, not technical error codes
     - Provide solutions or alternatives
     - If necessary, proactively end the flow and wait for new user instructions
+
+    See [Error Handling](/en/gateway/error-handling) for the full error code list.
   </Accordion>
 </AccordionGroup>
 
 ## Core Workflow Deep Dive
+
+Full chain: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. The key segments are broken down below.
 
 ### 1. Search Merchants
 
 ```mermaid
 graph LR
   A["User says<br/>order coffee"] -->|Understand Intent| B["Call search_shops<br/>keyword=coffee"]
-  B -->|Return List| C["3 shops<br/>+ distance delivery fee"]
+  B -->|Return List| C["3 shops<br/>+ shop_id + cart_id"]
   C -->|Display to User| D["User selects<br/>Luckin"]
-  D -->|Record Selection| E["shop_id<br/>saved"]
+  D -->|Record Selection| E["shop_id + cart_id<br/>saved"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   style A fill:#fde8e4,stroke:#E8593C,stroke-width:2px
@@ -173,36 +192,36 @@ graph LR
 ```
 
 **Key points**:
-- Search supports keyword and location modes
-- Results are already sorted (by distance, rating, etc.)
-- Merchant information includes real-time delivery fees and estimated time
+- Without `keyword` it is browse mode (up to 20 nearby shops with distance / rating / delivery fee); with `keyword` it is precise search
+- Every result carries a `shop_id` and a `cart_id`; the `cart_id` encapsulates the shop and delivery location — pass it verbatim to downstream calls
+- Amount fields (e.g. `min_order_amount`) are in cents
 
 ### 2. Get Menu and Specs
 
 ```mermaid
 graph LR
-  A["shop_id"] -->|Call| B["get_shop_detail<br/>get menu"]
+  A["shop_id + cart_id"] -->|Call| B["get_shop_menu<br/>get menu"]
   B -->|Return Complete Structure| C["Product list<br/>+ specs<br/>+ default options"]
   C -->|Display Menu| D["User selects<br/>Fresh Coconut Latte"]
-  D -->|Confirm Product| E["product_id<br/>+ spec"]
+  D -->|Confirm Product| E["item_id + sku_id<br/>+ ingredient_option_ids"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   style C fill:#D1FAE5,stroke:#34D399,stroke-width:2px
 ```
 
 **Key points**:
-- Menu is already normalized, spec mutual exclusion handled
-- `default_ingredients` is merchant-recommended spec combination
-- Agent merges with user input (e.g., "iced") and defaults
+- Menus can be large (100+ items); use `keyword` or `limit`/`offset` for progressive disclosure
+- Each item carries an orderable `item_id` / `sku_id` plus the available `ingredient_option_ids`
+- Agent merges user input (e.g., "iced") with defaults to build the `items` for ordering
 
-### 3. Preview + Confirm
+### 3. Preview + Create
 
 ```mermaid
 graph LR
   A["Product + Spec"] -->|Call| B["preview_order<br/>get price"]
-  B -->|Return Details| C["Total ¥8.4<br/>+ session_id"]
+  B -->|Return Details| C["Total 840 cents<br/>+ preview_id + confirmation_token"]
   C -->|Display to User<br/>Wait for Confirmation| D["User: Confirmed"]
-  D -->|Call| E["confirm_order<br/>session_id"]
+  D -->|Call| E["create_order<br/>preview_id + confirmation_token"]
   E -->|Return Order Number| F["Order Success<br/>Est. 35 min"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
@@ -212,27 +231,38 @@ graph LR
 ```
 
 **Key points**:
-- `preview_order` automatically selects optimal coupon
-- `session_id` is only valid for 10 minutes
-- User must confirm before `confirm_order`
-- After ordering, returns order number and estimated delivery time
+- `preview_order` automatically selects the optimal coupon (`coupon_ids` is tri-state: omit = auto-select best; `[]` = no coupon; an explicit list = use those coupons)
+- `preview_id` + `confirmation_token` must be used as a pair and are valid for ~10 minutes
+- The user must confirm before `create_order`; `confirmation_token` is the idempotency key
+- After ordering it returns `order_id` and (when payment is needed) `payment_action`; passwordless-payment orders must first complete signing via `get_sign_action`
 
 ## Best Practices Summary
 
 <CardGroup cols={2}>
   <Card title="✅ Recommended" icon="circle-check" color="green">
-    - Use `default_ingredients` to speed up workflow
-    - Display price after preview, wait for confirmation
-    - Save common addresses to avoid re-entry
+    - Use the menu's default specs to speed up workflow
+    - Display price after preview, wait for confirmation before `create_order`
+    - Reuse `saved_addresses` to avoid re-entry
     - Proactively update order status
     - Provide friendly error messages
   </Card>
 
   <Card title="❌ Avoid" icon="circle-xmark" color="red">
-    - Confirm without previewing
+    - Create without previewing
     - Let users handle spec mutual exclusion
     - Search addresses again each time
     - Return technical error codes to users
-    - Ignore `session_id` expiration
+    - Ignore `confirmation_token` expiration
   </Card>
 </CardGroup>
+
+## Related Reading
+
+- [Order Flow](/en/gateway/order-flow) — full end-to-end chain and per-step fields
+- [Authentication](/en/gateway/authentication) — API Key identifies the Agent, consent grant identifies the authorized user
+- [Item Specs](/en/gateway/item-specs) — spec / attribute / ingredient system
+- [MCP Tools Overview](/en/mcp/overview) — the 18-tool contract
+
+<Note>
+  Authentication is two-layered: `Authorization: Bearer clw_...` identifies the Agent; the user authorization (a `cg_`-prefixed consent grant) is passed as the `consent_grant_id` argument in MCP tools, and via the `X-Consent-Grant-Id` header in REST. The public MCP endpoint is `/mcp/v1`. Creating an Agent and issuing API Keys is done in the [Portal](https://portal.clawdot.ai).
+</Note>

@@ -71,9 +71,9 @@
                             {
                                 "group": "接入指南",
                                 "pages": [
-                                    "skills/takeout",
-                                    "skills/dine-in",
-                                    "skills/more-services"
+                                    "skills/integration-guide",
+                                    "skills/building-agents",
+                                    "skills/supported-platforms"
                                 ]
                             }
                         ]

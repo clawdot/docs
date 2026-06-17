@@ -56,12 +56,12 @@ graph TB
     - Search merchants by keyword/location
     - Complete menu browsing (with specs, attrs, ingredients)
     - Smart default specs selection
-    - Preview price → Confirm order
+    - Preview order → Create order (two-step ordering, amounts in cents)
     - Real-time order tracking
 
     **Supported Platforms**: Meituan, Ele.me, various independent food delivery platforms
 
-    [Learn More →](/super-agent/food-delivery)
+    [Learn More →](/en/super-agent/food-delivery)
   </Card>
 
   <Card title="📅 Shop Reservation" icon="calendar">
@@ -129,7 +129,7 @@ graph TB
 
 | Capability | Current Status | Launch Date | Supported Platforms | Related Docs |
 |------|--------|--------|--------|--------|
-| Food Delivery | ✅ Live | 2026-Q1 | Meituan, Ele.me, etc. | [View](/super-agent/food-delivery) |
+| Food Delivery | ✅ Live | 2026-Q1 | Meituan, Ele.me, etc. | [View](/en/super-agent/food-delivery) |
 | Shop Reservation | 🔜 In Development | 2026-Q2 | Dianping, etc. | — |
 | Ride-hailing | 🔜 Planning | 2026-Q3 | Didi, Amap, etc. | — |
 | Recommendations | 🔜 Planning | 2026-Q3 | All platforms | — |
@@ -243,7 +243,7 @@ graph TB
     Super Agent: Recommending popular food delivery shops for you...
     ```
 
-    Details in [Food Delivery Documentation](/super-agent/food-delivery)
+    Details in [Food Delivery Documentation](/en/super-agent/food-delivery)
   </Tab>
 
   <Tab title="Other Capabilities" icon="lock">
@@ -274,8 +274,8 @@ graph TB
   <Accordion title="How does Super Agent ensure transaction safety?" icon="shield">
     Super Agent is built on Clawdot's underlying infrastructure with multiple security guarantees:
 
-    1. **Identity Authentication**: Each Super Agent instance has unique identity
-    2. **Operation Confirmation**: Must display price to user and get confirmation before ordering
+    1. **Two-Layer Authentication**: An API Key (`clw_` prefix) identifies the Agent, and a user consent grant (`cg_` prefix) identifies the authorized food-delivery user
+    2. **Operation Confirmation**: Ordering is split into `preview_order` (preview the price) and `create_order` (place the order) — you must display the price and get user confirmation first, then place the order with the `confirmation_token` returned by the preview
     3. **Link Encryption**: All API calls are encrypted
     4. **Transaction Tracking**: Every transaction can be tracked, audited, and held accountable
     5. **Third-party Compliance**: Direct connection with merchant platforms, complying with platform standards
@@ -318,15 +318,15 @@ graph TB
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Learn How It Works" icon="gears" href="/super-agent/how-it-works">
+  <Card title="Learn How It Works" icon="gears" href="/en/super-agent/how-it-works">
     Understand how Super Agent calls Clawdot APIs to complete transactions
   </Card>
 
-  <Card title="Try Food Delivery" icon="utensils" href="/super-agent/food-delivery">
+  <Card title="Try Food Delivery" icon="utensils" href="/en/super-agent/food-delivery">
     Most detailed food delivery ordering guide
   </Card>
 
-  <Card title="View Product Roadmap" icon="map" href="/clawdot/roadmap">
+  <Card title="View Product Roadmap" icon="map" href="/en/overview/roadmap">
     Learn about Super Agent's future plans
   </Card>
 

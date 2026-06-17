@@ -25,7 +25,7 @@ Clawdot 整合了下游的外卖平台（饿了么、美团等）、生活服务
 
       subgraph Gateway["Clawdot 标准化层"]
         G1["统一协议<br/>菜单 · 下单 · 地址 · 追踪"]
-        G2["标准 SOP<br/>搜店→选品→预览→确认→支付"]
+        G2["标准 SOP<br/>搜店→选品→算价→选址→预览→下单"]
       end
 
       subgraph Skills["Skills 技能包"]
@@ -71,7 +71,7 @@ Skills 的设计遵循三层分离的原则：
 
 **第一层：平台能力汇聚。** Clawdot 对接了多家外卖平台和本地生活服务的 API，将它们的能力统一归拢。商户不需要做任何改动——Clawdot 的 Proxy 层负责完成格式转换和协议适配。对于大型连锁品牌，也支持商户自建 Agent 直接实现标准协议。
 
-**第二层：标准化协议与 SOP。** 在平台能力之上，Clawdot 定义了统一的接口规范和交互流程。无论底层是饿了么还是美团，上层的 Agent 都使用同一套搜索商家、浏览菜单、预览订单、确认下单的标准流程。商品的规格（specs）、属性（attrs）、加料（ingredients）等复杂定制体系，也被统一为标准数据结构。
+**第二层：标准化协议与 SOP。** 在平台能力之上，Clawdot 定义了统一的接口规范和交互流程。无论底层是饿了么还是美团，上层的 Agent 都使用同一套标准链路：`search_shops`（搜店）→ `get_shop_menu`（菜单）→ `quote_cart`（算价）→ `select_address`（选址）→ `preview_order`（预览）→ `create_order`（下单）→ `get_sign_action`（免密签约）。商品的规格（specs）、属性（attrs）、加料（ingredients）等复杂定制体系，也被统一为标准数据结构。所有金额字段单位为**分（整数）**。完整链路见 [下单流程](/gateway/order-flow)。
 
 **第三层：Skill 技能封装。** 基于标准化的协议和 SOP，Clawdot 将每类服务封装为独立的 Skill。每个 Skill 包含完整的交互引导（GUIDE）、动作定义（Actions）、平台适配层（Platforms），Agent 安装后开箱即用。
 
@@ -81,16 +81,19 @@ Skills 的设计遵循三层分离的原则：
 
 | 组成部分 | 说明 | 示例 |
 |---------|------|------|
-| **skill.yaml** | 技能元信息：名称、版本、动作列表、环境依赖 | `name: takeout`、`actions: [search, menu, preview, order]` |
+| **skill.yaml** | 技能元信息：名称、版本、动作列表、环境依赖 | `name: takeout`、`actions: [search_shops, get_shop_menu, preview_order, create_order]` |
 | **GUIDE.md** | 交互 SOP：Agent 应该如何与用户对话、何时调用哪个动作 | "先做完，再说话。说结论，不说过程。" |
 | **scripts/** | 执行脚本：实际调用 Gateway API 的逻辑代码 | `takeout.py` — 搜店、选品、下单的完整实现 |
 | **platforms/** | 平台适配层：针对不同 Agent 平台的 SKILL.md 配置 | Claude Code、OpenClaw、Codex 各一份 |
 
 ## 认证模型
 
-Skills 采用 **一对一绑定授权** 模式：每个 Agent 绑定一个用户，Agent 持有 `API_KEY` + `USER_TOKEN`，直接代表该用户操作。这种设计天然形成安全隔离，无需复杂的权限管理系统。
+Skills 采用 **双层认证**：**API Key** 标识 Agent 身份，**用户授权（consent grant）** 标识已授权的外卖用户。Agent 持有自己的 API Key，再为每个用户走绑定流程拿到一个 `consent_grant_id`（`cg_` 前缀），二者配合即可代表该用户操作。每个授权独立、可随时撤销，天然形成安全隔离，无需复杂的权限管理系统。
 
-适用于：个人助手、桌面端 Agent（Claude Desktop、Cursor 等）、各类 Agent 平台集成。
+- **API Key（Agent 身份）：** 通过 `Authorization: Bearer clw_...` 请求头传递，MCP 与 REST 都一样；在 Portal 创建 Agent 时生成。
+- **用户授权（consent grant）：** REST 通过 `X-Consent-Grant-Id` 请求头传递；MCP 作为每个工具的 `consent_grant_id` 参数传入（不走请求头）。
+
+适用于：个人助手、桌面端 Agent（Claude Desktop、Cursor 等）、各类 Agent 平台集成。完整说明见 [认证机制](/gateway/authentication)。
 
 ## 支持的平台
 
@@ -106,16 +109,16 @@ Skills 的平台适配层让同一个 Skill 可以运行在多种 Agent 环境�
 ## 已开放的 Skills
 
 <CardGroup cols={2}>
-  <Card title="外卖服务" href="/skills/takeout" icon="utensils">
-    搜店、选菜、下单、查单全流程。支持商品规格定制、优惠券自动选择、支付链接生成。
+  <Card title="接入指南" href="/skills/integration-guide" icon="code">
+    选择适合你的接入方式（MCP / REST / Function Calling），快速接入。
   </Card>
 
-  <Card title="到店服务" href="/skills/dine-in" icon="store">
-    预约、排号、到店核销。（即将推出）
+  <Card title="构建 Agent" href="/skills/building-agents" icon="hammer">
+    从零搭建一个完整的本地生活 Agent：搜店、选品、下单、查单全流程。
   </Card>
 
-  <Card title="更多服务" href="/skills/more-services" icon="ellipsis">
-    商超配送、鲜花蛋糕、医药等更多本地生活技能，持续扩展中。
+  <Card title="支持的平台" href="/skills/supported-platforms" icon="grid">
+    已接入的 Agent 平台与各自的配置方式。
   </Card>
 </CardGroup>
 
@@ -126,7 +129,7 @@ Skills 的平台适配层让同一个 Skill 可以运行在多种 Agent 环境�
     了解双层认证、数据隔离和加密机制。
   </Card>
 
-  <Card title="外卖服务接入" href="/skills/takeout" icon="utensils">
-    查看外卖 Skill 的完整接入指南和 SOP。
+  <Card title="下单流程" href="/gateway/order-flow" icon="utensils">
+    完整的端到端下单链路：从 search_shops 到免密签约。
   </Card>
 </CardGroup>

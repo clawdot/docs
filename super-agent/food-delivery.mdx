@@ -5,19 +5,24 @@ description: "AI 外卖点餐场景"
 
 ## 概述
 
-外卖点餐是 Super Agent 的首个落地场景，也是最典型的能力体现。Super Agent 通过 Clawdot Gateway 连接到外卖平台，让 AI 能够完成从搜索商家到确认下单的完整流程，为用户提供一键下单体验。
+外卖点餐是 Super Agent 的首个落地场景，也是最典型的能力体现。Super Agent 通过 Clawdot Gateway 连接到外卖平台，让 AI 能够完成从搜索商家到创建订单的完整流程，为用户提供一键下单体验。
 
 ## 能力矩阵
 
-Super Agent 在外卖场景下的核心能力：
+Super Agent 在外卖场景下的核心能力（每个能力一一对应一个 MCP 工具 / REST 端点，共 18 个工具与 18 个端点）：
 
-| 能力 | 说明 | API 工具 |
+| 能力 | 说明 | MCP 工具 |
 |------|------|--------|
-| 商家搜索 | 按关键词或位置搜索，支持 10 品类并行 | `search_shops` |
-| 菜单浏览 | 完整菜单含规格、属性、加料及默认选项 | `get_shop_detail` |
-| 地址管理 | POI 搜索、地址创建与列表管理 | `search_pois` / `create_address` / `list_addresses` |
-| 智能下单 | 预览 + 确认两步流程，自动选最优优惠券 | `preview_order` / `confirm_order` |
-| 订单追踪 | 查询订单状态 | `get_order` |
+| 商家搜索 | 按关键词或位置搜索 / 浏览附近 | `search_shops` |
+| 菜单浏览 | 完整菜单含规格、属性、加料及默认选项 | `get_shop_menu` |
+| 地址管理 | 关键词搜索 POI、登记 / 复用收货地址 | `search_addresses` / `select_address` |
+| 购物车算价 | 对选好的商品算价，拿到报价上下文 | `quote_cart` |
+| 智能下单 | 预览 + 创建两步流程，自动选最优优惠券 | `preview_order` / `create_order` |
+| 订单追踪 | 查询订单状态 | `get_order_status` |
+
+<Note>
+  下单是一条**有状态的链路**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。完整链路与字段表见 [下单流程](/gateway/order-flow)。
+</Note>
 
 ## 典型对话场景
 
@@ -38,7 +43,7 @@ Agent：我来帮你搜索附近的咖啡店。
 
 用户：瑞幸吧
 
-Agent：→ 调用 get_shop_detail(shop_id="luckin_001")
+Agent：→ 调用 get_shop_menu(shop_id="shop_...", cart_id="cart_...")
 
       瑞幸咖啡热销：
       1. 生椰拿铁 ¥9.9（原价 ¥19）
@@ -50,10 +55,12 @@ Agent：→ 调用 get_shop_detail(shop_id="luckin_001")
 用户：一杯生椰拿铁，冰的
 
 Agent：→ 调用 preview_order(
-        shop_id="luckin_001",
+        shop_id="shop_...",
+        cart_id="cart_...",
+        address_id="addr_...",
         items=[{
-          product_id="coconut_latte",
-          sku_specs=default_ingredients,
+          item_id="...",
+          sku_id="...",
           quantity=1
         }]
       )
@@ -63,49 +70,56 @@ Agent：→ 调用 preview_order(
       - 配送费 ¥0
       - 优惠券减 ¥1.5
       - 实付 ¥8.4
+      （金额字段单位为分，payable_price=840 即 ¥8.40）
 
       确认下单吗？
 
 用户：确认
 
-Agent：→ 调用 confirm_order(session_id="sess_abc123...")
+Agent：→ 调用 create_order(
+        preview_id="prv_...",
+        confirmation_token="cf_..."
+      )
 
       已下单！预计 35 分钟送达。
       订单号：1234567890
 ```
 
+<Note>
+  搜索商家与查看菜单都需要先准备好收货坐标。地址流程是 `search_addresses` 拿到候选 → `select_address` 登记得到 `address_id`，再用于搜索、算价与预览。上面对话省略了这一步，假设用户已有常用地址。
+</Note>
+
 ## Agent 设计建议
 
 <AccordionGroup>
   <Accordion title="使用默认规格" icon="bolt">
-    菜单中每个商品都有 `default_ingredients` 字段，包含了商家推荐的规格组合。除非用户明确要求定制（"大杯改中杯"、"加一份浓缩"、"无糖"），否则直接使用默认值即可。
+    `get_shop_menu` 返回的每个商品都带 `ingredient_option_ids`（规格 / 属性 / 加料的可选项），并标注了商家推荐的默认组合。除非用户明确要求定制（"大杯改中杯"、"加一份浓缩"、"无糖"），否则直接用默认值即可。
 
     这样做的好处：
     - 避免处理复杂的规格互斥逻辑（某些规格组合不允许）
     - 加快下单流程
     - 选择最受欢迎的配置
 
-    **示例**：
+    **示例**（下单时 `items` 是一个 list，每项给出 `item_id` / `sku_id` 和选中的 `ingredient_option_ids`）：
     ```
-    {
-      "product_id": "coconut_latte",
-      "name": "生椰拿铁",
-      "default_ingredients": {
-        "size": "large",      // 大杯
-        "temperature": "iced", // 冰的
-        "sugar_level": "standard"
+    items=[
+      {
+        "item_id": "...",
+        "sku_id": "...",          // 大杯对应的 sku
+        "quantity": 1,
+        "ingredient_option_ids": ["...", "..."]  // 冰、标准糖等默认项
       }
-    }
+    ]
     ```
   </Accordion>
 
-  <Accordion title="预览后必须确认" icon="circle-check">
+  <Accordion title="预览后必须创建" icon="circle-check">
     下单是严格的两步流程：
 
-    1. **preview_order** → 获取最终价格和 `session_id`
-    2. **confirm_order** → 使用 `session_id` 确认下单
+    1. **preview_order** → 获取最终价格，以及配对的 `preview_id` + `confirmation_token`
+    2. **create_order** → 用同一次预览的 `preview_id` + `confirmation_token` 正式下单
 
-    务必在第一步后向用户展示明细（商品、配送费、优惠券、最终价格），获得用户明确确认后再调用 confirm。这避免了误操作导致的错误下单。
+    务必在第一步后向用户展示明细（商品、配送费、优惠券、最终价格），获得用户明确确认后再调用 `create_order`。这避免了误操作导致的错误下单。`confirmation_token` 是幂等键，同一令牌只能下一单。
 
     **错误做法** ❌：
     ```
@@ -125,14 +139,15 @@ Agent：→ 调用 confirm_order(session_id="sess_abc123...")
     地址管理是提升用户体验的关键：
 
     **首次使用**：
-    1. 调用 `search_pois(keyword="我家", city="北京")` 搜索 POI
-    2. 展示搜索结果让用户选择
-    3. 调用 `create_address(poi_id, name="我家")` 保存为常用地址
+    1. 调用 `search_addresses(keyword="光谷世界城", lat=..., lng=...)` 搜索 POI
+    2. 展示返回的 `suggestions` 让用户选择
+    3. 用选中条目的 `suggestion_token` 调用 `select_address(...)`，登记并得到 `address_id`
 
     **后续使用**：
-    1. 调用 `list_addresses()` 获取已保存的地址
-    2. 直接使用，或提示用户选择
-    3. 不需要每次都重新搜索
+    1. `search_addresses` 同时返回 `saved_addresses[]`（按最近使用排序）
+    2. 直接复用其 `address_id`，或提示用户选择
+    3. 传了 `lat`/`lng` 时还会给出 `nearest_address_id`，可直接用最近的那个
+    4. 不需要每次都重新搜索
 
     这大大减少了重复交互，尤其对于经常下单的用户。
   </Accordion>
@@ -142,7 +157,7 @@ Agent：→ 调用 confirm_order(session_id="sess_abc123...")
 
     | 错误 | 原因 | 处理方案 |
     |------|------|--------|
-    | `session_id` 过期 | 超过 10 分钟 | 重新调用 `preview_order` 获取新的 session_id |
+    | `preview_id` / `confirmation_token` 过期 | 超过约 10 分钟 | 重新调用 `preview_order` 取新的令牌对 |
     | 商家关店 | 商家正在打烊或集中配送 | 提示用户选择其他商家，重新搜索 |
     | 限流错误 | 用户操作过于频繁 | 等待后重试，提示用户避免频繁下单 |
     | 库存不足 | 商品已售罄 | 提示用户选择其他商品 |
@@ -152,19 +167,23 @@ Agent：→ 调用 confirm_order(session_id="sess_abc123...")
     - 总是向用户展示友好的错误提示，而不是技术错误码
     - 提供解决方案或替代方案
     - 必要时主动中止流程，等待用户新的指示
+
+    完整错误码见 [错误处理](/gateway/error-handling)。
   </Accordion>
 </AccordionGroup>
 
 ## 核心流程深入
+
+完整链路：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。下面拆解其中几个关键环节。
 
 ### 1. 搜索商家
 
 ```mermaid
 graph LR
   A["用户说<br/>点咖啡"] -->|理解意图| B["调用 search_shops<br/>keyword=咖啡"]
-  B -->|返回列表| C["3 家商家<br/>+ 距离配送费"]
+  B -->|返回列表| C["3 家商家<br/>+ shop_id + cart_id"]
   C -->|展示给用户| D["用户选择<br/>瑞幸"]
-  D -->|记录选择| E["shop_id<br/>保存"]
+  D -->|记录选择| E["shop_id + cart_id<br/>保存"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   style A fill:#fde8e4,stroke:#E8593C,stroke-width:2px
@@ -173,36 +192,36 @@ graph LR
 ```
 
 **关键点**：
-- 搜索支持关键词和位置两种模式
-- 返回结果已排序（根据距离、评分等）
-- 商家信息包含实时的配送费和预计时间
+- 不传 `keyword` 为浏览模式（附近至多 20 家，带距离 / 评分 / 配送费）；传 `keyword` 为精确搜索
+- 每个结果都附带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，原样回传给后续接口
+- 金额字段（如 `min_order_amount`）单位为分
 
 ### 2. 获取菜单和规格
 
 ```mermaid
 graph LR
-  A["shop_id"] -->|调用| B["get_shop_detail<br/>获取菜单"]
+  A["shop_id + cart_id"] -->|调用| B["get_shop_menu<br/>获取菜单"]
   B -->|返回完整结构| C["商品列表<br/>+ 规格<br/>+ 默认选项"]
   C -->|展示菜单| D["用户选择<br/>生椰拿铁"]
-  D -->|确定商品| E["product_id<br/>+ spec"]
+  D -->|确定商品| E["item_id + sku_id<br/>+ ingredient_option_ids"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   style C fill:#D1FAE5,stroke:#34D399,stroke-width:2px
 ```
 
 **关键点**：
-- 菜单已被标准化，规格互斥关系已处理
-- `default_ingredients` 是商家推荐的规格组合
-- Agent 基于用户表述（"冰的"）与默认值合并
+- 菜单可能很大（100+ 项），可用 `keyword` 或 `limit`/`offset` 渐进披露
+- 每项含可下单的 `item_id` / `sku_id` 与可选项 `ingredient_option_ids`
+- Agent 基于用户表述（"冰的"）与默认值合并，组成下单用的 `items`
 
-### 3. 预览 + 确认
+### 3. 预览 + 创建
 
 ```mermaid
 graph LR
   A["商品 + 规格"] -->|调用| B["preview_order<br/>获取价格"]
-  B -->|返回明细| C["总价 ¥8.4<br/>+ session_id"]
+  B -->|返回明细| C["总价 840 分<br/>+ preview_id + confirmation_token"]
   C -->|展示给用户<br/>等待确认| D["用户：确认"]
-  D -->|调用| E["confirm_order<br/>session_id"]
+  D -->|调用| E["create_order<br/>preview_id + confirmation_token"]
   E -->|返回订单号| F["订单成功<br/>预计 35 分钟"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
@@ -212,27 +231,38 @@ graph LR
 ```
 
 **关键点**：
-- `preview_order` 自动选择最优优惠券
-- `session_id` 只有 10 分钟有效期
-- 用户确认后才能 `confirm_order`
-- 下单后返回订单号和预计配送时间
+- `preview_order` 自动选择最优优惠券（`coupon_ids` 三态：不传=自动选最优；`[]`=不用券；指定列表=用指定券）
+- `preview_id` + `confirmation_token` 须配对使用，有效期约 10 分钟
+- 用户确认后才能 `create_order`，`confirmation_token` 为幂等键
+- 下单后返回 `order_id` 与（需支付时的）`payment_action`；免密支付类订单还需先用 `get_sign_action` 完成签约
 
 ## 最佳实践总结
 
 <CardGroup cols={2}>
   <Card title="✅ 推荐做法" icon="circle-check" color="green">
-    - 使用 `default_ingredients`，加快流程
-    - 预览后展示价格，等待确认
-    - 保存常用地址，避免重复输入
+    - 使用菜单默认规格，加快流程
+    - 预览后展示价格，等待确认再 `create_order`
+    - 复用 `saved_addresses`，避免重复输入
     - 主动更新订单状态
     - 提供友好的错误提示
   </Card>
 
   <Card title="❌ 避免做法" icon="circle-xmark" color="red">
-    - 直接确认而不预览
+    - 直接创建而不预览
     - 让用户手动处理规格互斥
     - 每次都重新搜索地址
     - 返回技术错误码给用户
-    - 忽略 `session_id` 过期
+    - 忽略 `confirmation_token` 过期
   </Card>
 </CardGroup>
+
+## 相关阅读
+
+- [下单流程](/gateway/order-flow) — 完整端到端链路与每步字段
+- [认证机制](/gateway/authentication) — API Key 标识 Agent，consent grant 标识已授权用户
+- [商品规格说明](/gateway/item-specs) — 规格 / 属性 / 加料体系
+- [MCP 工具总览](/mcp/overview) — 18 个工具的契约
+
+<Note>
+  认证为双层：`Authorization: Bearer clw_...` 标识 Agent；用户授权（`cg_` 前缀的 consent grant）在 MCP 工具里作为 `consent_grant_id` 参数传入，在 REST 里通过 `X-Consent-Grant-Id` 请求头传递。MCP 公开端点为 `/mcp/v1`。创建 Agent、签发 API Key 走 [Portal](https://portal.clawdot.ai)。
+</Note>

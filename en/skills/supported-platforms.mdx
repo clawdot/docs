@@ -53,7 +53,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
        - Create enterprise application
 
     2. **Create Agent**
-       Create dedicated Agent in Clawdot console, record API Key
+       Create a dedicated Agent in [Clawdot Portal](https://portal.clawdot.ai), record the API Key (`clw_` prefix)
 
     3. **Configure WebHook**
        In DingTalk app settings, configure Clawdot Skills API as message processing endpoint
@@ -80,7 +80,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
 
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
 
     def sign_message(timestamp, secret):
         """DingTalk message signature verification"""
@@ -127,17 +127,17 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
 
     def search_shops_for_dingtalk(query, user_id):
         """Call Clawdot API to search shops"""
-        user_token = get_user_token(user_id)  # Get that user's token
+        consent_grant_id = get_consent_grant(user_id)  # Get that user's consent grant (cg_ prefix)
 
-        url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
+        url = f"{CLAWDOT_BASE_URL}/shops/search"
         headers = {
             "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-User-Token": user_token
+            "X-Consent-Grant-Id": consent_grant_id
         }
         payload = {
-            "query": query,
-            "location": "Zhongguancun",  # Should get from user location service
-            "limit": 5
+            "keyword": query,
+            "lat": 39.9836,   # GCJ-02 coordinates, get from user location service
+            "lng": 116.3164,
         }
 
         response = requests.post(url, json=payload, headers=headers)
@@ -147,10 +147,12 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
         """Format shop list as DingTalk card"""
         cards = []
         for shop in shops:
+            # Amount fields are in cents (integers); divide by 100 to display
+            delivery_fee_yuan = shop.get("delivery_fee", 0) / 100
             cards.append({
                 "title": shop["name"],
-                "actionURL": f"https://your-app.com/shop/{shop['id']}",
-                "content": f"Rating: {shop['rating']}⭐ | Distance: {shop['distance']}km | Delivery fee: ¥{shop['delivery_fee']}"
+                "actionURL": f"https://your-app.com/shop/{shop['shop_id']}",
+                "content": f"Rating: {shop.get('rating', '-')}⭐ | {shop.get('distance_text', '')} | Delivery fee: ¥{delivery_fee_yuan:.2f}"
             })
         return {"cards": cards}
 
@@ -159,9 +161,10 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
         # DingTalk API implementation
         pass
 
-    def get_user_token(user_id):
-        """Get user's User Token from database"""
-        # Implement user token storage and retrieval logic
+    def get_consent_grant(user_id):
+        """Get user's consent grant (cg_ prefix) from database"""
+        # On first use, run the bind flow (auth/bind/request + auth/bind/verify),
+        # then persist the returned consent_grant_id and reuse it on later requests
         pass
 
     if __name__ == "__main__":
@@ -193,7 +196,7 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
        - Create application and get API Key
 
     2. **Create Clawdot Agent**
-       Create Agent in Clawdot console, record API Key
+       Create an Agent in [Clawdot Portal](https://portal.clawdot.ai), record the API Key (`clw_` prefix)
 
     3. **Define Function Schema**
        Register Clawdot Gateway API as Function Calling tool in Kimi app
@@ -213,52 +216,78 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
 
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
 
-    def call_kimi_with_function_calling(user_message, user_token):
+    def call_kimi_with_function_calling(user_message, consent_grant_id):
         """Use Kimi API with Function Calling"""
 
-        # Define available Functions (Clawdot Gateway API)
+        # Define available Functions (Clawdot Gateway tools, one per ordering step).
+        # Full ordering chain: search_shops -> get_shop_menu -> quote_cart ->
+        # select_address -> preview_order -> create_order -> get_sign_action.
+        # Here we list search / menu / preview / create as an example.
         tools = [
             {
                 "type": "function",
                 "function": {
                     "name": "search_shops",
-                    "description": "Search local shops (food delivery, supermarkets, convenience stores, etc.)",
+                    "description": "Search / browse local shops (omit keyword to browse nearby shops)",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "query": {
+                            "keyword": {
                                 "type": "string",
-                                "description": "Search keyword"
+                                "description": "Shop name / category / item name; omit to browse nearby shops"
                             },
-                            "location": {
+                            "address_id": {
                                 "type": "string",
-                                "description": "Location address"
+                                "description": "Saved address id; or use lat/lng (GCJ-02) instead"
                             },
-                            "limit": {
-                                "type": "integer",
-                                "description": "Number of results"
-                            }
-                        },
-                        "required": ["query", "location"]
+                            "lat": {"type": "number", "description": "Latitude (GCJ-02), required without address_id"},
+                            "lng": {"type": "number", "description": "Longitude (GCJ-02), required without address_id"}
+                        }
                     }
                 }
             },
             {
                 "type": "function",
                 "function": {
-                    "name": "get_shop_detail",
-                    "description": "Get shop menu and detailed information",
+                    "name": "get_shop_menu",
+                    "description": "Get shop menu (includes orderable item_id / sku_id)",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "shop_id": {
-                                "type": "string",
-                                "description": "Shop ID"
+                            "shop_id": {"type": "string", "description": "From search_shops"},
+                            "cart_id": {"type": "string", "description": "From search_shops, encapsulates delivery coordinates"},
+                            "keyword": {"type": "string", "description": "Optional, filter by name / category / description"}
+                        },
+                        "required": ["shop_id", "cart_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "preview_order",
+                    "description": "Preview order; returns final price (in cents) and preview_id + confirmation_token",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shop_id": {"type": "string"},
+                            "cart_id": {"type": "string"},
+                            "address_id": {"type": "string", "description": "From select_address"},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "item_id": {"type": "string"},
+                                        "sku_id": {"type": "string"},
+                                        "quantity": {"type": "integer"}
+                                    }
+                                }
                             }
                         },
-                        "required": ["shop_id"]
+                        "required": ["shop_id", "cart_id", "address_id", "items"]
                     }
                 }
             },
@@ -266,24 +295,14 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
                 "type": "function",
                 "function": {
                     "name": "create_order",
-                    "description": "Create food delivery order",
+                    "description": "Place the order using preview_id + confirmation_token from the same preview",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "shop_id": {"type": "string"},
-                            "items": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "item_id": {"type": "string"},
-                                        "quantity": {"type": "integer"}
-                                    }
-                                }
-                            },
-                            "delivery_address": {"type": "string"}
+                            "preview_id": {"type": "string", "description": "From preview_order"},
+                            "confirmation_token": {"type": "string", "description": "From the same preview_order"}
                         },
-                        "required": ["shop_id", "items", "delivery_address"]
+                        "required": ["preview_id", "confirmation_token"]
                     }
                 }
             }
@@ -320,7 +339,7 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
                     function_result = call_clawdot_function(
                         function_name,
                         function_args,
-                        user_token
+                        consent_grant_id
                     )
 
                     print(f"Function: {function_name}")
@@ -328,43 +347,41 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
 
         return result
 
-    def call_clawdot_function(function_name, args, user_token):
+    # Tool name -> REST endpoint (all POST), one per ordering step
+    ENDPOINTS = {
+        "search_shops": "/shops/search",
+        "get_shop_menu": "/shops/menu",
+        "quote_cart": "/cart/quote",
+        "select_address": "/addresses/select",
+        "preview_order": "/orders/preview",
+        "create_order": "/orders/create",
+    }
+
+    def call_clawdot_function(function_name, args, consent_grant_id):
         """Call Clawdot Gateway API"""
 
         headers = {
             "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-User-Token": user_token,
+            "X-Consent-Grant-Id": consent_grant_id,
             "Content-Type": "application/json"
         }
 
-        if function_name == "search_shops":
-            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
-            response = requests.post(
-                url,
-                json=args,
-                headers=headers
-            )
-            return response.json()
+        path = ENDPOINTS.get(function_name)
+        if path is None:
+            raise ValueError(f"Unknown tool: {function_name}")
 
-        elif function_name == "get_shop_detail":
-            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/{args['shop_id']}"
-            response = requests.get(url, headers=headers)
-            return response.json()
-
-        elif function_name == "create_order":
-            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/orders"
-            response = requests.post(
-                url,
-                json=args,
-                headers=headers
-            )
-            return response.json()
+        response = requests.post(
+            f"{CLAWDOT_BASE_URL}{path}",
+            json=args,
+            headers=headers
+        )
+        return response.json()
 
     # Usage example
     user_message = "I want to order food in Zhongguancun"
-    user_token = "550e8400-e29b-41d4-a716-446655440000"
+    consent_grant_id = "cg_..."  # User consent grant, obtained via the bind flow on first use
 
-    result = call_kimi_with_function_calling(user_message, user_token)
+    result = call_kimi_with_function_calling(user_message, consent_grant_id)
     ```
   </Tab>
 
@@ -395,7 +412,7 @@ Tencent Cloud provides enterprise-grade AI Agent service supporting cloud-native
        - Configure basic info and permissions
 
     3. **Create Clawdot Agent**
-       Create dedicated Agent in Clawdot console
+       Create a dedicated Agent in [Clawdot Portal](https://portal.clawdot.ai)
 
     4. **Configure Integration**
        Configure Clawdot Skills Platform API endpoint in Tencent Cloud Agent
@@ -430,23 +447,22 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     - Follow instructions to complete installation and login
 
     **2. Create Clawdot Agent**
-    Create Agent in Clawdot console and get API Key
+    Create an Agent in [Clawdot Portal](https://portal.clawdot.ai) and get the API Key (`clw_` prefix)
 
     **3. Configure MCP Server**
-    Edit `~/.claude-desktop/config.json`:
+    The Gateway exposes a native Streamable HTTP MCP endpoint
+    (`https://api.clawdot.ai/mcp/v1`); Agent identity is passed on the connection
+    via the `Authorization: Bearer clw_...` header. Edit
+    `~/.claude-desktop/config.json`:
 
     ```json
     {
       "mcpServers": {
         "clawdot-skills": {
-          "command": "node",
-          "args": [
-            "/path/to/mcp-gateway/dist/index.js",
-            "--gateway-url",
-            "https://api.clawdot.com/gateway",
-            "--api-key",
-            "clw_your_api_key_here"
-          ]
+          "url": "https://api.clawdot.ai/mcp/v1",
+          "headers": {
+            "Authorization": "Bearer clw_your_api_key_here"
+          }
         }
       }
     }
@@ -463,7 +479,11 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
   </Tab>
 
   <Tab title="MCP Server Implementation">
-    If you want to implement MCP server yourself, here's a simplified example:
+    The Gateway already exposes a native MCP endpoint (`/mcp/v1`), so usually you
+    can **connect directly** (see the previous tab's config). Only refer to the
+    simplified example below if you need to adapt the Gateway's REST API into your
+    own MCP process. Each tool takes a `consent_grant_id` argument (user consent
+    grant, `cg_` prefix) that maps to the `X-Consent-Grant-Id` header on REST calls:
 
     ```typescript
     import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -504,37 +524,43 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
             tools: [
               {
                 name: "search_shops",
-                description: "Search local shops (food delivery, supermarkets, etc.)",
+                description: "Search / browse local shops",
                 inputSchema: {
                   type: "object",
                   properties: {
-                    query: { type: "string" },
-                    location: { type: "string" }
+                    consent_grant_id: { type: "string" },
+                    keyword: { type: "string" },
+                    address_id: { type: "string" },
+                    lat: { type: "number" },
+                    lng: { type: "number" }
                   },
-                  required: ["query", "location"]
+                  required: ["consent_grant_id"]
                 }
               },
               {
-                name: "get_shop_detail",
-                description: "Get shop menu",
+                name: "get_shop_menu",
+                description: "Get shop menu (includes orderable item_id / sku_id)",
                 inputSchema: {
                   type: "object",
                   properties: {
-                    shop_id: { type: "string" }
+                    consent_grant_id: { type: "string" },
+                    shop_id: { type: "string" },
+                    cart_id: { type: "string" }
                   },
-                  required: ["shop_id"]
+                  required: ["consent_grant_id", "shop_id", "cart_id"]
                 }
               },
               {
                 name: "create_order",
-                description: "Create order",
+                description: "Place the order using preview_id + confirmation_token",
                 inputSchema: {
                   type: "object",
                   properties: {
-                    shop_id: { type: "string" },
-                    items: { type: "array" }
+                    consent_grant_id: { type: "string" },
+                    preview_id: { type: "string" },
+                    confirmation_token: { type: "string" }
                   },
-                  required: ["shop_id", "items"]
+                  required: ["consent_grant_id", "preview_id", "confirmation_token"]
                 }
               }
             ]
@@ -548,11 +574,11 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
 
             switch (name) {
               case "search_shops":
-                return await this.searchShops(args);
-              case "get_shop_detail":
-                return await this.getShopDetail(args);
+                return await this.callGateway("/shops/search", args);
+              case "get_shop_menu":
+                return await this.callGateway("/shops/menu", args);
               case "create_order":
-                return await this.createOrder(args);
+                return await this.callGateway("/orders/create", args);
               default:
                 return { isError: true, content: [{ type: "text", text: "Unknown tool" }] };
             }
@@ -560,39 +586,17 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
         );
       }
 
-      private async searchShops(args: any) {
+      // Forward tool args to the matching REST endpoint: consent_grant_id goes
+      // in the X-Consent-Grant-Id header, the rest become the JSON body.
+      private async callGateway(path: string, args: any) {
+        const { consent_grant_id, ...body } = args;
         const response = await axios.post(
-          `${gatewayUrl}/api/v1/gateway/shops/search`,
-          args,
+          `${gatewayUrl}/api/v1${path}`,
+          body,
           {
             headers: {
               "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
-      }
-
-      private async getShopDetail(args: any) {
-        const response = await axios.get(
-          `${gatewayUrl}/api/v1/gateway/shops/${args.shop_id}`,
-          {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`
-            }
-          }
-        );
-        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
-      }
-
-      private async createOrder(args: any) {
-        const response = await axios.post(
-          `${gatewayUrl}/api/v1/gateway/orders`,
-          args,
-          {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
+              "X-Consent-Grant-Id": consent_grant_id,
               "Content-Type": "application/json"
             }
           }
@@ -627,18 +631,16 @@ Cursor is an AI code editor for developers supporting MCP integration.
 
 ### Quick Start
 
-Configuration is similar to Claude Desktop:
+Configuration is similar to Claude Desktop — connect directly to the Gateway's native MCP endpoint:
 
 ```json
 {
   "mcpServers": {
     "clawdot": {
-      "command": "node",
-      "args": [
-        "path/to/mcp-gateway",
-        "--api-key",
-        "clw_your_key"
-      ]
+      "url": "https://api.clawdot.ai/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer clw_your_key"
+      }
     }
   }
 }
@@ -658,7 +660,7 @@ If your Agent platform is not in the above list, you can integrate using **REST 
 
 ### REST API Integration
 
-Refer to [Integration Guide - REST API](/skills/integration-guide#rest-api) section.
+Refer to [Integration Guide - REST API](/en/skills/integration-guide#rest-api) section.
 
 **Quick Example:**
 
@@ -666,16 +668,16 @@ Refer to [Integration Guide - REST API](/skills/integration-guide#rest-api) sect
 const axios = require('axios');
 
 const CLAWDOT_API_KEY = process.env.CLAWDOT_API_KEY;
-const USER_TOKEN = process.env.USER_TOKEN;
+const CONSENT_GRANT_ID = process.env.CONSENT_GRANT_ID; // User consent grant, cg_ prefix
 
-async function searchShops(query, location) {
+async function searchShops(keyword, lat, lng) {
   const response = await axios.post(
-    'https://api.clawdot.com/api/v1/gateway/shops/search',
-    { query, location },
+    'https://api.clawdot.ai/api/v1/shops/search',
+    { keyword, lat, lng },   // GCJ-02 coordinates; or use address_id
     {
       headers: {
         'Authorization': `Bearer ${CLAWDOT_API_KEY}`,
-        'X-User-Token': USER_TOKEN,
+        'X-Consent-Grant-Id': CONSENT_GRANT_ID,
         'Content-Type': 'application/json'
       }
     }
@@ -685,7 +687,7 @@ async function searchShops(query, location) {
 }
 
 // Usage
-searchShops('food delivery', 'Zhongguancun').then(data => {
+searchShops('latte', 39.9836, 116.3164).then(data => {
   console.log('Search results:', data.shops);
 });
 ```
@@ -735,7 +737,7 @@ The following platforms are in development or testing, coming soon:
 <summary>What if my Agent platform is not in the list?</summary>
 
 You can:
-1. Use REST API to integrate yourself (refer to [Integration Guide](/skills/integration-guide))
+1. Use REST API to integrate yourself (refer to [Integration Guide](/en/skills/integration-guide))
 2. Contact us at support@clawdot.com to request new platform integration
 3. Contribute MCP server implementation (open source project)
 
@@ -754,8 +756,8 @@ Yes, Clawdot generates unique API Key for each Agent application. You can use th
 Best practices:
 - Use environment variables or secret management service (e.g. HashiCorp Vault, AWS Secrets Manager)
 - Don't hardcode API Key in code
-- Regularly rotate API Keys
-- Limit API Key usage scope (e.g. by IP, by User Token)
+- Rotate / disable API Keys in the Portal as needed (a disabled key takes effect immediately)
+- The API Key only identifies the Agent; per-user access is controlled separately by each user's consent grant (`cg_` prefix)
 
 </details>
 

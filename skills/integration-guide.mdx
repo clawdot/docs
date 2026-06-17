@@ -14,7 +14,7 @@ Skills 平台提供三种集成方式，满足不同 Agent 平台的接入需求
 
 <CardGroup cols={3}>
   <Card title="MCP" icon="plug" href="#mcp-protocol">
-    适合 Claude Desktop、Cursor 等支持 MCP 的客户端应用。配置简单，自动工具发现。
+    适合 Claude Desktop、Cursor 等支持 MCP 的客户端应用。通过 Streamable HTTP 接入，自动工具发现。
   </Card>
 
   <Card title="REST API" icon="link">
@@ -22,43 +22,46 @@ Skills 平台提供三种集成方式，满足不同 Agent 平台的接入需求
   </Card>
 
   <Card title="OpenAI Function Calling" icon="robot">
-    直接注册 Gateway API 作为 OpenAI 函数工具，适合 OpenAI 兼容的模型和平台。
+    把 Gateway 的工具注册为 OpenAI 函数工具，适合 OpenAI 兼容的模型和平台。
   </Card>
 </CardGroup>
 
+<Info>
+本页是叙述式上手指南，三种方式背后是**同一套契约**：18 个 MCP 工具与 18 个 REST 端点一一对应，参数与返回结构一致。完整字段表见 [MCP 概览](/mcp/overview) 与 [API 参考](/api-reference/introduction)；端到端下单顺序见 [下单流程](/gateway/order-flow)。
+</Info>
+
 ## MCP 协议
 
-MCP（Model Context Protocol）是 Anthropic 推出的标准协议，支持 Claude Desktop、Cursor 等客户端轻松接入 Skills 平台。
+MCP（Model Context Protocol）是 Anthropic 推出的标准协议，支持 Claude Desktop、Cursor 等客户端轻松接入 Skills 平台。Clawdot Gateway 通过 **Streamable HTTP** 暴露 MCP 接口。
 
 ### 步骤 1：获取 API Key
 
-访问 [Clawdot 控制台](https://console.clawdot.com)，进入 **Agent 管理** 页面：
+在 [Clawdot Portal](https://portal.clawdot.ai) 创建你的 Agent：
 
-1. 点击 **创建新 Agent**
-2. 输入 Agent 名称和描述
+1. 登录 Portal，进入 **Agent 管理**
+2. 点击 **创建新 Agent**，填写名称和描述
 3. 系统自动生成 API Key（`clw_` 开头）
 4. 复制 API Key 到安全位置
 
 <Info>
-API Key 仅在创建时显示一次。如果遗失，需要在控制台重新生成。
+API Key 仅在创建时显示一次。如果遗失，需要在 Portal 重新生成。详见 [认证机制](/gateway/authentication)。
 </Info>
 
 ### 步骤 2：配置 MCP 服务器
 
-编辑 Claude Desktop 配置文件（`~/.claude-desktop/config.json`）：
+Gateway 的 MCP 公开端点是 `https://api.clawdot.ai/mcp/v1`（Streamable HTTP）。Agent 身份通过 `Authorization: Bearer clw_...` 请求头在**连接层**传递。
+
+在支持 Streamable HTTP 远程 MCP 的客户端中配置：
 
 ```json
 {
   "mcpServers": {
     "clawdot-gateway": {
-      "command": "npx",
-      "args": [
-        "@clawdot/mcp-gateway@latest",
-        "--gateway-url",
-        "https://api.clawdot.com/gateway",
-        "--api-key",
-        "clw_your_api_key_here"
-      ]
+      "type": "http",
+      "url": "https://api.clawdot.ai/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key_here"
+      }
     }
   }
 }
@@ -68,73 +71,56 @@ API Key 仅在创建时显示一次。如果遗失，需要在控制台重新生
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
-| `--gateway-url` | Skills 平台 Gateway 的 API 端点 | `https://api.clawdot.com/gateway` |
-| `--api-key` | 你的 API Key | `clw_abc123def456...` |
+| `url` | Gateway 的 MCP 公开端点（Streamable HTTP） | `https://api.clawdot.ai/mcp/v1` |
+| `Authorization` | Agent 身份，`Bearer ` + 你的 API Key | `Bearer clw_abc123def456...` |
 
 <Warning>
-不要将 API Key 提交到版本控制系统。使用环境变量管理敏感信息：
+不要将 API Key 提交到版本控制系统。优先用环境变量管理敏感信息，例如把 `Authorization` 头的值从环境变量注入。
 
-```json
-{
-  "mcpServers": {
-    "clawdot-gateway": {
-      "command": "npx",
-      "args": [
-        "@clawdot/mcp-gateway@latest",
-        "--gateway-url",
-        "https://api.clawdot.com/gateway",
-        "--api-key",
-        "${CLAWDOT_API_KEY}"
-      ],
-      "env": {
-        "CLAWDOT_API_KEY": "clw_your_api_key_here"
-      }
-    }
-  }
-}
-```
+注意公开端点路径是 `/mcp/v1`：网关把 MCP 应用挂载在 `/mcp` 下，FastMCP 内部路由版本化为 `/v1`。端点细节见 [MCP 概览](/mcp/overview)。
 </Warning>
 
-### 步骤 3：用户绑定
+### 步骤 3：用户授权（consent grant）
 
-当用户首次使用你的 Agent 时，执行用户绑定流程：
+API Key 只标识 **Agent 身份**；要替某位用户下单，还需要该用户的**授权（consent grant）**。当用户首次使用你的 Agent 时，走一次绑定流程拿到 `consent_grant_id`：
 
 ```python
-# 步骤 3a：请求绑定验证码
-POST /api/v1/auth/sms/request
-Content-Type: application/json
+# 步骤 3a：发起绑定（SMS 验证码模式）
+request_user_bind(
+    phone="13800138000",
+    auth_type="sms",
+)
 
+# 返回示例
 {
-  "phone": "+86 138 0000 0000"
-}
-
-# 响应示例
-{
-  "request_id": "req_abc123",
-  "expires_in": 600  // 验证码 10 分钟有效
+  "bind_id": "550e8400-e29b-41d4-a716-446655440000",
+  "expires_in": 300   # 验证码有效期（秒）
 }
 ```
 
 ```python
-# 步骤 3b：用户输入验证码后，验证并获取 User Token
-POST /api/v1/auth/sms/verify
-Content-Type: application/json
+# 步骤 3b：用户输入验证码后，确认绑定并拿到 consent_grant_id
+verify_user_bind(
+    bind_id="550e8400-e29b-41d4-a716-446655440000",
+    code="123456",
+    auth_type="sms",
+)
 
+# 返回示例
 {
-  "request_id": "req_abc123",
-  "code": "123456"
-}
-
-# 响应示例
-{
-  "user_token": "550e8400-e29b-41d4-a716-446655440000",
-  "expires_in": 7776000  // 90 天有效期（秒）
+  "consent_grant_id": "cg_550e8400e29b41d4a716",   # 之后每次调用都要带上
+  "scopes": ["taobao_flash.delivery"],             # 授权能力范围
+  "expires_at": "2026-09-15T10:00:00Z"             # 过期时间（ISO 8601）
 }
 ```
+
+<Info>
+也支持 H5 授权模式（`auth_type="h5"`，`request_user_bind` 返回授权链接）。完整字段与回调说明见 [发起绑定](/api-reference/user/bind-request) 与 [确认绑定](/api-reference/user/bind-verify)。
+</Info>
 
 ### 步骤 4：调用 Gateway 技能
 
-通过 MCP 协议，你的 Agent 可以自动发现和调用所有 Gateway 技能。Claude Desktop 会在工具栏中展示所有可用的技能。
+通过 MCP 协议，你的 Agent 可以自动发现和调用所有 Gateway 工具。MCP 客户端会在工具栏中展示所有可用工具。调用时把上一步拿到的 `consent_grant_id` 作为**每个工具的参数**传入（不是请求头）。
 
 **示例对话：**
 
@@ -144,37 +130,39 @@ Content-Type: application/json
 >
 > 用户：中关村大街1号
 >
-> Claude：【调用 Gateway 技能 `search_shops`】正在搜索中关村大街附近的餐厅...
+> Claude：【调用 Gateway 工具 `search_shops`（带 `consent_grant_id`）】正在搜索中关村大街附近的餐厅...
 >
 > ... 返回推荐列表
+
+完整工具列表与下单链路见 [MCP 概览](/mcp/overview)。
 
 ---
 
 ## REST API
 
-适合需要完整控制的高级场景，或集成到钉钉、Kimi 等平台。
+适合需要完整控制的高级场景，或集成到钉钉、Kimi 等平台。所有 REST 端点都在 `https://api.clawdot.ai/api/v1` 下。
 
 ### 步骤 1：获取 API Key
 
-同 MCP 步骤 1。
+同 MCP 步骤 1（在 [Portal](https://portal.clawdot.ai) 创建 Agent）。
 
-### 步骤 2：User 绑定（同上）
+### 步骤 2：用户授权（同上）
 
-同 MCP 步骤 3。
+同 MCP 步骤 3，拿到 `consent_grant_id`。REST 侧绑定端点为 `POST /api/v1/auth/bind/request` 和 `POST /api/v1/auth/bind/verify`，请求体字段与上面的工具参数一致。
 
 ### 步骤 3：API 调用格式
 
-所有 REST API 请求都需要在 Header 中包含身份凭证：
+所有需要用户身份的 REST 请求都要在 Header 中带上两层凭证：
 
 ```bash
-curl -X POST https://api.clawdot.com/gateway/search \
+curl -X POST https://api.clawdot.ai/api/v1/shops/search \
   -H "Authorization: Bearer clw_your_api_key_here" \
-  -H "X-User-Token: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "X-Consent-Grant-Id: cg_550e8400e29b41d4a716" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "水果外卖",
-    "location": "中关村大街1号",
-    "limit": 10
+    "keyword": "水果",
+    "lat": 39.9854,
+    "lng": 116.3055
   }'
 ```
 
@@ -183,203 +171,218 @@ curl -X POST https://api.clawdot.com/gateway/search \
 | Header | 说明 | 必需 |
 |--------|------|------|
 | `Authorization: Bearer {API_KEY}` | 识别 Agent 身份 | 是 |
-| `X-User-Token: {USER_TOKEN}` | 识别用户身份 | 是 |
+| `X-Consent-Grant-Id: {CONSENT_GRANT_ID}` | 识别已授权用户 | 是（绑定类端点除外）|
 | `Content-Type: application/json` | 请求类型 | 是 |
+
+<Warning>
+`consent_grant_id` 只走 `X-Consent-Grant-Id` 请求头，不要放进 JSON body。绑定类端点（`auth/bind/request`、`auth/bind/verify`）是获取授权的入口，只需 API Key。详见 [认证机制](/gateway/authentication)。
+</Warning>
 
 ### 步骤 4：常用 API 端点
 
 <Tabs>
   <Tab title="搜索商店">
-    **搜索本地商店（外卖、商超、便利店等）**
+    **搜索 / 浏览本地商店（外卖、商超、便利店等）**
 
     ```bash
-    POST /api/v1/gateway/shops/search
+    POST /api/v1/shops/search
     ```
 
     **请求体：**
     ```json
     {
-      "query": "外卖",
-      "location": "中关村大街1号",
-      "latitude": 39.9854,
-      "longitude": 116.3055,
-      "radius": 5,
-      "limit": 20,
-      "offset": 0
+      "keyword": "外卖",
+      "lat": 39.9854,
+      "lng": 116.3055,
+      "address_id": "addr_123456"
     }
     ```
+
+    不传 `keyword` 为浏览模式（附近 ≤20 家），传 `keyword` 为精确搜索（约 5 家，命中店带 `matched_items` 预览）。每个结果都带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，原样回传给后续步骤。完整字段见 [搜索店铺](/api-reference/shops/search)。
 
     **响应示例：**
     ```json
     {
       "shops": [
         {
-          "id": "shop_123456",
+          "shop_id": "shop_123456",
+          "cart_id": "cart_abcdef",
           "name": "美食外卖馆",
-          "category": "外卖",
           "rating": 4.8,
-          "distance": 1.2,
-          "delivery_time": 30,
-          "min_order": 15,
-          "delivery_fee": 5
-        }
-      ],
-      "total": 45,
-      "has_more": true
-    }
-    ```
-  </Tab>
-
-  <Tab title="获取商店详情">
-    **获取单个商店的菜单、营业时间等详情**
-
-    ```bash
-    GET /api/v1/gateway/shops/{shop_id}
-    ```
-
-    **路径参数：**
-    - `shop_id`：商店 ID，例如 `shop_123456`
-
-    **响应示例：**
-    ```json
-    {
-      "id": "shop_123456",
-      "name": "美食外卖馆",
-      "description": "江浙菜系，新鲜食材",
-      "rating": 4.8,
-      "reviews_count": 3250,
-      "opening_hours": {
-        "monday": "09:00-21:00",
-        "tuesday": "09:00-21:00",
-        "wednesday": "09:00-21:00",
-        "thursday": "09:00-21:00",
-        "friday": "09:00-21:00",
-        "saturday": "09:00-22:00",
-        "sunday": "09:00-22:00"
-      },
-      "categories": [
-        {
-          "id": "cat_001",
-          "name": "招牌菜",
-          "items": [
-            {
-              "id": "item_001",
-              "name": "红油炒手",
-              "price": 12,
-              "description": "四川传统小吃",
-              "image_url": "https://...",
-              "available": true
-            }
-          ]
+          "distance_text": "1.2km",
+          "delivery_time_text": "30分钟",
+          "delivery_fee_text": "¥5",
+          "min_order_amount": 1500
         }
       ]
     }
     ```
   </Tab>
 
-  <Tab title="创建订单">
-    **创建新订单**
+  <Tab title="获取店铺菜单">
+    **获取单个店铺的菜单（含可下单的 item_id / sku_id）**
 
     ```bash
-    POST /api/v1/gateway/orders
+    POST /api/v1/shops/menu
     ```
 
     **请求体：**
     ```json
     {
       "shop_id": "shop_123456",
-      "items": [
+      "cart_id": "cart_abcdef",
+      "keyword": "拿铁",
+      "limit": 20,
+      "offset": 0
+    }
+    ```
+
+    菜单可能很大（100+ 项），用 `keyword` 或 `limit`/`offset` 渐进披露，按 `next_offset` 翻页直到 `has_more=false`。完整字段见 [店铺菜单](/api-reference/shops/detail)。
+
+    **响应示例：**
+    ```json
+    {
+      "categories": [
         {
-          "item_id": "item_001",
-          "quantity": 2,
-          "notes": "不要辣"
-        },
-        {
-          "item_id": "item_002",
-          "quantity": 1,
-          "notes": ""
+          "name": "招牌菜",
+          "items": [
+            {
+              "item_id": "item_001",
+              "sku_id": "sku_001",
+              "name": "红油炒手",
+              "price": 1200,
+              "description": "四川传统小吃",
+              "available": true
+            }
+          ]
         }
       ],
-      "delivery_address": "中关村大街1号",
-      "contact_phone": "+86 138 0000 0000",
-      "payment_method": "alipay",
-      "coupon_code": "WELCOME20",
-      "remarks": "请按门铃"
+      "total_items": 86,
+      "has_more": true,
+      "next_offset": 20
+    }
+    ```
+  </Tab>
+
+  <Tab title="算价 → 预览 → 下单">
+    **下单是一条有状态的链路：先算价、再预览、最后用预览产出的令牌创建订单。**
+
+    第一步，购物车算价（`POST /api/v1/cart/quote`，得 `quote_id`）：
+
+    ```json
+    {
+      "shop_id": "shop_123456",
+      "cart_id": "cart_abcdef",
+      "address_id": "addr_123456",
+      "items": [
+        { "item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": [] }
+      ]
+    }
+    ```
+
+    第二步，预览订单（`POST /api/v1/orders/preview`，得 `preview_id` + `confirmation_token`）：
+
+    ```json
+    {
+      "shop_id": "shop_123456",
+      "cart_id": "cart_abcdef",
+      "address_id": "addr_123456",
+      "items": [
+        { "item_id": "item_001", "sku_id": "sku_001", "quantity": 2 }
+      ],
+      "quote_id": "qt_...",
+      "order_remark": "不要辣"
+    }
+    ```
+
+    预览响应（节选，金额单位**分**）：
+
+    ```json
+    {
+      "preview_id": "prv_abc123",
+      "confirmation_token": "cf_abc123",
+      "price": { "payable_price": 3300 }
+    }
+    ```
+
+    第三步，创建订单（`POST /api/v1/orders/create`），用同一次预览的 `preview_id` + `confirmation_token` 正式下单：
+
+    ```json
+    {
+      "preview_id": "prv_abc123",
+      "confirmation_token": "cf_abc123"
     }
     ```
 
     **响应示例：**
     ```json
     {
-      "order_id": "order_abc123",
-      "shop_id": "shop_123456",
-      "status": "confirmed",
-      "items": [...],
-      "subtotal": 35,
-      "delivery_fee": 5,
-      "discount": 7,
-      "total": 33,
-      "estimated_delivery_time": 35,
-      "tracking_url": "https://track.clawdot.com/order_abc123"
+      "order_id": "ord_abc123",
+      "status": "created",
+      "payment_action": { "...": "..." }
     }
     ```
+
+    <Info>
+    `confirmation_token` 是下单的幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。`items` 是**列表**（不是 JSON 字符串）。完整字段见 [购物车算价](/api-reference/cart/quote) · [预览订单](/api-reference/orders/preview) · [创建订单](/api-reference/orders/create)。
+    </Info>
   </Tab>
 
   <Tab title="查询订单">
     **查询订单状态和详情**
 
     ```bash
-    GET /api/v1/gateway/orders/{order_id}
+    GET /api/v1/orders/{order_id}
     ```
 
     **路径参数：**
-    - `order_id`：订单 ID，例如 `order_abc123`
+    - `order_id`：订单 ID，例如 `ord_abc123`
 
-    **响应示例：**
+    **响应示例（金额单位分）：**
     ```json
     {
-      "order_id": "order_abc123",
+      "order_id": "ord_abc123",
       "status": "delivering",
       "shop_name": "美食外卖馆",
-      "items": [...],
-      "total": 33,
-      "created_at": "2026-03-29T10:00:00Z",
-      "estimated_delivery_time": 35,
-      "delivery_status": {
-        "phase": "delivering",
-        "driver_name": "小王",
-        "driver_phone": "+86 138 xxxx xxxx",
-        "last_location_update": "2026-03-29T10:20:00Z"
-      }
+      "price": { "payable_price": 3300 },
+      "created_at": "2026-03-29T10:00:00Z"
     }
     ```
+
+    完整字段见 [查询订单](/api-reference/orders/get)。
   </Tab>
 </Tabs>
 
+<Info>
+免密支付类订单还需要先完成**免密签约**（`POST /api/v1/payment/sign-action` → 引导用户在 H5 完成 → `GET /api/v1/payment/sign-status` 轮询）。完整端到端顺序见 [下单流程](/gateway/order-flow)。
+</Info>
+
 ### 步骤 5：错误处理
 
-处理常见的 HTTP 错误响应：
+处理常见的 HTTP 错误响应。认证 / 授权失败统一返回 `{"error": {"code", "message"}}` 格式：
 
 ```python
 import requests
 
 try:
     response = requests.post(
-        "https://api.clawdot.com/gateway/shops/search",
+        "https://api.clawdot.ai/api/v1/shops/search",
         headers={
             "Authorization": f"Bearer {api_key}",
-            "X-User-Token": user_token,
+            "X-Consent-Grant-Id": consent_grant_id,
             "Content-Type": "application/json"
         },
-        json={"query": "外卖", "location": "中关村"}
+        json={"keyword": "外卖", "lat": 39.9854, "lng": 116.3055}
     )
 
     if response.status_code == 401:
-        # API Key 或 User Token 无效
-        print("认证失败，请检查凭证")
+        # API Key 无效 (AUTH_INVALID)，或 consent_grant_id 缺失/无效/过期
+        # (CONSENT_GRANT_REQUIRED / CONSENT_GRANT_INVALID / CONSENT_GRANT_EXPIRED)
+        print("认证失败，请检查 API Key 或重新走授权绑定")
     elif response.status_code == 403:
-        # 权限拒绝（API Key 与 User Token 未绑定）
-        print("权限不足，请重新绑定用户")
+        # 授权属于其它能力/服务商 (CONSENT_GRANT_WRONG_CAP)，
+        # 或当前 Agent 未开通该能力 (CAP_NOT_BOUND)
+        print("授权或能力不匹配，请检查 Agent 开通的能力")
     elif response.status_code == 429:
         # 触发速率限制
         print("请求过于频繁，请稍后重试")
@@ -391,76 +394,97 @@ except requests.RequestException as e:
     print(f"网络错误：{e}")
 ```
 
+完整错误码见 [错误处理](/gateway/error-handling)。
+
 ---
 
 ## OpenAI Function Calling
 
-适合使用 OpenAI API 或兼容 API 的 Agent 框架（如 LangChain、LlamaIndex）。
+适合使用 OpenAI API 或兼容 API 的 Agent 框架（如 LangChain、LlamaIndex）。把 Gateway 工具注册为函数，函数实现内部去调 REST 端点。
 
 ### 步骤 1：获取 API Key
 
-同上。
+同上（在 [Portal](https://portal.clawdot.ai) 创建 Agent）。
 
-### 步骤 2：User 绑定
+### 步骤 2：用户授权
 
-同上。
+同上，拿到 `consent_grant_id`。
 
 ### 步骤 3：注册函数工具
 
-将 Gateway API 注册为 OpenAI Function Calling 工具：
+将 Gateway 工具注册为 OpenAI Function Calling 工具。工具名与参数对齐 Gateway 契约：
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(api_key="sk-...")
 
-# 注册 Gateway 技能作为函数工具
+# 注册 Gateway 工具作为函数工具
 tools = [
     {
         "type": "function",
         "function": {
             "name": "search_shops",
-            "description": "搜索本地商店（外卖、商超、便利店等）",
+            "description": "搜索 / 浏览本地商店（外卖、商超、便利店等）",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {
+                    "keyword": {
                         "type": "string",
-                        "description": "搜索关键词，例如：外卖、水果、快餐"
+                        "description": "可选：店名、品类或商品名（如 生椰拿铁）。省略则浏览附近店铺"
                     },
-                    "location": {
+                    "address_id": {
                         "type": "string",
-                        "description": "位置地址"
+                        "description": "已保存地址 ID；省略时需传 lat/lng"
                     },
-                    "radius": {
-                        "type": "number",
-                        "description": "搜索半径（公里），默认 5 km"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "返回结果数量，默认 20",
-                        "minimum": 1,
-                        "maximum": 100
-                    }
+                    "lat": {"type": "number", "description": "纬度（GCJ-02）"},
+                    "lng": {"type": "number", "description": "经度（GCJ-02）"}
                 },
-                "required": ["query", "location"]
+                "required": []
             }
         }
     },
     {
         "type": "function",
         "function": {
-            "name": "get_shop_detail",
-            "description": "获取商店详情和菜单",
+            "name": "get_shop_menu",
+            "description": "获取店铺菜单，返回可下单的 item_id / sku_id",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "shop_id": {
-                        "type": "string",
-                        "description": "商店 ID"
+                    "shop_id": {"type": "string", "description": "来自 search_shops"},
+                    "cart_id": {"type": "string", "description": "来自 search_shops，原样回传"},
+                    "keyword": {"type": "string", "description": "可选：只返回命中商品"}
+                },
+                "required": ["shop_id", "cart_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "preview_order",
+            "description": "预览订单，返回下单用的 preview_id + confirmation_token",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shop_id": {"type": "string"},
+                    "cart_id": {"type": "string"},
+                    "address_id": {"type": "string"},
+                    "items": {
+                        "type": "array",
+                        "description": "选好的商品列表（list，不是 JSON 字符串）",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item_id": {"type": "string"},
+                                "sku_id": {"type": "string"},
+                                "quantity": {"type": "integer"}
+                            }
+                        }
                     }
                 },
-                "required": ["shop_id"]
+                "required": ["shop_id", "cart_id", "address_id", "items"]
             }
         }
     },
@@ -468,37 +492,14 @@ tools = [
         "type": "function",
         "function": {
             "name": "create_order",
-            "description": "创建新订单",
+            "description": "用预览产出的 preview_id + confirmation_token 创建订单",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "shop_id": {
-                        "type": "string",
-                        "description": "商店 ID"
-                    },
-                    "items": {
-                        "type": "array",
-                        "description": "订单项目列表",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "item_id": {"type": "string"},
-                                "quantity": {"type": "integer"},
-                                "notes": {"type": "string"}
-                            }
-                        }
-                    },
-                    "delivery_address": {
-                        "type": "string",
-                        "description": "收货地址"
-                    },
-                    "payment_method": {
-                        "type": "string",
-                        "enum": ["alipay", "wechat", "card"],
-                        "description": "支付方式"
-                    }
+                    "preview_id": {"type": "string", "description": "来自同一次 preview_order"},
+                    "confirmation_token": {"type": "string", "description": "来自同一次 preview_order"}
                 },
-                "required": ["shop_id", "items", "delivery_address"]
+                "required": ["preview_id", "confirmation_token"]
             }
         }
     }
@@ -519,22 +520,24 @@ response = client.chat.completions.create(
 # 处理函数调用
 for tool_call in response.tool_calls:
     if tool_call.function.name == "search_shops":
-        # 调用 Clawdot Gateway API
+        # 调用 Clawdot Gateway REST 端点
         # ...
 ```
 
 ### 步骤 4：函数实现
 
+每个函数内部去调对应的 REST 端点，带上 Agent 与用户两层凭证：
+
 ```python
 import requests
 import json
 
-def call_gateway_api(endpoint, params, api_key, user_token):
-    """调用 Clawdot Gateway API 的辅助函数"""
-    url = f"https://api.clawdot.com/gateway/{endpoint}"
+def call_gateway_api(endpoint, params, api_key, consent_grant_id):
+    """调用 Clawdot Gateway REST 端点的辅助函数"""
+    url = f"https://api.clawdot.ai/api/v1/{endpoint}"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "X-User-Token": user_token,
+        "X-Consent-Grant-Id": consent_grant_id,
         "Content-Type": "application/json"
     }
 
@@ -542,40 +545,24 @@ def call_gateway_api(endpoint, params, api_key, user_token):
     response.raise_for_status()
     return response.json()
 
-def execute_tool(tool_name, tool_args, api_key, user_token):
+def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
     """执行函数工具"""
     if tool_name == "search_shops":
-        result = call_gateway_api(
-            "shops/search",
-            {
-                "query": tool_args["query"],
-                "location": tool_args["location"],
-                "radius": tool_args.get("radius", 5),
-                "limit": tool_args.get("limit", 20)
-            },
-            api_key, user_token
-        )
+        result = call_gateway_api("shops/search", tool_args, api_key, consent_grant_id)
         return json.dumps(result, ensure_ascii=False)
 
-    elif tool_name == "get_shop_detail":
-        result = call_gateway_api(
-            f"shops/{tool_args['shop_id']}",
-            {},
-            api_key, user_token
-        )
+    elif tool_name == "get_shop_menu":
+        result = call_gateway_api("shops/menu", tool_args, api_key, consent_grant_id)
+        return json.dumps(result, ensure_ascii=False)
+
+    elif tool_name == "preview_order":
+        # items 是 list，直接透传；返回 preview_id + confirmation_token
+        result = call_gateway_api("orders/preview", tool_args, api_key, consent_grant_id)
         return json.dumps(result, ensure_ascii=False)
 
     elif tool_name == "create_order":
-        result = call_gateway_api(
-            "orders",
-            {
-                "shop_id": tool_args["shop_id"],
-                "items": tool_args["items"],
-                "delivery_address": tool_args["delivery_address"],
-                "payment_method": tool_args.get("payment_method", "alipay")
-            },
-            api_key, user_token
-        )
+        # 用上一步 preview 产出的 preview_id + confirmation_token 下单
+        result = call_gateway_api("orders/create", tool_args, api_key, consent_grant_id)
         return json.dumps(result, ensure_ascii=False)
 ```
 
@@ -608,7 +595,7 @@ def execute_tool(tool_name, tool_args, api_key, user_token):
 1. 检查手机号码格式，确保是有效的中国大陆号码
 2. 查看垃圾短信箱，部分手机会自动过滤
 3. 等待 1-2 分钟，短信可能延迟到达
-4. 请求已过期（10 分钟），重新点击"获取验证码"
+4. 请求已过期（`expires_in` 秒），重新调用 `request_user_bind`
 5. 如持续失败，请联系技术支持
 
 </details>
@@ -616,28 +603,27 @@ def execute_tool(tool_name, tool_args, api_key, user_token):
 <details>
 <summary>API 调用返回 401 Unauthorized</summary>
 
-- API Key 不存在或已禁用，检查控制台
-- API Key 格式错误，应以 `clw_` 开头
-- Header 拼写错误，应为 `Authorization: Bearer ...`，区分大小写
-- User Token 过期（90 天），需要重新 SMS 绑定
+- API Key 不存在或已禁用（`AUTH_INVALID`），检查 Portal
+- API Key 格式错误，应以 `clw_` 开头，Header 为 `Authorization: Bearer ...`，区分大小写
+- 缺少 `consent_grant_id`（`CONSENT_GRANT_REQUIRED`）
+- `consent_grant_id` 无效或已过期（`CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED`），需要重新走绑定流程拿新的
 
 </details>
 
 <details>
 <summary>API 调用返回 403 Forbidden</summary>
 
-- API Key 与 User Token 未绑定（来自不同的 Agent）
-- Agent 已被禁用，检查控制台状态
-- User Token 被禁用，需要重新绑定
+- 授权属于其它能力 / 服务商（`CONSENT_GRANT_WRONG_CAP`）
+- 当前 Agent 未开通该能力（`CAP_NOT_BOUND`），在 Portal 检查 Agent 开通的能力
 
 </details>
 
 <details>
 <summary>MCP 无法加载</summary>
 
-- 检查 `~/.claude-desktop/config.json` 的 JSON 语法
-- 确保 API Key 正确，未包含 `Bearer ` 前缀
-- 重启 Claude Desktop
-- 查看日志：`tail -f ~/.claude-desktop/logs/*.log`
+- 确认端点是 `https://api.clawdot.ai/mcp/v1`
+- 确认 `Authorization` 头为 `Bearer clw_...`，API Key 正确
+- 检查客户端是否支持 Streamable HTTP 远程 MCP
+- 重启 MCP 客户端
 
 </details>

@@ -1,102 +1,135 @@
 ---
 title: "Skills Platform"
-description: "Giving every AI Agent local life skills"
+description: "Standardized local-life skill packs for AI Agents, built on Clawdot"
 icon: "sparkles"
 ---
 
 import { Card, CardGroup } from '/components/Card';
 import Mermaid from '/components/Mermaid';
 
-## What is the Skills Platform?
+## What are Skills?
 
-The Skills Platform is Layer 2 in the Clawdot core architecture, serving as the integration hub for **restricted skills (one-to-one)** for every AI Agent. Unlike generic gateways designed for super apps, the Skills Platform focuses on **private, personalized** Agent access—each Agent is bound to its corresponding user, naturally creating security isolation.
+Clawdot aggregates downstream delivery platforms (Ele.me, Meituan, etc.), local-life platforms (Amap, etc.), and merchants' own Agent service capabilities. On top of these, Clawdot defines a **standardized service SOP and interface protocol**—a unified flow for menu lookup, order fulfillment, address management, order tracking, and more.
 
-Through the Skills Platform, any AI Agent can:
-- Access local life services (food delivery, supermarkets, restaurants, etc.)
-- Safely manage user identity and transaction data
-- Connect with the rich skill library in the Gateway layer
-- Build end-to-end local life application experiences
-
-## Architecture View
+**Skills** are the **Agent-facing skill packs** packaged on top of this standard. Each Skill is an independent, installable capability unit; once an Agent installs it, the Agent gains the corresponding local-life service capability.
 
 <Mermaid
   chart={`
     graph TB
-      A["📱 DingTalk Agent"]
-      B["🤖 Kimi Agent"]
-      C["☁️ QCloud Agent"]
-      D["🧠 Claude Desktop"]
-      E["✨ Other Personal Agents"]
+      subgraph Platforms["Downstream Platforms"]
+        P1["Ele.me"]
+        P2["Meituan"]
+        P3["Amap"]
+        P4["Merchant Agent"]
+      end
 
-      F["Skills Platform<br/>One-to-one binding authorization<br/>Natural security isolation"]
+      subgraph Gateway["Clawdot Standard Layer"]
+        G1["Unified Protocol<br/>Menu · Order · Address · Tracking"]
+        G2["Standard SOP<br/>search→items→quote→address→preview→order"]
+      end
 
-      G["🌐 Gateway<br/>Local life skills library<br/>Orders, payments, logistics"]
+      subgraph Skills["Skill Packs"]
+        S1["Takeout Skill"]
+        S2["Dine-in Skill"]
+        S3["More Skills..."]
+      end
 
-      A --> F
-      B --> F
-      C --> F
-      D --> F
-      E --> F
+      subgraph Agents["Front-end AI Agents"]
+        A1["Claude Desktop"]
+        A2["Kimi"]
+        A3["DingTalk Agent"]
+        A4["OpenClaw"]
+        A5["Other Agents"]
+      end
 
-      F --> G
+      P1 --> G1
+      P2 --> G1
+      P3 --> G1
+      P4 --> G1
 
-      style A fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style C fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style D fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style E fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
+      G1 --> G2
+      G2 --> S1
+      G2 --> S2
+      G2 --> S3
 
-      style F fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-      style G fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+      S1 --> A1
+      S1 --> A2
+      S1 --> A3
+      S2 --> A4
+      S3 --> A5
+
+      style Platforms fill:#D1FAE5,stroke:#34D399,stroke-width:2px
+      style Gateway fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+      style Skills fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style Agents fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   `}
 />
 
-## Core Features
+## Design approach
+
+Skills follow a three-layer separation principle:
+
+**Layer 1: Platform capability aggregation.** Clawdot integrates the APIs of multiple delivery and local-life platforms and consolidates their capabilities. Merchants don't need to change anything—Clawdot's Proxy layer handles format conversion and protocol adaptation. Large chain brands can also build their own Agent that implements the standard protocol directly.
+
+**Layer 2: Standardized protocol and SOP.** On top of platform capabilities, Clawdot defines a unified interface spec and interaction flow. No matter whether the backend is Ele.me or Meituan, the Agent on top uses the same standard chain: `search_shops` (search) → `get_shop_menu` (menu) → `quote_cart` (quote) → `select_address` (address) → `preview_order` (preview) → `create_order` (order) → `get_sign_action` (passwordless signing). The complex customization system for item specs, attributes (attrs), and ingredients is also unified into standard data structures. All amount fields are in **cents (integers)**. See the full chain in [Order Flow](/en/gateway/order-flow).
+
+**Layer 3: Skill packaging.** Based on the standardized protocol and SOP, Clawdot packages each category of service into an independent Skill. Each Skill contains a complete interaction guide (GUIDE), action definitions (Actions), and a platform adaptation layer (Platforms), so the Agent works out of the box once installed.
+
+## Anatomy of a Skill
+
+Each Skill is a standardized pack containing the following parts:
+
+| Component | Description | Example |
+|---------|------|------|
+| **skill.yaml** | Skill metadata: name, version, action list, environment dependencies | `name: takeout`, `actions: [search_shops, get_shop_menu, preview_order, create_order]` |
+| **GUIDE.md** | Interaction SOP: how the Agent should talk to the user and when to call which action | "Do it first, then speak. State the conclusion, not the process." |
+| **scripts/** | Execution scripts: the logic that actually calls the Gateway API | `takeout.py` — full implementation of search, item selection, ordering |
+| **platforms/** | Platform adaptation layer: SKILL.md configs for different Agent platforms | One each for Claude Code, OpenClaw, Codex |
+
+## Authentication model
+
+Skills use **two-layer authentication**: an **API Key** identifies the Agent, and a **user authorization (consent grant)** identifies the authorized delivery user. The Agent holds its own API Key, then runs a binding flow per user to obtain a `consent_grant_id` (`cg_` prefix); the two together let it act on that user's behalf. Each authorization is independent and revocable at any time, naturally creating security isolation with no need for a complex permission-management system.
+
+- **API Key (Agent identity):** passed via the `Authorization: Bearer clw_...` header, the same for both MCP and REST; generated when you create an Agent in the Portal.
+- **User authorization (consent grant):** REST passes it via the `X-Consent-Grant-Id` header; MCP passes it as each tool's `consent_grant_id` parameter (not a header).
+
+Suitable for: personal assistants, desktop Agents (Claude Desktop, Cursor, etc.), and various Agent-platform integrations. See [Authentication](/en/gateway/authentication) for full details.
+
+## Supported platforms
+
+The Skill platform adaptation layer lets the same Skill run across multiple Agent environments:
+
+| Platform | Integration | Use case |
+|------|---------|---------|
+| **Claude Code** | Python scripts + SKILL.md instructions | Desktop developers, personal Agents |
+| **OpenClaw** | Tool SDK + camelCase parameters | Open-platform integration |
+| **Codex** | Python scripts + AGENTS.md | OpenAI Codex Agent |
+| **Self-built Agent** | Direct REST API calls | DingTalk, Kimi, QCloud, any platform |
+
+## Open Skills
 
 <CardGroup cols={2}>
-  <Card title="One-to-One Binding Authorization" icon="lock">
-    Each Agent and its user form a 1:1 binding relationship, ensuring data isolation and security. No need for complex permission management systems—natural security isolation is built-in.
+  <Card title="Integration Guide" href="/en/skills/integration-guide" icon="code">
+    Choose the integration method that fits you (MCP / REST / Function Calling) and connect quickly.
   </Card>
 
-  <Card title="Multi-Platform Support" icon="share-nodes">
-    Native support for DingTalk, Kimi, QCloud, Claude Desktop (MCP), Cursor, and other mainstream Agent platforms, easily extensible for personal Agents.
+  <Card title="Building Agents" href="/en/skills/building-agents" icon="hammer">
+    Build a complete local-life Agent from scratch: search, item selection, ordering, and tracking.
   </Card>
 
-  <Card title="Gateway Skill Reuse" icon="puzzle-piece">
-    Directly inherit the local life skills library from the Gateway layer—no need to redevelop, skills are abstracted and pushed down to the Skills Platform.
-  </Card>
-
-  <Card title="Simplified Integration" icon="rocket">
-    Three integration methods (MCP, REST API, OpenAI Function Calling) lower the barrier to entry, supporting rapid prototyping and production deployment.
+  <Card title="Supported Platforms" href="/en/skills/supported-platforms" icon="grid">
+    Integrated Agent platforms and their configuration methods.
   </Card>
 </CardGroup>
 
-## Skills vs Super Agent
-
-| Feature | Skills Platform | Super Agent |
-|---------|-----------------|------------|
-| **Skill Scope** | Restricted skills (curated, safe) | Full-featured skills (complete) |
-| **User Binding** | One-to-one (single user) | One-to-many (multiple users) |
-| **Use Cases** | Personal Agents, private apps | Public accounts, platform apps |
-| **Security Isolation** | Natural isolation (technically guaranteed) | Requires permission management (complex) |
-| **Integration Complexity** | Very low (API Key + User Token) | Medium (authorization flow) |
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Security Model" href="/skills/security-model" icon="shield-check">
-    Learn about one-to-one binding authorization and data encryption mechanisms.
+  <Card title="Security Model" href="/en/skills/security-model" icon="shield-check">
+    Learn about one-to-one binding authorization, data isolation, and encryption.
   </Card>
 
-  <Card title="Integration Guide" href="/skills/integration-guide" icon="code">
-    Choose the integration method that fits you and quickly integrate with the Skills Platform.
-  </Card>
-
-  <Card title="Building Agents" href="/skills/building-agents" icon="hammer">
-    Build a complete local life Agent from scratch.
-  </Card>
-
-  <Card title="Supported Platforms" href="/skills/supported-platforms" icon="grid">
-    View integrated Agent platforms and configuration methods.
+  <Card title="Order Flow" href="/en/gateway/order-flow" icon="utensils">
+    The complete end-to-end ordering chain: from search_shops to passwordless signing.
   </Card>
 </CardGroup>
