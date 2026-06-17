@@ -83,11 +83,10 @@ description: "MCP 工具，对应 REST POST /addresses/search — 列出用户�
 
 ### 错误码
 
-| HTTP | code | 说明 |
-|------|------|------|
-| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 缺少、无效或已过期的用户授权 |
-| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent 未开通该能力，或授权与能力不匹配 |
-| 422 | — | 参数类型不合法（如 `lat`/`lng` 非数字）|
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 缺少、无效或已过期的用户授权 |
+| `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent 未开通该能力，或授权与能力不匹配 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

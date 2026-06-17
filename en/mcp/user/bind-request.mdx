@@ -66,13 +66,12 @@ The return shape depends on `auth_type`.
 
 ### Error Codes
 
-| HTTP | code | Description |
-|------|------|-------------|
-| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
-| 403 | `CAP_NOT_BOUND` | The Agent is not provisioned for the delivery capability |
-| 400 | `PUBLIC_REFERENCE_INVALID` | `auth_type` not sms/h5, `callback_url` passed in `sms` mode, invalid `callback_url` (non-http(s) or private host), or `extra` not a JSON object / over 2KB |
-| 422 | — | Invalid parameter type (e.g. `auth_type` not in the enum) |
-| 429 | `SMS_COOLDOWN` | Verification code is in a 60-second cooldown (`sms` mode only) |
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
+| `CAP_NOT_BOUND` | The Agent is not provisioned for the delivery capability |
+| `PUBLIC_REFERENCE_INVALID` | `auth_type` not sms/h5, `callback_url` passed in `sms` mode, invalid `callback_url` (non-http(s) or private host), or `extra` not a JSON object / over 2KB. MCP tool arguments have no model validation, so an invalid parameter type (e.g. `auth_type` not in the enum) also maps to this code (the same invalid input returns 422 on REST) |
+| `SMS_COOLDOWN` | Verification code is in a 60-second cooldown (`sms` mode only) |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 

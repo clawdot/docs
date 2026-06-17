@@ -14,7 +14,7 @@ description: "MCP 工具，对应 REST POST /shops/search — 按位置搜索或
 **两种模式（由 `keyword` 切换）：**
 
 - **不传 / 传空 `keyword`** → 浏览模式：返回附近店铺信息流（最多 20 家），带距离、评分、配送费、起送价、营业状态等决策字段。
-- **传 `keyword`** → 精确搜索（约 5 家）：`keyword` 可为店名（"瑞幸咖啡"）、品类（"奶茶"）或具体商品名（"生椰拿铁"）；上游按商品级匹配，故商品名关键词会返回真正在售该商品的店铺。每家店附带 `matched_items`（仅展示用的命中商品预览）。注意：此模式**不返回** distance / rating / delivery_fee 等字段（上游限制）。
+- **传 `keyword`** → 精确搜索（约 5 家）：`keyword` 可为店名（"瑞幸咖啡"）、品类（"奶茶"）或具体商品名（"生椰拿铁"）；上游按商品级匹配，故商品名关键词会返回真正在售该商品的店铺。每家店附带 `matched_items`（仅展示用的命中商品预览）。注意：此模式下 distance / delivery_fee 等字段通常为 `null`（上游限制；`rating` 视上游可能有值）。
 
 ### 参数
 
@@ -97,7 +97,11 @@ description: "MCP 工具，对应 REST POST /shops/search — 按位置搜索或
 
 | code | 说明 |
 |------|------|
-| `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | 缺少或无效的用户授权 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant`（未传用户授权）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通对应能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力或服务商 |
 | `PUBLIC_REFERENCE_INVALID` | `address_id` 无效或不属于当前授权用户 |
 | `COORDS_REQUIRED` | 既未传 `address_id` 也未传 `lat`/`lng`，且无历史定位可回退 |
 | `ELEME_ERROR` | 上游搜索接口异常 |

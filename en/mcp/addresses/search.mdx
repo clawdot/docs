@@ -83,11 +83,10 @@ Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`)
 
 ### Error Codes
 
-| HTTP | code | Description |
-|------|------|-------------|
-| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | Missing, invalid, or expired consent grant |
-| 403 | `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent lacks the capability, or the grant does not match the capability |
-| 422 | — | Invalid parameter types (e.g. non-numeric `lat`/`lng`) |
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | Missing, invalid, or expired consent grant |
+| `CAP_NOT_BOUND` / `CONSENT_GRANT_WRONG_CAP` | Agent lacks the capability, or the grant does not match the capability |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 

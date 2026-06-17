@@ -51,7 +51,11 @@ Generates a shareable H5 short link (short URL) for a shop. The gateway wraps th
 
 | HTTP | code | Description |
 |------|------|-------------|
-| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | Missing or invalid consent grant |
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `X-Consent-Grant-Id`) |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | The Agent has not enabled the delivery capability |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
 | 400 | `PUBLIC_REFERENCE_INVALID` | `shop_id` invalid, expired, or not owned by the current consent user |
 | 502 | `ELEME_ERROR` | Upstream failed to generate the share scheme |
 

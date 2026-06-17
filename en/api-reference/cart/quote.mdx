@@ -42,7 +42,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 |-------|------|----------|---------|-------------|
 | `shop_id` | string | Yes | — | Shop ID (from `/shops/search`) |
 | `cart_id` | string | Yes | — | Cart context ID (from `/shops/search`; carries shop & delivery coordinates, so no lat/lng is needed here) |
-| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `id` returned by `/addresses/select` as-is |
+| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `address_id` returned by `/addresses/select` as-is |
 | `items` | array | Yes | — | Item list (see below, at least one) |
 | `items[].item_id` | string | Yes | — | Item ID (from `/shops/menu`) |
 | `items[].sku_id` | string | No | `null` | SKU ID (from the menu item's optional SKUs) |

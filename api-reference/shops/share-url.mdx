@@ -51,7 +51,11 @@ description: "POST /shops/share-url — 为指定店铺生成一条 H5 分享短
 
 | HTTP | code | 说明 |
 |------|------|------|
-| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | 缺少或无效的用户授权 |
+| 401 | `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `X-Consent-Grant-Id`）|
+| 401 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| 401 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
 | 400 | `PUBLIC_REFERENCE_INVALID` | `shop_id` 无效、过期或不属于当前授权用户 |
 | 502 | `ELEME_ERROR` | 上游未能生成分享 scheme |
 

@@ -46,7 +46,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | `shop_id` | string | Yes | — | Shop ID (from `/shops/search`) |
 | `cart_id` | string | Yes | — | Cart context ID (from `/shops/search`; carries shop & delivery coordinates, so no lat/lng is needed here) |
 | `quote_id` | string | No | `null` | Quote ID (from `/cart/quote`); validates the quote context when provided |
-| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `id` returned by `/addresses/select` as-is |
+| `address_id` | string | Yes | — | **Gateway address ID (string)**; use the `address_id` returned by `/addresses/select` as-is |
 | `items` | array | Yes | — | Item list (see below) |
 | `items[].item_id` | string | Yes | — | Item ID (from `/shops/menu`) |
 | `items[].sku_id` | string | No | `null` | SKU ID |
@@ -154,6 +154,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
 | 403 | `CAP_NOT_BOUND` | Capability is not enabled for this agent |
 | 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| 422 | (request validation) | On the REST path, body field type / required / constraint violations are caught by pydantic and return FastAPI's default 422 (a structured validation body, not `{error:{code}}`). e.g. `items[].quantity` not an integer or < 1 (`Field(ge=1)`), or undefined fields in the body or `items[]` (`extra=forbid`) |
 | 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `address_id` invalid |
 | 502 | `ELEME_ERROR` | Upstream preview API error; retry later |
 

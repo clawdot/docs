@@ -14,7 +14,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 **Two modes (switched by `keyword`):**
 
 - **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
-- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: this mode does **not** return distance / rating / delivery_fee fields (upstream limitation).
+- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / delivery_fee fields are usually `null` (upstream limitation; `rating` may carry a value depending on the upstream).
 
 ### Request Headers
 
@@ -114,7 +114,11 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 
 | HTTP | code | Description |
 |------|------|-------------|
-| 401 | `CONSENT_GRANT_REQUIRED` / `CONSENT_GRANT_INVALID` | Missing or invalid consent grant |
+| 401 | `CONSENT_GRANT_REQUIRED` | Missing `consent_grant` (no consent grant passed) |
+| 401 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| 401 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| 403 | `CAP_NOT_BOUND` | This capability is not enabled for the Agent |
+| 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability or provider |
 | 400 | `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid or does not belong to the consented user |
 | 400 | `COORDS_REQUIRED` | Neither `address_id` nor `lat`/`lng` was given and no remembered location is available |
 | 502 | `ELEME_ERROR` | Upstream search API error |

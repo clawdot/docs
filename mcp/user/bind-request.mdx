@@ -66,13 +66,12 @@ description: "MCP 工具 request_user_bind — 发起用户授权绑定（sms �
 
 ### 错误码
 
-| HTTP | code | 说明 |
-|------|------|------|
-| 401 | `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
-| 403 | `CAP_NOT_BOUND` | 当前 Agent 未开通外卖能力 |
-| 400 | `PUBLIC_REFERENCE_INVALID` | `auth_type` 非 sms/h5、`sms` 模式传了 `callback_url`、`callback_url` 非法（非 http(s) 或内网地址）、或 `extra` 非 JSON 对象 / 超过 2KB |
-| 422 | — | 请求参数类型不合法（如 `auth_type` 非枚举值）|
-| 429 | `SMS_COOLDOWN` | 验证码 60 秒冷却中（仅 `sms` 模式）|
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通外卖能力 |
+| `PUBLIC_REFERENCE_INVALID` | `auth_type` 非 sms/h5、`sms` 模式传了 `callback_url`、`callback_url` 非法（非 http(s) 或内网地址）、或 `extra` 非 JSON 对象 / 超过 2KB。MCP 工具参数无模型校验，参数类型不合法（如 `auth_type` 非枚举值）也归到此码（同样的非法输入在 REST 端返回 422）|
+| `SMS_COOLDOWN` | 验证码 60 秒冷却中（仅 `sms` 模式）|
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

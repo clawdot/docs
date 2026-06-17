@@ -56,8 +56,11 @@ MCP tools map one-to-one to REST endpoints and share the same service layer and 
 
 - **Parameters:** apart from `consent_grant_id`, a tool's parameters match the body fields of its REST endpoint (same names, same types).
 - **Responses:** identical structure to the corresponding REST endpoint.
-- **Amount units:** cents (integers). For example, `1500` means ¥15.00.
 - **Errors:** the unified `{"error": {"code", "message"}}` format. See [Error handling](/en/gateway/error-handling).
+
+<Warning>
+  All amount fields are in **cents (integers)**, not yuan. For example, `1500` means ¥15.00.
+</Warning>
 
 ## Tool list
 

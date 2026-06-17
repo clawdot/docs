@@ -42,7 +42,7 @@ description: "POST /cart/quote — 对已选商品的购物车算价，返回价
 |------|------|------|------|------|
 | `shop_id` | string | 是 | — | 店铺 ID（来自 `/shops/search`）|
 | `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `/shops/search`，已封装店铺与配送坐标，故算价无需再传经纬度）|
-| `address_id` | string | 是 | — | **网关地址 ID（字符串）**，原样使用 `/addresses/select` 返回的 `id` |
+| `address_id` | string | 是 | — | **网关地址 ID（字符串）**，原样使用 `/addresses/select` 返回的 `address_id` |
 | `items` | array | 是 | — | 商品列表（见下，至少一项）|
 | `items[].item_id` | string | 是 | — | 商品 ID（来自 `/shops/menu`）|
 | `items[].sku_id` | string | 否 | `null` | SKU ID（来自菜单项的可选 SKU）|

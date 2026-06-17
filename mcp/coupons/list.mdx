@@ -60,14 +60,14 @@ description: "MCP 工具，对应 REST POST /coupons/list — 列出当前授权
 
 ### 错误码
 
-| HTTP | code | 说明 |
-|------|------|------|
-| 401 | `CONSENT_GRANT_REQUIRED` | 缺少用户授权 |
-| 401 | `CONSENT_GRANT_INVALID` | 授权 ID 无效（未找到对应绑定）|
-| 401 | `CONSENT_GRANT_EXPIRED` | 授权已过期，需重新授权 |
-| 403 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
-| 403 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力或服务商 |
-| 502 | `ELEME_ERROR` | 上游优惠券查询失败 |
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权 |
+| `CONSENT_GRANT_INVALID` | 授权 ID 无效（未找到对应绑定）|
+| `CONSENT_GRANT_EXPIRED` | 授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力或服务商 |
+| `ELEME_ERROR` | 上游优惠券查询失败 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 
