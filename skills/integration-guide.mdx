@@ -49,7 +49,7 @@ API Key 仅在创建时显示一次。如果遗失，需要在 Portal 重新生�
 
 ### 步骤 2：配置 MCP 服务器
 
-Gateway 的 MCP 公开端点是 `https://api.clawdot.ai/mcp/v1`（Streamable HTTP）。Agent 身份通过 `Authorization: Bearer clw_...` 请求头在**连接层**传递。
+Gateway 的 MCP 公开端点是 `http://eleme-gateway.hicaspian.com/mcp/v1`（Streamable HTTP）。Agent 身份通过 `Authorization: Bearer clw_...` 请求头在**连接层**传递。
 
 在支持 Streamable HTTP 远程 MCP 的客户端中配置：
 
@@ -58,7 +58,7 @@ Gateway 的 MCP 公开端点是 `https://api.clawdot.ai/mcp/v1`（Streamable HTT
   "mcpServers": {
     "clawdot-gateway": {
       "type": "http",
-      "url": "https://api.clawdot.ai/mcp/v1",
+      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_api_key_here"
       }
@@ -71,7 +71,7 @@ Gateway 的 MCP 公开端点是 `https://api.clawdot.ai/mcp/v1`（Streamable HTT
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
-| `url` | Gateway 的 MCP 公开端点（Streamable HTTP） | `https://api.clawdot.ai/mcp/v1` |
+| `url` | Gateway 的 MCP 公开端点（Streamable HTTP） | `http://eleme-gateway.hicaspian.com/mcp/v1` |
 | `Authorization` | Agent 身份，`Bearer ` + 你的 API Key | `Bearer clw_abc123def456...` |
 
 <Warning>
@@ -140,7 +140,7 @@ verify_user_bind(
 
 ## REST API
 
-适合需要完整控制的高级场景，或集成到钉钉、Kimi 等平台。所有 REST 端点都在 `https://api.clawdot.ai/api/v1` 下。
+适合需要完整控制的高级场景，或集成到钉钉、Kimi 等平台。所有 REST 端点都在 `http://eleme-gateway.hicaspian.com/api/v1` 下。
 
 ### 步骤 1：获取 API Key
 
@@ -155,7 +155,7 @@ verify_user_bind(
 所有需要用户身份的 REST 请求都要在 Header 中带上两层凭证：
 
 ```bash
-curl -X POST https://api.clawdot.ai/api/v1/shops/search \
+curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
   -H "Authorization: Bearer clw_your_api_key_here" \
   -H "X-Consent-Grant-Id: cg_550e8400e29b41d4a716" \
   -H "Content-Type: application/json" \
@@ -366,7 +366,7 @@ import requests
 
 try:
     response = requests.post(
-        "https://api.clawdot.ai/api/v1/shops/search",
+        "http://eleme-gateway.hicaspian.com/api/v1/shops/search",
         headers={
             "Authorization": f"Bearer {api_key}",
             "X-Consent-Grant-Id": consent_grant_id,
@@ -534,7 +534,7 @@ import json
 
 def call_gateway_api(endpoint, params, api_key, consent_grant_id):
     """调用 Clawdot Gateway REST 端点的辅助函数"""
-    url = f"https://api.clawdot.ai/api/v1/{endpoint}"
+    url = f"http://eleme-gateway.hicaspian.com/api/v1/{endpoint}"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "X-Consent-Grant-Id": consent_grant_id,
@@ -621,7 +621,7 @@ def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
 <details>
 <summary>MCP 无法加载</summary>
 
-- 确认端点是 `https://api.clawdot.ai/mcp/v1`
+- 确认端点是 `http://eleme-gateway.hicaspian.com/mcp/v1`
 - 确认 `Authorization` 头为 `Bearer clw_...`，API Key 正确
 - 检查客户端是否支持 Streamable HTTP 远程 MCP
 - 重启 MCP 客户端

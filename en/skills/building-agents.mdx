@@ -87,7 +87,7 @@ import requests
 import os
 
 api_key = os.getenv("CLAWDOT_API_KEY")
-base_url = "https://api.clawdot.ai/api/v1"
+base_url = "http://eleme-gateway.hicaspian.com/api/v1"
 
 # Step 2a: Initiate binding, send SMS verification code
 def request_user_bind(phone: str) -> str:
@@ -696,7 +696,7 @@ from typing import List, Dict, Optional
 class LocalLifeAgent:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("CLAWDOT_API_KEY")
-        self.base_url = "https://api.clawdot.ai/api/v1"
+        self.base_url = "http://eleme-gateway.hicaspian.com/api/v1"
         self.consent_grant_id = None
         self.user_phone = None
 

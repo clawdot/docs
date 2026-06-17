@@ -5,8 +5,8 @@ description: "从拿到 API Key 到下出第一单——一条完整链路跑通
 
 Clawdot Gateway 把外卖能力以统一接口开放给 AI Agent。本指南带你从零跑通一次完整下单。
 
-- **REST API**（本指南主线）：`https://api.clawdot.ai/api/v1`
-- **MCP**（工具调用）：`https://api.clawdot.ai/mcp/v1`（每步附对应工具名）
+- **REST API**（本指南主线）：`http://eleme-gateway.hicaspian.com/api/v1`
+- **MCP**（工具调用）：`http://eleme-gateway.hicaspian.com/mcp/v1`（每步附对应工具名）
 
 <Note>
   两层身份：**API Key**（`clw_` 前缀）标识你的 Agent，所有请求都要带；**consent grant**（`cg_` 前缀）标识已授权的外卖用户，操作用户资源的请求要带。详见 [认证机制](/gateway/authentication)。
@@ -26,13 +26,13 @@ Authorization: Bearer clw_your_api_key
 
 ```bash
 # 1) 发起绑定 → 拿 bind_id，用户收到验证码
-curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"phone": "18800000000", "auth_type": "sms"}'
 
 # 2) 用户告知验证码后确认 → 拿 consent_grant_id
-curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/verify" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"auth_type": "sms", "bind_id": "<上一步的 bind_id>", "code": "123456"}'
@@ -46,7 +46,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
 
 <Step title="搜索店铺">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/shops/search" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/search" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
@@ -61,7 +61,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/shops/search" \
 
 <Step title="查看菜单、选商品">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/shops/menu" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/menu" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
@@ -77,13 +77,13 @@ curl -X POST "https://api.clawdot.ai/api/v1/shops/menu" \
 <Step title="确定收货地址">
 ```bash
 # 搜地址 → 拿 suggestion token
-curl -X POST "https://api.clawdot.ai/api/v1/addresses/search" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/search" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" -d '{"keyword": "上海市黄浦区人民广场"}'
 # → suggestions[].token
 
 # 保存地址 → 拿 address_id
-curl -X POST "https://api.clawdot.ai/api/v1/addresses/select" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/select" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{"suggestion_token": "<上一步 token>", "contact_name": "张三", "contact_phone": "18800000000"}'
@@ -95,7 +95,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/addresses/select" \
 
 <Step title="算价（购物车报价）">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/cart/quote" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
@@ -111,7 +111,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
 
 <Step title="预览订单">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/preview" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
@@ -128,7 +128,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
 用预览返回的 `preview_id` + `confirmation_token`：
 
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/orders/create" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/create" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
@@ -143,12 +143,12 @@ curl -X POST "https://api.clawdot.ai/api/v1/orders/create" \
 
 ```bash
 # 发起免密签约
-curl -X POST "https://api.clawdot.ai/api/v1/payment/sign-action" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/payment/sign-action" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" -d '{"return_url": "https://your-app.example.com/done"}'
 
 # 查询订单状态
-curl "https://api.clawdot.ai/api/v1/orders/ord_..." \
+curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant"
 ```
 

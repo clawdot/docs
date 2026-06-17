@@ -22,7 +22,7 @@ Alongside the REST API, Clawdot Gateway exposes an **MCP (Model Context Protocol
 
 ## Quick facts
 
-- **Connection endpoint:** `https://api.clawdot.ai/mcp/v1`. The gateway mounts the MCP app under `/mcp`, and FastMCP's inner route is versioned (`/v1`), so the public endpoint is `/mcp/v1`.
+- **Connection endpoint:** `http://eleme-gateway.hicaspian.com/mcp/v1`. The gateway mounts the MCP app under `/mcp`, and FastMCP's inner route is versioned (`/v1`), so the public endpoint is `/mcp/v1`.
 - **Authentication:** the two-layer auth matches the REST API — an **API Key** (`Authorization: Bearer clw_...` header) identifies the Agent, and a **consent grant** (`cg_` prefix) identifies the authorized user. See [Authentication](/en/gateway/authentication).
 - **Errors:** unified `{"error": {"code", "message"}}` format. See [Error Handling](/en/gateway/error-handling).
 

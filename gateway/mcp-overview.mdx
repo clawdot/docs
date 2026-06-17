@@ -22,7 +22,7 @@ Clawdot Gateway 在 REST API 之外同时提供 **MCP (Model Context Protocol)**
 
 ## 要点速览
 
-- **连接端点：** `https://api.clawdot.ai/mcp/v1`。网关把 MCP 应用挂载在 `/mcp` 下，FastMCP 的内部路由是版本化的（`/v1`），所以对外公开端点是 `/mcp/v1`。
+- **连接端点：** `http://eleme-gateway.hicaspian.com/mcp/v1`。网关把 MCP 应用挂载在 `/mcp` 下，FastMCP 的内部路由是版本化的（`/v1`），所以对外公开端点是 `/mcp/v1`。
 - **认证：** 两层认证与 REST API 一致——**API Key**（`Authorization: Bearer clw_...` 请求头）标识 Agent，**consent grant**（`cg_` 前缀）标识已授权用户。详见 [认证机制](/gateway/authentication)。
 - **错误：** 统一 `{"error": {"code", "message"}}` 格式，详见 [错误处理](/gateway/error-handling)。
 

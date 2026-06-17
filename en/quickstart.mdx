@@ -5,8 +5,8 @@ description: "From API Key to your first order — run the full Clawdot Gateway 
 
 Clawdot Gateway exposes food-delivery capabilities to AI Agents through a unified interface. This guide walks you through a complete order from scratch.
 
-- **REST API** (this guide's main path): `https://api.clawdot.ai/api/v1`
-- **MCP** (tool calls): `https://api.clawdot.ai/mcp/v1` (each step lists its tool name)
+- **REST API** (this guide's main path): `http://eleme-gateway.hicaspian.com/api/v1`
+- **MCP** (tool calls): `http://eleme-gateway.hicaspian.com/mcp/v1` (each step lists its tool name)
 
 <Note>
   Two-layer identity: the **API Key** (`clw_` prefix) identifies your Agent and is required on every request; the **consent grant** (`cg_` prefix) identifies an authorized food-delivery user and is required when operating on user resources. See [Authentication](/en/gateway/authentication).
@@ -26,13 +26,13 @@ Placing an order acts on behalf of a real food-delivery user, so have them autho
 
 ```bash
 # 1) Start binding -> get bind_id; the user receives an SMS code
-curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"phone": "18800000000", "auth_type": "sms"}'
 
 # 2) After the user gives you the code, confirm -> get consent_grant_id
-curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/verify" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"auth_type": "sms", "bind_id": "<bind_id from step 1>", "code": "123456"}'
@@ -46,7 +46,7 @@ Once you have `consent_grant_id`, every request below carries `X-Consent-Grant-I
 
 <Step title="Search shops">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/shops/search" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/search" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
@@ -61,7 +61,7 @@ Each shop carries a `shop_id` and a `cart_id` (the `cart_id` encapsulates the sh
 
 <Step title="Browse the menu, pick items">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/shops/menu" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/menu" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
@@ -77,13 +77,13 @@ Note the `item_id` and `sku_id` of what you want to buy.
 <Step title="Choose a delivery address">
 ```bash
 # Search addresses -> get a suggestion token
-curl -X POST "https://api.clawdot.ai/api/v1/addresses/search" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/search" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" -d '{"keyword": "People'\''s Square, Huangpu, Shanghai"}'
 # -> suggestions[].token
 
 # Save the address -> get address_id
-curl -X POST "https://api.clawdot.ai/api/v1/addresses/select" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/select" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{"suggestion_token": "<token from above>", "contact_name": "Zhang San", "contact_phone": "18800000000"}'
@@ -95,7 +95,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/addresses/select" \
 
 <Step title="Quote the cart">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/cart/quote" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
@@ -111,7 +111,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
 
 <Step title="Preview the order">
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/preview" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{
@@ -128,7 +128,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
 Use the `preview_id` + `confirmation_token` returned by the preview:
 
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/orders/create" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/create" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" \
   -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
@@ -143,12 +143,12 @@ A first order requires the user to complete no-password payment signing (returns
 
 ```bash
 # Start no-password signing
-curl -X POST "https://api.clawdot.ai/api/v1/payment/sign-action" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/payment/sign-action" \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
   -H "Content-Type: application/json" -d '{"return_url": "https://your-app.example.com/done"}'
 
 # Check order status
-curl "https://api.clawdot.ai/api/v1/orders/ord_..." \
+curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
   -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant"
 ```
 

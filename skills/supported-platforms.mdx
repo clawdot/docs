@@ -80,7 +80,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
+    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
 
     def sign_message(timestamp, secret):
         """钉钉消息签名验证"""
@@ -216,7 +216,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
+    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
 
     def call_kimi_with_function_calling(user_message, consent_grant_id):
         """使用 Kimi API 和 Function Calling"""
@@ -450,7 +450,7 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     在 [Clawdot Portal](https://portal.clawdot.ai) 创建 Agent 并获取 API Key（`clw_` 前缀）
 
     **3. 配置 MCP 服务器**
-    Gateway 原生提供 Streamable HTTP MCP 端点（`https://api.clawdot.ai/mcp/v1`），
+    Gateway 原生提供 Streamable HTTP MCP 端点（`http://eleme-gateway.hicaspian.com/mcp/v1`），
     Agent 身份通过 `Authorization: Bearer clw_...` 请求头在连接层传递。编辑
     `~/.claude-desktop/config.json`：
 
@@ -458,7 +458,7 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     {
       "mcpServers": {
         "clawdot-skills": {
-          "url": "https://api.clawdot.ai/mcp/v1",
+          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
           "headers": {
             "Authorization": "Bearer clw_your_api_key_here"
           }
@@ -635,7 +635,7 @@ Cursor 是面向开发者的 AI 代码编辑器，支持 MCP 集成。
 {
   "mcpServers": {
     "clawdot": {
-      "url": "https://api.clawdot.ai/mcp/v1",
+      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_key"
       }
@@ -670,7 +670,7 @@ const CONSENT_GRANT_ID = process.env.CONSENT_GRANT_ID; // 用户授权，cg_ 前
 
 async function searchShops(keyword, lat, lng) {
   const response = await axios.post(
-    'https://api.clawdot.ai/api/v1/shops/search',
+    'http://eleme-gateway.hicaspian.com/api/v1/shops/search',
     { keyword, lat, lng },   // GCJ-02 坐标；或改用 address_id
     {
       headers: {
