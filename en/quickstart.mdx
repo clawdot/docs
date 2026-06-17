@@ -1,8 +1,172 @@
 ---
 title: "Quick Start"
-description: "Coming Soon"
+description: "From API Key to your first order — run the full Clawdot Gateway flow end to end"
 ---
 
-## Coming Soon
+Clawdot Gateway exposes food-delivery capabilities to AI Agents through a unified interface. This guide walks you through a complete order from scratch.
 
-We're preparing the Quick Start guide and look forward to sharing it with you soon.
+- **REST API** (this guide's main path): `https://api.clawdot.ai/api/v1`
+- **MCP** (tool calls): `https://api.clawdot.ai/mcp/v1` (each step lists its tool name)
+
+<Note>
+  Two-layer identity: the **API Key** (`clw_` prefix) identifies your Agent and is required on every request; the **consent grant** (`cg_` prefix) identifies an authorized food-delivery user and is required when operating on user resources. See [Authentication](/en/gateway/authentication).
+</Note>
+
+## Prerequisite: get an API Key
+
+Create an Agent and enable the delivery capability in the [Clawdot Portal](https://portal.clawdot.ai) to obtain your API Key. Every request then carries:
+
+```
+Authorization: Bearer clw_your_api_key
+```
+
+<Steps>
+<Step title="Bind user authorization">
+Placing an order acts on behalf of a real food-delivery user, so have them authorize first (SMS code mode).
+
+```bash
+# 1) Start binding -> get bind_id; the user receives an SMS code
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "18800000000", "auth_type": "sms"}'
+
+# 2) After the user gives you the code, confirm -> get consent_grant_id
+curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/verify" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"auth_type": "sms", "bind_id": "<bind_id from step 1>", "code": "123456"}'
+# -> { "consent_grant_id": "cg_...", "scopes": ["taobao_flash.delivery"], "expires_at": "..." }
+```
+
+Once you have `consent_grant_id`, every request below carries `X-Consent-Grant-Id: cg_...`.
+
+<Note>MCP: tools `request_user_bind` / `verify_user_bind`; `consent_grant_id` is then passed as a parameter on each tool (not as a header). H5 mode is also supported (`auth_type: "h5"` returns an authorization link) — see [Request Binding](/en/api-reference/user/bind-request).</Note>
+</Step>
+
+<Step title="Search shops">
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/shops/search" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{"keyword": "Luckin Coffee", "lat": 31.23, "lng": 121.47}'
+# -> { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ] }
+```
+
+Each shop carries a `shop_id` and a `cart_id` (the `cart_id` encapsulates the shop and delivery coordinates; pass it back as-is in later steps).
+
+<Note>MCP: `search_shops`</Note>
+</Step>
+
+<Step title="Browse the menu, pick items">
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/shops/menu" \
+  -H "Authorization: Bearer clw_your_api_key" \
+  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{"shop_id": "<from search>", "cart_id": "<from search>"}'
+# -> items[]: each carries item_id / sku_id / ingredient_options ...
+```
+
+Note the `item_id` and `sku_id` of what you want to buy.
+
+<Note>MCP: `get_shop_menu`</Note>
+</Step>
+
+<Step title="Choose a delivery address">
+```bash
+# Search addresses -> get a suggestion token
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/search" \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" -d '{"keyword": "People'\''s Square, Huangpu, Shanghai"}'
+# -> suggestions[].token
+
+# Save the address -> get address_id
+curl -X POST "https://api.clawdot.ai/api/v1/addresses/select" \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{"suggestion_token": "<token from above>", "contact_name": "Zhang San", "contact_phone": "18800000000"}'
+# -> { "address_id": "...", ... }
+```
+
+<Note>MCP: `search_addresses` / `select_address`</Note>
+</Step>
+
+<Step title="Quote the cart">
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/cart/quote" \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<from search>", "cart_id": "<from search>", "address_id": "<from select>",
+    "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}]
+  }'
+# -> { "quote_id": "...", "payable_price": 1500, ... }
+```
+
+<Warning>All amount fields are in **cents (integers)**; `1500` means ¥15.00.</Warning>
+<Note>MCP: `quote_cart`</Note>
+</Step>
+
+<Step title="Preview the order">
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/orders/preview" \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shop_id": "<from search>", "cart_id": "<from search>", "address_id": "<from select>",
+    "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}]
+  }'
+# -> { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, ... }
+```
+
+<Note>MCP: `preview_order`</Note>
+</Step>
+
+<Step title="Place the order">
+Use the `preview_id` + `confirmation_token` returned by the preview:
+
+```bash
+curl -X POST "https://api.clawdot.ai/api/v1/orders/create" \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" \
+  -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
+# -> { "order_id": "ord_...", "status": "pending_payment", "payment_action": {...} }
+```
+
+<Note>MCP: `create_order`</Note>
+</Step>
+
+<Step title="Sign for payment + check the order">
+A first order requires the user to complete no-password payment signing (returns an H5 link for the user); afterwards you can check order status anytime.
+
+```bash
+# Start no-password signing
+curl -X POST "https://api.clawdot.ai/api/v1/payment/sign-action" \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
+  -H "Content-Type: application/json" -d '{"return_url": "https://your-app.example.com/done"}'
+
+# Check order status
+curl "https://api.clawdot.ai/api/v1/orders/ord_..." \
+  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```
+
+<Note>MCP: `get_sign_action` / `get_order_status` / `get_sign_status`</Note>
+</Step>
+</Steps>
+
+## The full chain at a glance
+
+`search_shops` (-> shop_id + cart_id) -> `get_shop_menu` (-> item_id / sku_id) -> `quote_cart` (-> quote_id) -> `select_address` (-> address_id) -> `preview_order` (-> preview_id + confirmation_token) -> `create_order` (-> order_id) -> `get_sign_action` (no-password signing)
+
+Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is issued by the gateway and **passed back as-is** — never construct them yourself.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/en/api-reference/introduction">Full request / response for the 18 REST endpoints</Card>
+  <Card title="MCP Tools" icon="plug" href="/en/mcp/overview">18 MCP tools, parameters matching REST</Card>
+  <Card title="Authentication" icon="key" href="/en/gateway/authentication">API Key + consent grant in detail</Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/en/gateway/error-handling">Unified error codes and handling</Card>
+</CardGroup>
