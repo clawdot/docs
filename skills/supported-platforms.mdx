@@ -53,7 +53,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
        - 创建企业应用
 
     2. **创建 Agent**
-       在 Clawdot 控制台创建专用于钉钉的 Agent，记录 API Key
+       在 [Clawdot Portal](https://portal.clawdot.ai) 创建专用于钉钉的 Agent，记录 API Key（`clw_` 前缀）
 
     3. **配置 WebHook**
        在钉钉应用设置中，配置 Clawdot Skills API 作为消息处理端点
@@ -80,7 +80,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
 
     def sign_message(timestamp, secret):
         """钉钉消息签名验证"""
@@ -127,17 +127,17 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
     def search_shops_for_dingtalk(query, user_id):
         """调用 Clawdot API 搜索商店"""
-        user_token = get_user_token(user_id)  # 获取该用户的 token
+        consent_grant_id = get_consent_grant(user_id)  # 获取该用户的授权（cg_ 前缀）
 
-        url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
+        url = f"{CLAWDOT_BASE_URL}/shops/search"
         headers = {
             "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-User-Token": user_token
+            "X-Consent-Grant-Id": consent_grant_id
         }
         payload = {
-            "query": query,
-            "location": "中关村",  # 应该从用户位置服务获取
-            "limit": 5
+            "keyword": query,
+            "lat": 39.9836,   # GCJ-02 坐标，应从用户位置服务获取
+            "lng": 116.3164,
         }
 
         response = requests.post(url, json=payload, headers=headers)
@@ -147,10 +147,12 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
         """格式化商店列表为钉钉卡片"""
         cards = []
         for shop in shops:
+            # 金额字段单位为分（整数），展示时除以 100
+            delivery_fee_yuan = shop.get("delivery_fee", 0) / 100
             cards.append({
                 "title": shop["name"],
-                "actionURL": f"https://your-app.com/shop/{shop['id']}",
-                "content": f"评分: {shop['rating']}⭐ | 距离: {shop['distance']}km | 配送费: ¥{shop['delivery_fee']}"
+                "actionURL": f"https://your-app.com/shop/{shop['shop_id']}",
+                "content": f"评分: {shop.get('rating', '-')}⭐ | {shop.get('distance_text', '')} | 配送费: ¥{delivery_fee_yuan:.2f}"
             })
         return {"cards": cards}
 
@@ -159,9 +161,10 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
         # 钉钉 API 实现
         pass
 
-    def get_user_token(user_id):
-        """从数据库获取用户的 User Token"""
-        # 实现用户 token 存储和检索逻辑
+    def get_consent_grant(user_id):
+        """从数据库获取用户的 consent grant（cg_ 前缀）"""
+        # 用户首次使用时走绑定流程（auth/bind/request + auth/bind/verify）
+        # 拿到 consent_grant_id 后持久化，后续请求复用
         pass
 
     if __name__ == "__main__":
@@ -193,7 +196,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
        - 创建应用并获取 API Key
 
     2. **创建 Clawdot Agent**
-       在 Clawdot 控制台创建 Agent，记录 API Key
+       在 [Clawdot Portal](https://portal.clawdot.ai) 创建 Agent，记录 API Key（`clw_` 前缀）
 
     3. **定义 Function Schema**
        在 Kimi 应用中注册 Clawdot Gateway 的 API 为 Function Calling 工具
@@ -213,52 +216,78 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.com"
+    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
 
-    def call_kimi_with_function_calling(user_message, user_token):
+    def call_kimi_with_function_calling(user_message, consent_grant_id):
         """使用 Kimi API 和 Function Calling"""
 
-        # 定义可用的 Function（Clawdot Gateway API）
+        # 定义可用的 Function（Clawdot Gateway 工具，与下单链路一一对应）。
+        # 完整下单链路：search_shops → get_shop_menu → quote_cart →
+        # select_address → preview_order → create_order → get_sign_action。
+        # 这里只列搜索 / 菜单 / 预览 / 下单四步作为示例。
         tools = [
             {
                 "type": "function",
                 "function": {
                     "name": "search_shops",
-                    "description": "搜索本地商店（外卖、商超、便利店等）",
+                    "description": "搜索 / 浏览本地商家（不传 keyword 为浏览附近店铺）",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "query": {
+                            "keyword": {
                                 "type": "string",
-                                "description": "搜索关键词"
+                                "description": "店名 / 品类 / 商品名；省略则浏览附近店铺"
                             },
-                            "location": {
+                            "address_id": {
                                 "type": "string",
-                                "description": "位置地址"
+                                "description": "已保存地址 ID；或改用 lat/lng（GCJ-02）"
                             },
-                            "limit": {
-                                "type": "integer",
-                                "description": "返回结果数量"
-                            }
-                        },
-                        "required": ["query", "location"]
+                            "lat": {"type": "number", "description": "纬度（GCJ-02），无 address_id 时必传"},
+                            "lng": {"type": "number", "description": "经度（GCJ-02），无 address_id 时必传"}
+                        }
                     }
                 }
             },
             {
                 "type": "function",
                 "function": {
-                    "name": "get_shop_detail",
-                    "description": "获取商店菜单和详细信息",
+                    "name": "get_shop_menu",
+                    "description": "获取商家菜单（含可下单的 item_id / sku_id）",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "shop_id": {
-                                "type": "string",
-                                "description": "商店 ID"
+                            "shop_id": {"type": "string", "description": "来自 search_shops"},
+                            "cart_id": {"type": "string", "description": "来自 search_shops，已封装配送坐标"},
+                            "keyword": {"type": "string", "description": "可选，按名称 / 分类 / 描述过滤"}
+                        },
+                        "required": ["shop_id", "cart_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "preview_order",
+                    "description": "预览订单，返回最终价格（单位分）与 preview_id + confirmation_token",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shop_id": {"type": "string"},
+                            "cart_id": {"type": "string"},
+                            "address_id": {"type": "string", "description": "来自 select_address"},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "item_id": {"type": "string"},
+                                        "sku_id": {"type": "string"},
+                                        "quantity": {"type": "integer"}
+                                    }
+                                }
                             }
                         },
-                        "required": ["shop_id"]
+                        "required": ["shop_id", "cart_id", "address_id", "items"]
                     }
                 }
             },
@@ -266,24 +295,14 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
                 "type": "function",
                 "function": {
                     "name": "create_order",
-                    "description": "创建外卖订单",
+                    "description": "用同一次预览的 preview_id + confirmation_token 正式下单",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "shop_id": {"type": "string"},
-                            "items": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "item_id": {"type": "string"},
-                                        "quantity": {"type": "integer"}
-                                    }
-                                }
-                            },
-                            "delivery_address": {"type": "string"}
+                            "preview_id": {"type": "string", "description": "来自 preview_order"},
+                            "confirmation_token": {"type": "string", "description": "来自同一次 preview_order"}
                         },
-                        "required": ["shop_id", "items", "delivery_address"]
+                        "required": ["preview_id", "confirmation_token"]
                     }
                 }
             }
@@ -320,7 +339,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
                     function_result = call_clawdot_function(
                         function_name,
                         function_args,
-                        user_token
+                        consent_grant_id
                     )
 
                     print(f"Function: {function_name}")
@@ -328,43 +347,41 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
         return result
 
-    def call_clawdot_function(function_name, args, user_token):
+    # 工具名 → REST 端点（全部 POST），与下单链路一一对应
+    ENDPOINTS = {
+        "search_shops": "/shops/search",
+        "get_shop_menu": "/shops/menu",
+        "quote_cart": "/cart/quote",
+        "select_address": "/addresses/select",
+        "preview_order": "/orders/preview",
+        "create_order": "/orders/create",
+    }
+
+    def call_clawdot_function(function_name, args, consent_grant_id):
         """调用 Clawdot Gateway API"""
 
         headers = {
             "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-User-Token": user_token,
+            "X-Consent-Grant-Id": consent_grant_id,
             "Content-Type": "application/json"
         }
 
-        if function_name == "search_shops":
-            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/search"
-            response = requests.post(
-                url,
-                json=args,
-                headers=headers
-            )
-            return response.json()
+        path = ENDPOINTS.get(function_name)
+        if path is None:
+            raise ValueError(f"未知工具: {function_name}")
 
-        elif function_name == "get_shop_detail":
-            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/shops/{args['shop_id']}"
-            response = requests.get(url, headers=headers)
-            return response.json()
-
-        elif function_name == "create_order":
-            url = f"{CLAWDOT_BASE_URL}/api/v1/gateway/orders"
-            response = requests.post(
-                url,
-                json=args,
-                headers=headers
-            )
-            return response.json()
+        response = requests.post(
+            f"{CLAWDOT_BASE_URL}{path}",
+            json=args,
+            headers=headers
+        )
+        return response.json()
 
     # 使用示例
     user_message = "我想在中关村点一份外卖"
-    user_token = "550e8400-e29b-41d4-a716-446655440000"
+    consent_grant_id = "cg_..."  # 用户授权，首次使用走绑定流程获取
 
-    result = call_kimi_with_function_calling(user_message, user_token)
+    result = call_kimi_with_function_calling(user_message, consent_grant_id)
     ```
   </Tab>
 
@@ -395,7 +412,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
        - 配置基础信息和权限
 
     3. **创建 Clawdot Agent**
-       在 Clawdot 控制台创建专用 Agent
+       在 [Clawdot Portal](https://portal.clawdot.ai) 创建专用 Agent
 
     4. **配置集成**
        在腾讯云 Agent 中配置 Clawdot Skills 平台的 API 端点
@@ -430,23 +447,21 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     - 按照指示完成安装和登录
 
     **2. 创建 Clawdot Agent**
-    在 Clawdot 控制台创建 Agent 并获取 API Key
+    在 [Clawdot Portal](https://portal.clawdot.ai) 创建 Agent 并获取 API Key（`clw_` 前缀）
 
     **3. 配置 MCP 服务器**
-    编辑 `~/.claude-desktop/config.json`：
+    Gateway 原生提供 Streamable HTTP MCP 端点（`https://api.clawdot.ai/mcp/v1`），
+    Agent 身份通过 `Authorization: Bearer clw_...` 请求头在连接层传递。编辑
+    `~/.claude-desktop/config.json`：
 
     ```json
     {
       "mcpServers": {
         "clawdot-skills": {
-          "command": "node",
-          "args": [
-            "/path/to/mcp-gateway/dist/index.js",
-            "--gateway-url",
-            "https://api.clawdot.com/gateway",
-            "--api-key",
-            "clw_your_api_key_here"
-          ]
+          "url": "https://api.clawdot.ai/mcp/v1",
+          "headers": {
+            "Authorization": "Bearer clw_your_api_key_here"
+          }
         }
       }
     }
@@ -463,7 +478,10 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
   </Tab>
 
   <Tab title="MCP 服务器实现">
-    如果你想自己实现 MCP 服务器，以下是简化的示例：
+    Gateway 已原生提供 MCP 端点（`/mcp/v1`），通常**直接连接即可**（见上一标签页的配置）。
+    仅当你需要把 Gateway 的 REST API 适配进自己的 MCP 进程时，才参考以下简化示例。
+    每个工具都接受 `consent_grant_id` 参数（用户授权，`cg_` 前缀），在调用 REST 时
+    映射为 `X-Consent-Grant-Id` 请求头：
 
     ```typescript
     import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -504,37 +522,43 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
             tools: [
               {
                 name: "search_shops",
-                description: "搜索本地商店（外卖、商超等）",
+                description: "搜索 / 浏览本地商家",
                 inputSchema: {
                   type: "object",
                   properties: {
-                    query: { type: "string" },
-                    location: { type: "string" }
+                    consent_grant_id: { type: "string" },
+                    keyword: { type: "string" },
+                    address_id: { type: "string" },
+                    lat: { type: "number" },
+                    lng: { type: "number" }
                   },
-                  required: ["query", "location"]
+                  required: ["consent_grant_id"]
                 }
               },
               {
-                name: "get_shop_detail",
-                description: "获取商店菜单",
+                name: "get_shop_menu",
+                description: "获取商家菜单（含可下单的 item_id / sku_id）",
                 inputSchema: {
                   type: "object",
                   properties: {
-                    shop_id: { type: "string" }
+                    consent_grant_id: { type: "string" },
+                    shop_id: { type: "string" },
+                    cart_id: { type: "string" }
                   },
-                  required: ["shop_id"]
+                  required: ["consent_grant_id", "shop_id", "cart_id"]
                 }
               },
               {
                 name: "create_order",
-                description: "创建订单",
+                description: "用 preview_id + confirmation_token 正式下单",
                 inputSchema: {
                   type: "object",
                   properties: {
-                    shop_id: { type: "string" },
-                    items: { type: "array" }
+                    consent_grant_id: { type: "string" },
+                    preview_id: { type: "string" },
+                    confirmation_token: { type: "string" }
                   },
-                  required: ["shop_id", "items"]
+                  required: ["consent_grant_id", "preview_id", "confirmation_token"]
                 }
               }
             ]
@@ -548,11 +572,11 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
 
             switch (name) {
               case "search_shops":
-                return await this.searchShops(args);
-              case "get_shop_detail":
-                return await this.getShopDetail(args);
+                return await this.callGateway("/shops/search", args);
+              case "get_shop_menu":
+                return await this.callGateway("/shops/menu", args);
               case "create_order":
-                return await this.createOrder(args);
+                return await this.callGateway("/orders/create", args);
               default:
                 return { isError: true, content: [{ type: "text", text: "Unknown tool" }] };
             }
@@ -560,39 +584,17 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
         );
       }
 
-      private async searchShops(args: any) {
+      // 把工具参数转发给对应 REST 端点：consent_grant_id 走 X-Consent-Grant-Id 头，
+      // 其余字段作为 JSON body。
+      private async callGateway(path: string, args: any) {
+        const { consent_grant_id, ...body } = args;
         const response = await axios.post(
-          `${gatewayUrl}/api/v1/gateway/shops/search`,
-          args,
+          `${gatewayUrl}/api/v1${path}`,
+          body,
           {
             headers: {
               "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
-      }
-
-      private async getShopDetail(args: any) {
-        const response = await axios.get(
-          `${gatewayUrl}/api/v1/gateway/shops/${args.shop_id}`,
-          {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`
-            }
-          }
-        );
-        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
-      }
-
-      private async createOrder(args: any) {
-        const response = await axios.post(
-          `${gatewayUrl}/api/v1/gateway/orders`,
-          args,
-          {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
+              "X-Consent-Grant-Id": consent_grant_id,
               "Content-Type": "application/json"
             }
           }
@@ -627,18 +629,16 @@ Cursor 是面向开发者的 AI 代码编辑器，支持 MCP 集成。
 
 ### 快速开始
 
-配置与 Claude Desktop 类似：
+配置与 Claude Desktop 类似，直接连接 Gateway 的原生 MCP 端点：
 
 ```json
 {
   "mcpServers": {
     "clawdot": {
-      "command": "node",
-      "args": [
-        "path/to/mcp-gateway",
-        "--api-key",
-        "clw_your_key"
-      ]
+      "url": "https://api.clawdot.ai/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer clw_your_key"
+      }
     }
   }
 }
@@ -666,16 +666,16 @@ Cursor 集成方式与 Claude Desktop 基本相同，主要区别是使用场景
 const axios = require('axios');
 
 const CLAWDOT_API_KEY = process.env.CLAWDOT_API_KEY;
-const USER_TOKEN = process.env.USER_TOKEN;
+const CONSENT_GRANT_ID = process.env.CONSENT_GRANT_ID; // 用户授权，cg_ 前缀
 
-async function searchShops(query, location) {
+async function searchShops(keyword, lat, lng) {
   const response = await axios.post(
-    'https://api.clawdot.com/api/v1/gateway/shops/search',
-    { query, location },
+    'https://api.clawdot.ai/api/v1/shops/search',
+    { keyword, lat, lng },   // GCJ-02 坐标；或改用 address_id
     {
       headers: {
         'Authorization': `Bearer ${CLAWDOT_API_KEY}`,
-        'X-User-Token': USER_TOKEN,
+        'X-Consent-Grant-Id': CONSENT_GRANT_ID,
         'Content-Type': 'application/json'
       }
     }
@@ -685,7 +685,7 @@ async function searchShops(query, location) {
 }
 
 // 使用
-searchShops('外卖', '中关村').then(data => {
+searchShops('生椰拿铁', 39.9836, 116.3164).then(data => {
   console.log('搜索结果:', data.shops);
 });
 ```
@@ -754,8 +754,8 @@ searchShops('外卖', '中关村').then(data => {
 最佳实践：
 - 使用环境变量或密钥管理服务（如 HashiCorp Vault、AWS Secrets Manager）
 - 不要在代码中硬编码 API Key
-- 定期轮换 API Key
-- 限制 API Key 的使用范围（如按 IP、按 User Token）
+- 在 Portal 中按需轮换 / 禁用 API Key（被禁用的 Key 立即失效）
+- API Key 只标识 Agent；用户级访问由各用户的 consent grant（`cg_` 前缀）独立控制
 
 </details>
 

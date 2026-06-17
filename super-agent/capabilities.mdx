@@ -56,7 +56,7 @@ graph TB
     - 按关键词/位置搜索商家
     - 完整菜单浏览（含规格、属性、加料）
     - 智能默认规格选择
-    - 预览价格 → 确认下单
+    - 预览订单 → 创建订单（两步下单，金额单位为分）
     - 实时订单追踪
 
     **支持平台**: 美团、饿了么、各类独立外卖平台
@@ -274,8 +274,8 @@ graph TB
   <Accordion title="Super Agent 如何保证交易安全？" icon="shield">
     Super Agent 基于 Clawdot 底层基础设施，安全性有多重保障：
 
-    1. **身份认证**：每个 Super Agent 实例都有唯一身份
-    2. **操作确认**：下单前必须向用户展示价格，获得确认
+    1. **双层认证**：API Key（`clw_` 前缀）标识 Agent 身份，用户授权 consent grant（`cg_` 前缀）标识已授权的外卖用户
+    2. **操作确认**：下单分 `preview_order`（预览价格）与 `create_order`（创建订单）两步，必须先向用户展示价格并获得确认，再用预览返回的 `confirmation_token` 下单
     3. **链路加密**：所有 API 调用都经过加密
     4. **交易追踪**：每笔交易都可以追踪、审计、追责
     5. **第三方监管**：与商家平台直接对接，符合平台规范
@@ -326,7 +326,7 @@ graph TB
     最详细的外卖点餐使用指南
   </Card>
 
-  <Card title="查看产品路线图" icon="map" href="/clawdot/roadmap">
+  <Card title="查看产品路线图" icon="map" href="/overview/roadmap">
     了解 Super Agent 的后续规划
   </Card>
 

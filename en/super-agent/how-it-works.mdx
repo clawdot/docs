@@ -18,27 +18,31 @@ sequenceDiagram
   Agent->>GW: search_shops(keyword="luckin")
   GW->>Platform: Search merchants
   Platform-->>GW: Merchant list
-  GW-->>Agent: Structured results
+  GW-->>Agent: Structured results (with shop_id + cart_id)
 
-  Agent->>GW: get_shop_detail(shop_id)
+  Agent->>GW: get_shop_menu(shop_id, cart_id)
   GW->>Platform: Get menu + specs
   Platform-->>GW: Raw menu data
-  GW-->>Agent: Normalized menu (with default options)
+  GW-->>Agent: Normalized menu (with item_id / sku_id / default options)
 
   Agent->>Agent: Select product with default specs
-  Agent->>GW: preview_order(items)
-  GW->>Platform: Render order (auto-select coupon)
+  Agent->>GW: quote_cart(items) → preview_order(items)
+  GW->>Platform: Quote + render order (auto-select coupon)
   Platform-->>GW: Price details
-  GW-->>Agent: Total price + session_id
+  GW-->>Agent: Total price + preview_id + confirmation_token
 
   Agent->>User: "Luckin latte ¥9.9, confirm order?"
   User->>Agent: "Confirmed"
-  Agent->>GW: confirm_order(session_id)
+  Agent->>GW: create_order(preview_id, confirmation_token)
   GW->>Platform: Create order
   Platform-->>GW: Order number
-  GW-->>Agent: Order created successfully
+  GW-->>Agent: Order created successfully (order_id)
   Agent->>User: "Order placed, estimated delivery in 35 minutes"
 ```
+
+<Note>
+  All amount fields are in **cents (integer)**. For example, `payable_price: 990` means ¥9.90.
+</Note>
 
 ## Clawdot's Abstraction Layer
 
@@ -46,11 +50,11 @@ When AI Agents directly connect to merchant platforms, complexity arises. Clawdo
 
 | What Agent Sees | What Gateway Handles |
 |-------------|-------------------|
-| Simple `shop_id` | Multiple ID format conversion (encrypted ID, internal ID, third-party ID) |
+| Simple `shop_id` + `cart_id` | Multiple ID format conversion (encrypted ID, internal ID, third-party ID); coordinates packed into `cart_id` |
 | Standardized menu structure | Specs/attrs/ingredients parsing, mutual exclusion rule calculation |
-| `default_ingredients` one-tap ordering | Traverse all spec groups, exclude mutually exclusive items, select defaults |
+| `ingredient_option_ids` one-tap ordering | Traverse all spec groups, exclude mutually exclusive items, select defaults |
 | One final price | Two renders: first get coupon list, then re-render with optimal coupon |
-| Unified authentication method | Automatic token refresh, request signing, User-Agent adaptation |
+| Unified authentication method | API Key and consent grant validation, request signing, User-Agent adaptation |
 | Unified error codes | Categorize various platform errors into standard error codes |
 
 ## Super Agent's Role
@@ -101,7 +105,7 @@ graph TB
 
 ## Dual Protocol Entry
 
-The same Clawdot Gateway instance exposes two protocols simultaneously, meeting different integration needs:
+The same Clawdot Gateway instance exposes two protocols simultaneously, meeting different integration needs. Both protocols share the same capability set: **18 MCP tools map one-to-one to 18 REST endpoints** with identical parameters (MCP tools take an extra `consent_grant_id` argument; REST passes it via the `X-Consent-Grant-Id` header).
 
 <Tabs>
   <Tab title="REST API">
@@ -109,103 +113,125 @@ The same Clawdot Gateway instance exposes two protocols simultaneously, meeting 
 
     ```bash
     # Search merchants
-    GET /api/v1/shops/search?keyword=luckin \
-      -H "Authorization: Bearer {token}"
+    POST /api/v1/shops/search \
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"keyword": "luckin", "address_id": "addr_..."}'
 
-    # Get merchant details (with menu)
-    GET /api/v1/shops/{shop_id} \
-      -H "Authorization: Bearer {token}"
+    # Get shop menu
+    POST /api/v1/shops/menu \
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"shop_id": "shop_...", "cart_id": "cart_..."}'
 
     # Preview order
     POST /api/v1/orders/preview \
-      -H "Authorization: Bearer {token}" \
-      -d '{"shop_id": "...", "items": [...]}'
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"shop_id": "...", "cart_id": "...", "address_id": "...", "items": [...]}'
 
-    # Confirm order
-    POST /api/v1/orders \
-      -H "Authorization: Bearer {token}" \
-      -d '{"session_id": "..."}'
+    # Create order
+    POST /api/v1/orders/create \
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
 
     # Query order
     GET /api/v1/orders/{order_id} \
-      -H "Authorization: Bearer {token}"
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..."
     ```
 
-    Authentication is passed via HTTP Header (Bearer Token).
+    Authentication has two layers: `Authorization: Bearer clw_...` identifies the Agent, and `X-Consent-Grant-Id: cg_...` identifies the authorized user. See [Authentication](/en/gateway/authentication).
   </Tab>
 
   <Tab title="MCP Protocol">
-    Model Context Protocol is an AI-native calling method, designed specifically for AI models like Claude. Super Agent calls directly through MCP tools:
+    Model Context Protocol is an AI-native calling method, designed specifically for AI models like Claude. Super Agent calls tools directly through the public MCP endpoint `/mcp/v1` (`Authorization: Bearer clw_...` via HTTP header; user authorization via each tool's `consent_grant_id` argument):
 
     ```
-    # Merchant search
-    search_shops(keyword, city, limit)
+    # Merchant search / browse
+    search_shops(consent_grant_id, keyword, address_id, lat, lng)
 
-    # Merchant details
-    get_shop_detail(shop_id)
+    # Shop menu
+    get_shop_menu(consent_grant_id, shop_id, cart_id)
 
     # Address management
-    search_pois(keyword, city)
-    list_addresses()
-    create_address(poi_id, name)
-    select_address(address_id)
+    search_addresses(consent_grant_id, keyword, lat, lng)   # returns saved_addresses + suggestions[].token
+    select_address(consent_grant_id, suggestion_token, contact_name, contact_phone)
 
-    # Order operations
-    preview_order(items)
-    confirm_order(session_id)
-    get_order(order_id)
+    # Quote and order
+    quote_cart(consent_grant_id, shop_id, cart_id, address_id, items)
+    preview_order(consent_grant_id, shop_id, cart_id, address_id, items)
+    create_order(consent_grant_id, preview_id, confirmation_token)
+    get_order_status(consent_grant_id, order_id)
     ```
 
-    MCP tools align better with AI thinking, with parameters and return values optimized for a smoother user experience.
+    MCP tools align better with AI thinking, with parameters and return values optimized for a smoother user experience. For the full tool list, see [MCP Overview](/en/mcp/overview).
   </Tab>
 </Tabs>
 
 ## Workflow Details
 
+The full ordering flow is a **stateful chain** — each step's returned ID must be passed verbatim to the next: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. For full field tables, see [Order Flow](/en/gateway/order-flow).
+
 <AccordionGroup>
   <Accordion title="Search Phase" icon="magnifying-glass">
-    Agent calls `search_shops` to search merchants. Gateway supports searching by keyword, location, category, and other dimensions, and can search 10 categories in parallel. Results return merchant ID, name, distance, delivery fee, and other key information.
+    Agent calls `search_shops` to search or browse merchants. Without `keyword` it browses (returns up to 20 nearby shops with decision fields like distance, rating, delivery fee); with `keyword` it does a precise search (~5 shops, accepts a shop name, category, or concrete item name). Each result carries a `shop_id` and a `cart_id`; the `cart_id` packs the shop and delivery coordinates and is the entry point for later steps.
   </Accordion>
 
   <Accordion title="Menu Browsing Phase" icon="list">
-    Agent calls `get_shop_detail` to get the complete menu for a merchant. The return includes:
-    - Product list and prices
-    - Product specs (size, temperature, sweetness, etc.)
-    - Ingredients and charges
+    Agent calls `get_shop_menu` (with `shop_id` + `cart_id`) to get the complete menu for a merchant. The return includes:
+    - Product list and prices (in cents)
+    - Orderable `item_id` / `sku_id`
+    - Product specs (size, temperature, sweetness, etc.) and add-ons via `ingredient_option_ids`
     - **Default options** —— contain merchant-recommended spec combinations
+
+    Menus can be large (100+ items); use `keyword` or `limit`/`offset` for progressive disclosure.
   </Accordion>
 
   <Accordion title="Address Management Phase" icon="location-dot">
     First use:
-    1. Call `search_pois` to search the address user mentioned
-    2. User selects from the POI list
-    3. Call `create_address` to save as a common address
+    1. Call `search_addresses` to search the address the user mentioned; it returns `suggestions[].token`
+    2. User selects from the suggestion list
+    3. Call `select_address` (with `suggestion_token` + contact) to register the delivery address, which returns an `address_id`
 
-    Subsequent uses: Call `list_addresses` to reuse saved addresses, reducing interaction steps.
+    Subsequent uses: `search_addresses` also returns `saved_addresses[]` (plus `nearest_address_id` when `lat`/`lng` are given), so you can reuse an existing `address_id` and reduce interaction steps.
   </Accordion>
 
-  <Accordion title="Preview + Confirm Phase" icon="clipboard-check">
-    This is the core two-step workflow:
+  <Accordion title="Quote + Preview + Order Phase" icon="clipboard-check">
+    This is the core stateful chain:
 
-    **Step One: Preview** → `preview_order`
-    - Input: Merchant ID + product list
-    - Output: Total price, coupons, delivery fee, `session_id`
+    **Quote** → `quote_cart`
+    - Input: `shop_id` + `cart_id` + `address_id` + `items` (list)
+    - Output: `quote_id` + price details
 
-    **Step Two: Confirm** → `confirm_order`
-    - Input: `session_id`
-    - Output: Order number, estimated delivery time
+    **Preview** → `preview_order`
+    - Input: `shop_id` + `cart_id` + `address_id` + `items` (optionally pass `quote_id` to validate the quote context)
+    - Output: final price (in cents) + `preview_id` + `confirmation_token` (must be used together, valid for about 10 minutes)
 
-    You must display the price to the user and get explicit confirmation before placing the order.
+    **Order** → `create_order`
+    - Input: the `preview_id` + `confirmation_token` from the same preview
+    - Output: `order_id`, `status`, and (when payment is needed) `payment_action`
+
+    You must display the price to the user and get explicit confirmation before calling `create_order`. The `confirmation_token` is the idempotency key — one token can place only one order.
   </Accordion>
 
   <Accordion title="Order Tracking Phase" icon="truck">
-    After placing an order, Agent can call `get_order` to query order status:
+    After placing an order, Agent can call `get_order_status` (`GET /orders/{order_id}`) to query order status:
     - Waiting for merchant to accept
     - Merchant is preparing order
     - Rider has picked up food
     - Rider is delivering
     - Delivered
 
-    Can be used to proactively update users on order progress.
+    Can be used to proactively update users on order progress. You can also pass `callback_url` to `create_order`, and the gateway will poll and POST a callback once the order leaves the unpaid state.
+  </Accordion>
+
+  <Accordion title="Passwordless Signing Phase" icon="credit-card">
+    Passwordless-payment orders require signing first: call `get_sign_action` (with `return_url`) to get a signing `action`. When `action_type` is `open_h5`, direct the user to `action.action_url` to complete signing; the browser then returns to `return_url`. When it is `none`, signing is already done. Then poll the result with `get_sign_status`.
   </Accordion>
 </AccordionGroup>
+
+<Note>
+  Create an Agent in the [Portal](https://portal.clawdot.ai) to get an API Key; obtain a user consent grant via the binding flow (SMS code or H5). For the full chain and fields, see [Order Flow](/en/gateway/order-flow) and [Authentication](/en/gateway/authentication).
+</Note>

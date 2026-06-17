@@ -1,6 +1,6 @@
 ---
 title: "Security Model"
-description: "One-to-one binding authorization and data security"
+description: "Two-layer authentication (API Key + user consent) and data security"
 icon: "shield-check"
 ---
 
@@ -8,9 +8,9 @@ import { Card, CardGroup } from '/components/Card';
 import Mermaid from '/components/Mermaid';
 import { Tabs, Tab } from '/components/Tabs';
 
-## One-to-One Binding Authorization
+## Per-Grant Binding and Isolation
 
-The security foundation of the Skills Platform is the **one-to-one binding authorization** model: each Agent and its corresponding user form an exclusive, non-overlapping binding relationship. This design naturally isolates the data and permissions of different Agents, eliminating the need for a complex centralized permission management system.
+The security foundation of the Skills Platform is **per-grant binding**: each user consent grant binds "one Agent + one authorized user + one capability" into an exclusive, non-overlapping triple. This design naturally isolates the data and permissions of different Agents and different users, eliminating the need for a complex centralized permission management system.
 
 <Mermaid
   chart={`
@@ -24,15 +24,15 @@ The security foundation of the Skills Platform is the **one-to-one binding autho
       end
 
       subgraph User1["User 1"]
-        T1["User Token<br/>(UUID)"]
+        T1["Consent Grant<br/>(cg_xxxxx)"]
       end
 
       subgraph User2["User 2"]
-        T2["User Token<br/>(UUID)"]
+        T2["Consent Grant<br/>(cg_xxxxx)"]
       end
 
-      K1 -->|binding| T1
-      K2 -->|binding| T2
+      K1 -->|grant binding| T1
+      K2 -->|grant binding| T2
 
       T1 -->|isolated access| D["Local life data<br/>Orders, addresses, payments"]
       T2 -->|isolated access| D
@@ -51,16 +51,16 @@ The security foundation of the Skills Platform is the **one-to-one binding autho
 
 **Core features:**
 
-- **Natural isolation**: Each Agent's user data is only visible to that Agent; cross-Agent access is permanently blocked
-- **No privilege creep**: No special roles like Admin or Super User; permissions are explicit and fixed
-- **Audit-friendly**: One-to-one relationships are clear and easy to trace, facilitating log auditing and compliance checks
+- **Natural isolation**: Each consent grant's user data is only visible to the Agent it is bound to; cross-Agent access is permanently blocked
+- **No privilege creep**: No special roles like Admin or Super User; permissions are explicit, fixed, and scoped by capability
+- **Audit-friendly**: Each grant relationship is clear and easy to trace, facilitating log auditing and compliance checks
 
-## Dual-Layer Authentication
+## Two-Layer Authentication
 
-The Skills Platform uses a **API Key + User Token** dual-layer authentication mechanism:
+The Skills Platform uses an **API Key + user consent grant** two-layer authentication mechanism:
 
-1. **API Key** — Identifies Agent identity, managed by the Agent application provider
-2. **User Token** — Identifies food delivery user identity, bound after SMS verification
+1. **API Key** — Identifies the Agent, managed by the Agent application provider
+2. **User consent grant** — Identifies the authorized delivery user, obtained through the binding flow (SMS code / H5)
 
 <Mermaid
   chart={`
@@ -69,60 +69,59 @@ The Skills Platform uses a **API Key + User Token** dual-layer authentication me
       participant S as Skills Platform
       participant DB as Database
 
-      A ->> S: Request: API Key + User Token
-      S ->> DB: Verify API Key (SHA-256)
-      DB -->> S: Verification passed
-      S ->> DB: Verify User Token (AES-256)
-      DB -->> S: Verification passed, decrypt user ID
-      S ->> DB: Confirm binding relationship (API Key == User Agent)
-      DB -->> S: Binding valid, user data accessible
+      A ->> S: Request: API Key + consent_grant_id
+      S ->> DB: Verify API Key (compare by hash)
+      DB -->> S: Passed, returns agent_id
+      S ->> DB: Verify consent_grant_id (validity + capability binding)
+      DB -->> S: Binding valid, locate the authorized user
       S -->> A: Return business data
   `}
 />
 
 ### API Key (Agent Identification)
 
-- **Prefix**: Starts with `clw_`
-- **Length**: 32 characters (36 characters with prefix)
-- **Storage**: Stored as SHA-256 hash in database, plaintext never saved
-- **Issuance**: Created and managed by Agent provider in Clawdot console
-- **Usage**: In all requests' HTTP Header as `Authorization: Bearer {API_KEY}`
+- **Prefix**: Starts with `clw_`, followed by random characters, e.g. `clw_a1b2c3d4...`
+- **Storage**: Server only stores a hash, never plaintext; each request is compared by hash
+- **Issuance**: Generated when creating an Agent in the [Portal](https://portal.clawdot.ai), **displayed only once** — if lost, regenerate it
+- **Usage**: In all requests' HTTP Header as `Authorization: Bearer {API_KEY}`; same for MCP and REST
 
-### User Token (User Identification)
+### Consent Grant (User Identification)
 
-- **Format**: UUID (RFC 4122)
-- **Source**: Obtained by users after SMS verification, stored by Agent application
-- **Storage**: Full Token encrypted with AES-256-GCM in database
-- **Validity**: 90 days; users must re-verify via SMS after expiration
-- **Usage**: In all requests' HTTP Header as `X-User-Token: {USER_TOKEN}`
+- **Prefix**: Starts with `cg_`
+- **Source**: Obtained after the user authorizes through the binding flow (SMS code / H5); `verify_user_bind` (`POST /auth/bind/verify`) returns `consent_grant_id`, `scopes`, and `expires_at` (ISO 8601) on success
+- **Storage**: The plaintext is returned only once; only a hash is stored — keep it safe
+- **Transport**:
+  - **REST:** via the `X-Consent-Grant-Id` header (never in the JSON body)
+  - **MCP:** as the `consent_grant_id` argument on each tool (not a header)
+- **Invalidation**: Once `expires_at` is reached, or after being revoked via `revoke_user_bind` (`POST /auth/unbind`), it is immediately invalid on all endpoints; re-bind to obtain a new one
 
 ## Data Encryption
 
-The Skills Platform applies layered encryption to all sensitive data, ensuring that even if the database is breached, critical information cannot be directly decrypted:
+The Skills Platform applies layered encryption / hashing to all sensitive data, ensuring that even if the database is breached, critical information cannot be directly recovered:
 
 <Tabs>
   <Tab title="User Identity">
     **User ID Encryption**
     - Algorithm: AES-256-GCM
-    - Key: Generated and managed securely by server
-    - Scenario: User ID corresponding to User Token stored as ciphertext in database
-    - Decryption Permission: Only the bound Agent can decrypt its corresponding user data
+    - Key: Generated and managed securely by the server
+    - Scenario: User ID stored as ciphertext in the database
+    - Decryption permission: Only the bound Agent can decrypt its corresponding user data
   </Tab>
 
   <Tab title="Phone Number">
-    **Phone Number De-duplication/De-identification**
+    **Phone Number De-duplication / De-identification**
     - Algorithm: SHA-256 (one-way hash)
     - Purpose: Detect duplicate bindings, de-identified storage
     - Feature: One-way hash, cannot be decrypted in reverse
-    - Scenario: After SMS verification, phone number stored as hash
+    - Scenario: After binding verification, the phone number is stored as a hash
   </Tab>
 
-  <Tab title="API Key">
-    **API Key Hashing**
-    - Algorithm: SHA-256 (one-way hash)
-    - Purpose: Verify legitimacy of Agent requests
-    - Feature: Database cannot view plaintext Key
-    - Scenario: Server hashes incoming Key during each request and compares with database
+  <Tab title="Credential Hashing">
+    **API Key and consent grant hashing**
+    - Algorithm: One-way hash
+    - Purpose: Verify the legitimacy of the Agent and the user consent
+    - Feature: Plaintext credentials cannot be viewed in the database
+    - Scenario: On each request, the server hashes the incoming API Key / consent_grant_id and compares with the database
   </Tab>
 </Tabs>
 
@@ -133,14 +132,14 @@ The Skills Platform enforces strict isolation policies at the data access layer:
 ```
 Access Rules:
 ┌─────────────────────────────────────────────┐
-│ Agent A's API Key + User Token 1            │
+│ Agent A's API Key + consent grant 1         │
 │ → Can only access User 1's data             │
 │ → Cannot access User 2's data               │
 │ → Cannot access Agent B's data              │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ Agent B's API Key + User Token 2            │
+│ Agent B's API Key + consent grant 2         │
 │ → Can only access User 2's data             │
 │ → Cannot access User 1's data               │
 │ → Cannot access Agent A's data              │
@@ -149,22 +148,22 @@ Access Rules:
 
 **Implementation Details:**
 
-1. Every request carries API Key and User Token
-2. Server verifies Agent ID corresponding to API Key
-3. Server verifies user ID corresponding to User Token
+1. Every authorized request carries an API Key and a `consent_grant_id`
+2. The server verifies the API Key and resolves the `agent_id`
+3. The server verifies the `consent_grant_id`, locating the authorized user and its granted capability
 4. Database query condition: `WHERE agent_id = ? AND user_id = ?`
-5. Any query crossing these two conditions is rejected
+5. Any query crossing these two conditions is rejected (a grant for another capability / provider returns `CONSENT_GRANT_WRONG_CAP`; a capability not enabled returns `CAP_NOT_BOUND`)
 
-## User Token Lifecycle
+## Consent Grant Lifecycle
 
 <Mermaid
   chart={`
     graph LR
-      A["1. User requests binding"] -->|SMS verification code| B["2. SMS verification"]
-      B -->|verification passed| C["3. Generate token"]
-      C -->|return to Agent app| D["4. Store and use<br/>90-day validity"]
-      D -->|30 days before expiration alert| E["5. 2 months before expiration<br/>prompt re-binding"]
-      E -->|expiration| F["6. Token invalid<br/>SMS re-binding required"]
+      A["1. User requests binding"] -->|SMS code / H5| B["2. Verify authorization"]
+      B -->|verification passed| C["3. Mint consent_grant_id"]
+      C -->|return to Agent app| D["4. Store and use<br/>(with expires_at)"]
+      D -->|expired / revoked| E["5. Immediately invalid<br/>CONSENT_GRANT_INVALID"]
+      E -->|re-bind| F["6. Mint a new<br/>consent_grant_id"]
 
       style A fill:#f9c4bc,stroke:#D14430,stroke-width:2px
       style B fill:#f9c4bc,stroke:#D14430,stroke-width:2px
@@ -175,104 +174,104 @@ Access Rules:
   `}
 />
 
-**Timeline:**
+**Key milestones:**
 
-| Event | Time | Description |
-|-------|------|-------------|
-| Token generated | Day 0 | User successfully SMS verified, received User Token |
-| Normal use | Day 1-60 | Token valid, all requests processed normally |
-| Warning period | Day 60-90 | System sends warning messages, alerts user of upcoming expiration |
-| Token expired | Day 90 | Token auto-disabled, new requests return 401 Unauthorized |
-| Re-binding | Day 90+ | User must initiate SMS verification process again |
+| Event | Trigger | Description |
+|-------|---------|-------------|
+| Minted | `verify_user_bind` succeeds | Returns `consent_grant_id` + `scopes` + `expires_at`; plaintext only this once |
+| Normal use | Before `expires_at` | Authorized requests processed normally |
+| Re-authorization rotates | The same user binds successfully again | Mints a new `consent_grant_id`, the old one is immediately invalidated |
+| Invalidated | `expires_at` reached or revoked | Immediately invalid; requests return `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` |
+| Re-bind | After invalidation | Re-run the binding flow for a new one; the user's addresses, order history, etc. are kept and become available again after re-authorization |
 
 ## Authentication Failure Handling
 
-All failed authentication requests return appropriate HTTP status codes and error messages:
+Auth / authorization failures return a uniform `{"error": {"code", "message"}}` structure with the appropriate HTTP status code:
 
 <CardGroup cols={2}>
-  <Card title="400 Bad Request" icon="circle-x">
-    **Missing required fields**
-    - Missing Authorization Header (API Key)
-    - Missing X-User-Token Header
-    - Incorrect field format
-  </Card>
-
   <Card title="401 Unauthorized" icon="lock">
-    **Invalid authentication credentials**
-    - API Key format error or does not exist
-    - User Token expired or does not exist
-    - API Key disabled
+    **Missing or invalid credentials**
+    - Missing API Key (`AUTH_REQUIRED`)
+    - API Key invalid or disabled (`AUTH_INVALID`)
+    - Missing consent_grant_id (`CONSENT_GRANT_REQUIRED`)
+    - consent_grant_id invalid or expired (`CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED`)
   </Card>
 
   <Card title="403 Forbidden" icon="ban">
     **No permission to access**
-    - API Key and User Token not bound
-    - Agent corresponding to API Key disabled
-    - User corresponding to User Token disabled
+    - Grant belongs to another capability / provider (`CONSENT_GRANT_WRONG_CAP`)
+    - This Agent has not enabled the capability (`CAP_NOT_BOUND`)
   </Card>
 
   <Card title="429 Too Many Requests" icon="hourglass">
     **Rate limiting**
-    - Too many requests sent within limited time
-    - Same Agent triggered frequency limit
-    - Automatic degradation handling
+    - Too many requests within the window (`RATE_LIMITED`)
+    - Each Agent is rate-limited independently (create order 10/min, others 60/min)
+  </Card>
+
+  <Card title="Unified error format" icon="circle-x">
+    **`{"error": {"code", "message"}}`**
+    - All auth / authorization / business errors share this shape
+    - Full error code list in [Error Handling](/en/gateway/error-handling)
   </Card>
 </CardGroup>
+
+The authentication chain and the auth level required by each endpoint are detailed in [Authentication](/en/gateway/authentication).
 
 ## Security Best Practices
 
 <Tabs>
   <Tab title="Agent Application Side">
-    - **Protect API Key**: Store API Key in secure environment variables or key management system, never commit to version control
-    - **Protect User Token**: Use client-side encryption to store User Token, involves user sensitive data
-    - **HTTPS only**: All communication with Skills API must use HTTPS, prohibit plaintext HTTP
-    - **Regular rotation**: Regularly rotate API Key and User Token, establish automatic rotation mechanism
-    - **Error handling**: Catch 401/403 errors, prompt users to re-authenticate or re-bind
+    - **Protect the API Key**: Store it in secure environment variables or a key management system, never commit to version control
+    - **Protect the consent_grant_id**: Store the user consent credential securely (plaintext returned only once) — it involves sensitive user data
+    - **HTTPS only**: All communication with the Skills API must use HTTPS
+    - **Rotation and revocation**: Rotate / disable the API Key in the Portal as needed (effective immediately); the consent grant rotates on re-authorization and can be revoked any time via `revoke_user_bind`
+    - **Error handling**: Catch 401/403 errors and prompt the user to re-authenticate or re-bind
   </Tab>
 
   <Tab title="Server Side">
-    - **Verify all requests**: Never trust client-claimed identity, always verify API Key and User Token
-    - **Log sanitization**: Do not record complete API Key or User Token in logs, only record prefix or hash
-    - **Rate limiting**: Each Agent has independent rate limiting to prevent abuse
-    - **Key rotation**: Periodically rotate database keys, support smooth transition of old keys
+    - **Verify all requests**: Never trust client-claimed identity; always verify the API Key and consent_grant_id
+    - **Log sanitization**: Do not record the full API Key or consent_grant_id in logs, only a prefix or hash
+    - **Rate limiting**: Each Agent has an independent rate limit to prevent abuse
+    - **Key rotation**: Periodically rotate database keys with smooth transition of old keys
     - **Audit log**: Record all authentication attempts (successful and failed) for compliance checks
   </Tab>
 
-  <Tab title="SMS Binding Flow">
-    - **Replay attack prevention**: Verification code one-time use, prevent duplicate submission
-    - **Attempt limiting**: Lock phone number for a period after exceeding certain failed verification attempts
-    - **Code expiration**: Generated verification codes auto-expire after 5-10 minutes
-    - **Phone number validation**: Validate phone number format, prevent malicious input
-    - **Cross-domain check**: Prevent cross-domain SMS verification requests
+  <Tab title="Binding Flow">
+    - **Replay attack prevention**: SMS codes are one-time use, preventing duplicate submission
+    - **Attempt limiting**: Lock a phone number for a period after exceeding a number of failed verifications
+    - **Code expiration**: Generated verification codes auto-expire after a few minutes
+    - **Number validation**: Validate phone number format to prevent malicious input
+    - **H5 callback validation**: In H5 authorization mode, validate the callback source to prevent forgery
   </Tab>
 </Tabs>
 
 ## FAQ
 
 <details>
-<summary>Can one User Token be used in multiple Agents?</summary>
+<summary>Can one consent grant be used across multiple Agents?</summary>
 
-**No**. User Token is bound to the specific food delivery user identity, but each Agent application provider needs to separately bind with that user's User Token. The Skills Platform verifies the binding relationship between API Key and User Token, ensuring cross-binding access is rejected.
-
-</details>
-
-<details>
-<summary>What if API Key is leaked?</summary>
-
-Immediately disable that API Key in the Clawdot console; the system will automatically stop all requests using that Key. Then generate a new API Key and update application configuration. The database stores SHA-256 hash of the API Key, so attackers cannot directly leverage the leaked Hash value.
+**No**. A consent grant binds an "Agent + user + capability" triple and is only valid for the Agent that minted it. Each Agent application provider must run the binding flow separately for that user to obtain its own `consent_grant_id`. Cross-binding access is rejected (`CONSENT_GRANT_WRONG_CAP`).
 
 </details>
 
 <details>
-<summary>Will data be lost if User Token expires?</summary>
+<summary>What if the API Key is leaked?</summary>
 
-**No**. User Token is just an access credential; after expiration, users need to re-verify via SMS to get a new Token. The data itself is permanently stored in the Skills Platform database and will not be deleted due to Token expiration.
+Immediately disable that API Key in the [Portal](https://portal.clawdot.ai); the system will automatically stop all requests using it. Then generate a new API Key and update your application configuration. The database only stores the API Key's hash, so attackers cannot directly leverage a leaked hash.
+
+</details>
+
+<details>
+<summary>Will data be lost if a consent grant expires or is revoked?</summary>
+
+**No**. A consent grant is just an access credential; after expiration or revocation, the user re-runs the binding flow (same phone number) to obtain a new `consent_grant_id`, and the addresses, order history, etc. are kept and become available again after re-authorization — nothing is deleted because the credential expired.
 
 </details>
 
 <details>
 <summary>Does it support API Key permission levels?</summary>
 
-The Skills Platform does not provide permission levels. Each API Key has complete permissions for all its bound users. If fine-grained permission control is needed, it is recommended to implement it at the Agent application layer, or contact us to discuss the Super Agent solution.
+The Skills Platform does not provide API Key permission levels. Access scope is bounded by each consent grant's capability (scope) — a grant can only operate on data for its bound user under its own capability. If fine-grained permission control is needed, implement it at the Agent application layer.
 
 </details>

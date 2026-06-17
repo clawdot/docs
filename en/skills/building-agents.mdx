@@ -10,7 +10,9 @@ import { Info, Warning, Check } from '/components/Callout';
 
 ## Overview
 
-This guide will walk you through using the Clawdot Skills Platform to build a complete local life Agent from scratch. By following best practices and handling edge cases, you will be able to create a robust, user-friendly application.
+This guide will walk you through using the Clawdot Gateway to build a complete local life Agent from scratch. By following best practices and handling edge cases, you will be able to create a robust, user-friendly application.
+
+The examples below use the **REST API**; the same capabilities are also exposed as **MCP** tools, with identical parameters except for `consent_grant_id` (an MCP tool argument, vs the `X-Consent-Grant-Id` header in REST), so you can switch as needed.
 
 ## Architecture Design
 
@@ -24,36 +26,33 @@ A complete local life Agent consists of the following modules:
                      │
 ┌────────────────────▼────────────────────────┐
 │        Business Logic Layer (Your Code)     │
-│  • User binding mgmt    • Order workflow    │
+│  • User consent mgmt    • Order chain mgmt  │
 │  • Local caching        • Error handling    │
 └────────────────────┬────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────┐
-│     Clawdot Skills API (Gateway)            │
-│  • Shop search      • Order creation        │
-│  • Menu queries     • Payment processing    │
-│  • Logistics track  • Coupon management     │
+│     Clawdot Gateway (REST / MCP)            │
+│  • Shop search      • Order preview/create  │
+│  • Menu queries     • Payment sign          │
+│  • Address mgmt     • Coupon management     │
 └─────────────────────────────────────────────┘
 ```
+
+<Info>
+The Gateway provides 18 REST endpoints and 18 one-to-one MCP tools, covering exactly the same capabilities. This page demonstrates REST; the MCP tool-to-endpoint mapping is in the [MCP Overview](/en/mcp/overview).
+</Info>
 
 ---
 
 ## Step 1: Get API Key
 
 <Steps>
-  <Step title="Register Clawdot Account">
-    Visit [Clawdot Console](https://console.clawdot.com), register using email or phone number.
-  </Step>
-
-  <Step title="Create New Agent">
-    Click **Agent Management** → **Create New Agent**, fill in:
-    - Name: Your Agent app name (e.g. `MyFoodBot`)
-    - Description: Brief description (e.g. `AI food delivery assistant`)
-    - Platform: Choose integration method (REST API, MCP, etc.)
+  <Step title="Create an Agent in the Portal">
+    Visit [Clawdot Portal](https://portal.clawdot.ai), create an Agent and enable the delivery capability for it. Agents and API Keys are both managed in the Portal.
   </Step>
 
   <Step title="Copy API Key">
-    System generates API Key (starting with `clw_`), **displayed only once**, immediately copy and save to secure location.
+    System generates an API Key (starting with `clw_`), **displayed only once** — immediately copy and save to a secure location. The server only stores a hash; if lost, you must regenerate it.
   </Step>
 
   <Step title="Configure Environment Variables">
@@ -69,11 +68,17 @@ A complete local life Agent consists of the following modules:
   </Step>
 </Steps>
 
+<Info>
+The API Key identifies the **Agent**, passed via the `Authorization: Bearer clw_...` header — required for all REST and MCP requests. To act on user resources, you also need the **user consent grant** obtained in the next step. See [Authentication](/en/gateway/authentication).
+</Info>
+
 ---
 
-## Step 2: Implement User Binding
+## Step 2: Get User Consent
 
-User binding is the key step in establishing the 1:1 relationship between Agent and user. After SMS verification, users can use the returned User Token to call APIs.
+Acting on user resources (search shops, place orders, query addresses, etc.) requires two-layer authentication: the API Key identifies the Agent, and the **user consent grant** identifies the authorized delivery user. After a user completes a binding flow once, you get a `consent_grant_id` (prefixed `cg_`) to use for all subsequent business calls.
+
+Binding supports two modes: `sms` (sends a verification code to the phone) and `h5` (returns an authorization link the user logs in through). The example below uses `sms`.
 
 ### Binding Flow
 
@@ -82,53 +87,51 @@ import requests
 import os
 
 api_key = os.getenv("CLAWDOT_API_KEY")
-base_url = "https://api.clawdot.com"
+base_url = "https://api.clawdot.ai/api/v1"
 
-# Step 2a: Request SMS verification code
-def request_verification_code(phone: str) -> str:
+# Step 2a: Initiate binding, send SMS verification code
+def request_user_bind(phone: str) -> str:
     """
-    Request SMS verification code
-    Return: request_id (for subsequent verification)
+    Initiate SMS consent binding
+    Return: bind_id (for subsequent verification)
     """
-    url = f"{base_url}/api/v1/auth/sms/request"
-    payload = {"phone": phone}
+    url = f"{base_url}/auth/bind/request"
+    payload = {"phone": phone, "auth_type": "sms"}
     headers = {"Authorization": f"Bearer {api_key}"}
 
     response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
 
     data = response.json()
-    print(f"Code sent, valid for {data['expires_in']} seconds")
-    return data["request_id"]  # Return to user, wait for code input
+    print(f"Code sent to {data['masked_phone']}, valid for {data['expires_in']} seconds")
+    return data["bind_id"]  # Return to user, wait for code input
 
 
-# Step 2b: Verify code, get User Token
-def verify_and_bind_user(request_id: str, code: str) -> str:
+# Step 2b: Confirm binding, exchange for consent_grant_id
+def verify_user_bind(bind_id: str, code: str) -> str:
     """
-    Verify SMS code, get User Token
-    Return: user_token (required for subsequent API calls)
+    Verify SMS code, exchange for consent_grant_id
+    Return: consent_grant_id (required for subsequent API calls)
     """
-    url = f"{base_url}/api/v1/auth/sms/verify"
-    payload = {"request_id": request_id, "code": code}
+    url = f"{base_url}/auth/bind/verify"
+    payload = {"auth_type": "sms", "bind_id": bind_id, "code": code}
     headers = {"Authorization": f"Bearer {api_key}"}
 
     response = requests.post(url, json=payload, headers=headers)
 
     if response.status_code == 400:
-        # Code error or expired
+        # Code invalid or expired
         raise ValueError("Code incorrect or expired, please re-request")
-    elif response.status_code == 401:
-        raise ValueError("Request ID invalid, please re-request code")
 
     response.raise_for_status()
 
     data = response.json()
-    user_token = data["user_token"]
+    consent_grant_id = data["consent_grant_id"]
 
-    # Store user_token (for subsequent API calls)
+    # Store consent_grant_id (for subsequent API calls)
     # Recommend using secure local storage or session management
-    print(f"User binding successful! User Token: {user_token[:20]}...")
-    return user_token
+    print(f"Consent granted! Scopes: {data['scopes']}, expires_at: {data['expires_at']}")
+    return consent_grant_id
 ```
 
 ### Complete Interactive Binding UI Flow
@@ -136,22 +139,19 @@ def verify_and_bind_user(request_id: str, code: str) -> str:
 ```python
 def bind_user_interactive():
     """
-    Interactive user binding (Agent conversation flow)
+    Interactive user consent (Agent conversation flow)
     """
-    print("Welcome to Local Life Agent, please bind your account")
+    print("Welcome to Local Life Agent, please authorize your account")
     print("=" * 50)
 
     # Step 1: Get user phone number
-    phone = input("Enter your phone number (+86 format): ").strip()
+    phone = input("Enter your phone number: ").strip()
 
-    if not phone.startswith("+86"):
-        phone = "+86" + phone
-
-    # Step 2: Request verification code
+    # Step 2: Initiate binding, send code
     try:
-        request_id = request_verification_code(phone)
+        bind_id = request_user_bind(phone)
     except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
+        print(f"Binding request failed: {e}")
         return None
 
     # Step 3: User enters verification code
@@ -160,52 +160,69 @@ def bind_user_interactive():
         code = input(f"\nEnter verification code ({max_attempts - attempt} attempts left): ").strip()
 
         try:
-            user_token = verify_and_bind_user(request_id, code)
-            print("\nBinding successful! You can now use local life services.")
-            return user_token
+            consent_grant_id = verify_user_bind(bind_id, code)
+            print("\nConsent granted! You can now use local life services.")
+            return consent_grant_id
         except ValueError as e:
             print(f"Verification failed: {e}")
 
-    print("\nToo many attempts, please retry later or re-request code")
+    print("\nToo many attempts, please retry later or re-initiate binding")
     return None
 
 
 # Usage example
-user_token = bind_user_interactive()
-if user_token:
-    # Save user_token for later use
+consent_grant_id = bind_user_interactive()
+if consent_grant_id:
+    # Save consent_grant_id for later use
     # e.g. store to file or database
     pass
 ```
 
 <Info>
-User Token validity is 90 days. Recommend prompting user to re-bind when Token is about to expire (30 days remaining).
+The `expires_at` returned on success is the consent expiry (ISO 8601). **Re-authorization rotates the grant**: each successful binding for the same user mints a new `consent_grant_id` and immediately invalidates the old one. The `consent_grant_id` plaintext is returned only once; only a hash is stored — keep it safe. Consent can be revoked any time via `POST /auth/unbind`.
 </Info>
 
 ---
 
 ## Step 3: Core Business Flow
 
-Implement complete workflow from search, browse, order to payment.
+Implement the complete chain from search, browse, quote, preview, to order and sign. The whole chain is **stateful**: each step's returned ID must be passed verbatim to the next — never fabricate one or mix IDs across chains.
+
+```
+search_shops → get_shop_menu → quote_cart → select_address
+            → preview_order → create_order → get_sign_action
+```
+
+<Warning>
+All amount fields are in **cents (integer)**, not yuan. For example `payable_price: 1500` means ¥15.00.
+</Warning>
+
+Every request below carries both auth headers:
+
+```python
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "X-Consent-Grant-Id": consent_grant_id,
+    "Content-Type": "application/json"
+}
+```
 
 ### Phase 1: Search Shops
 
 ```python
-def search_shops(query: str, location: str, user_token: str):
+def search_shops(consent_grant_id: str, keyword: str = None, address_id: str = None):
     """
-    Search nearby shops
+    Search / browse nearby shops
+    - Without keyword: browse mode, returns up to 20 nearby shops
+    - With keyword: precise search (~5 shops), accepts shop name / category / item name
     """
-    url = f"{base_url}/api/v1/gateway/shops/search"
+    url = f"{base_url}/shops/search"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "X-User-Token": user_token,
+        "X-Consent-Grant-Id": consent_grant_id,
         "Content-Type": "application/json"
     }
-    payload = {
-        "query": query,
-        "location": location,
-        "limit": 20
-    }
+    payload = {"keyword": keyword, "address_id": address_id}
 
     response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
@@ -215,118 +232,226 @@ def search_shops(query: str, location: str, user_token: str):
 
 
 # Usage example
-shops = search_shops("food delivery", "No. 1 Zhongguancun Avenue", user_token)
+shops = search_shops(consent_grant_id, keyword="iced latte", address_id="addr_...")
 
 for shop in shops[:5]:  # Show top 5
+    # Amount fields are in cents; divide by 100 for display
     print(f"""
     【{shop['name']}】
-    Rating: {shop['rating']}⭐ ({shop['reviews_count']} reviews)
-    Distance: {shop['distance']} km
-    Delivery time: {shop['delivery_time']} minutes
-    Min order: ¥{shop['min_order']} | Delivery fee: ¥{shop['delivery_fee']}
+    Rating: {shop.get('rating')}⭐
+    Distance: {shop.get('distance_text')}
+    Delivery time: {shop.get('delivery_time_text')}
+    Min order: ¥{shop['min_order_amount'] / 100:.2f} | Delivery fee: {shop.get('delivery_fee_text')}
     """)
 ```
+
+Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**. Full fields in [Search Shops](/en/api-reference/shops/search).
 
 ### Phase 2: View Menu Details
 
 ```python
-def get_shop_detail(shop_id: str, user_token: str):
+def get_shop_menu(consent_grant_id: str, shop_id: str, cart_id: str, keyword: str = None):
     """
-    Get shop menu and detailed information
+    Get a shop's menu (POST /shops/menu)
+    Menus can be very large (100+ items); use keyword or limit/offset for progressive disclosure
     """
-    url = f"{base_url}/api/v1/gateway/shops/{shop_id}"
+    url = f"{base_url}/shops/menu"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "X-User-Token": user_token
+        "X-Consent-Grant-Id": consent_grant_id,
+        "Content-Type": "application/json"
     }
+    payload = {"shop_id": shop_id, "cart_id": cart_id, "keyword": keyword}
 
-    response = requests.get(url, headers=headers)
+    response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
 
     return response.json()
 
 
 # Usage example
-shop = get_shop_detail("shop_123456", user_token)
+menu = get_shop_menu(consent_grant_id, "shop_...", "cart_...", keyword="latte")
 
-print(f"Shop: {shop['name']}")
-print(f"Business hours: {shop['opening_hours']}")
-
-for category in shop["categories"]:
+for category in menu["categories"]:
     print(f"\n【{category['name']}】")
     for item in category["items"]:
-        status = "✓ Available" if item["available"] else "✗ Out of stock"
-        print(f"  {item['name']} - ¥{item['price']} {status}")
-        print(f"    {item['description']}")
+        status = "✓ Available" if item.get("available") else "✗ Out of stock"
+        # Price is in cents
+        print(f"  {item['name']} - ¥{item['price'] / 100:.2f} {status}")
 ```
 
-### Phase 3: Pre-Order Confirmation
+To order, you MUST use the `item_id` / `sku_id` returned by `get_shop_menu` (plus `ingredient_option_ids` for specs / add-ons). Full fields in [Shop Menu](/en/api-reference/shops/detail); the spec / attribute / add-on system is in [Item Specs](/en/gateway/item-specs).
 
-<Check title="Best Practice - Confirm Before Ordering">
-Always show order summary and request confirmation before creating order to avoid mistakes.
-</Check>
+### Phase 3: Prepare Delivery Address
 
 ```python
-def confirm_order_with_user(shop: dict, items: list, delivery_address: str):
+def search_addresses(consent_grant_id: str, keyword: str, lat: float = None, lng: float = None):
     """
-    Show order summary to user and request confirmation
+    Search address POIs (POST /addresses/search)
+    Returns saved_addresses[] (already-saved) + suggestions[] (POI results with single-use token)
     """
-    print("\n" + "=" * 50)
-    print("📋 Order Confirmation")
-    print("=" * 50)
-
-    print(f"\nShop: {shop['name']}")
-    print(f"Delivery time: ~{shop['delivery_time']} minutes")
-
-    total_price = 0
-    print("\nItems ordered:")
-    for item in items:
-        price = item["price"] * item["quantity"]
-        total_price += price
-        print(f"  • {item['name']} x{item['quantity']} = ¥{price}")
-
-    delivery_fee = shop.get("delivery_fee", 0)
-    print(f"\nDelivery fee: ¥{delivery_fee}")
-    print(f"Total: ¥{total_price + delivery_fee}")
-    print(f"Delivery address: {delivery_address}")
-
-    print("\n" + "-" * 50)
-    confirm = input("Confirm order? (Y/n) ").strip().lower()
-
-    return confirm != "n"
-```
-
-### Phase 4: Create Order
-
-```python
-def create_order(
-    shop_id: str,
-    items: list,
-    delivery_address: str,
-    contact_phone: str,
-    user_token: str,
-    coupon_code: str = None
-):
-    """
-    Create food delivery order
-    """
-    url = f"{base_url}/api/v1/gateway/orders"
+    url = f"{base_url}/addresses/search"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "X-User-Token": user_token,
+        "X-Consent-Grant-Id": consent_grant_id,
+        "Content-Type": "application/json"
+    }
+    payload = {"keyword": keyword, "lat": lat, "lng": lng}
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
+def select_address(consent_grant_id: str, suggestion_token: str,
+                   contact_name: str, contact_phone: str, address_detail: str):
+    """
+    Register / select a delivery address (POST /addresses/select)
+    Register using a suggestion's token from search_addresses; returns address_id
+    """
+    url = f"{base_url}/addresses/select"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-Consent-Grant-Id": consent_grant_id,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "suggestion_token": suggestion_token,
+        "contact_name": contact_name,
+        "contact_phone": contact_phone,
+        "address_detail": address_detail,
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()["address_id"]
+
+
+# Usage example: address flow = search POIs for a token → register for an address_id
+result = search_addresses(consent_grant_id, keyword="Optics Valley", lat=30.5, lng=114.4)
+
+# Existing addresses can reuse saved_addresses[].address_id; register a new one otherwise
+suggestion = result["suggestions"][0]
+address_id = select_address(
+    consent_grant_id,
+    suggestion_token=suggestion["token"],
+    contact_name="Zhang San",
+    contact_phone="13800138000",
+    address_detail="Building 3, Room 101",
+)
+```
+
+The `saved_addresses[]` returned by `search_addresses` can be reused directly via their `address_id`; `suggestions[].token` is a single-use token — pass it to `select_address` to register and get an `address_id`. See [Search Addresses](/en/api-reference/addresses/search) and [Select/Register Address](/en/api-reference/addresses/select).
+
+### Phase 4: Quote Cart
+
+```python
+def quote_cart(consent_grant_id: str, shop_id: str, cart_id: str,
+               address_id: str, items: list):
+    """
+    Quote the cart (POST /cart/quote), returns quote_id and price breakdown
+    """
+    url = f"{base_url}/cart/quote"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-Consent-Grant-Id": consent_grant_id,
         "Content-Type": "application/json"
     }
     payload = {
         "shop_id": shop_id,
+        "cart_id": cart_id,
+        "address_id": address_id,
         "items": items,
-        "delivery_address": delivery_address,
-        "contact_phone": contact_phone,
-        "payment_method": "alipay",
-        "remarks": "Please ring doorbell"
     }
 
-    if coupon_code:
-        payload["coupon_code"] = coupon_code
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
+# Usage example: items is a list (NOT a JSON string)
+items = [
+    {"item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": []},
+    {"item_id": "item_002", "sku_id": "sku_002", "quantity": 1, "ingredient_option_ids": []},
+]
+quote = quote_cart(consent_grant_id, "shop_...", "cart_...", address_id, items)
+quote_id = quote["quote_id"]
+```
+
+Full fields in [Quote Cart](/en/api-reference/cart/quote).
+
+### Phase 5: Preview Order (Pre-Order Confirmation)
+
+<Check title="Production Best Practice - Confirm Before Ordering">
+Always validate and show the final price with `preview_order` before creating the order to avoid mistakes. The `preview_id` + `confirmation_token` it produces are the credentials required to actually place the order.
+</Check>
+
+```python
+def preview_order(consent_grant_id: str, shop_id: str, cart_id: str,
+                  address_id: str, items: list, quote_id: str = None,
+                  coupon_ids: list = None, order_remark: str = ""):
+    """
+    Preview the order (POST /orders/preview)
+    Validates shop / address / items and applies coupons; returns final price + preview_id + confirmation_token
+    coupon_ids tri-state: omitted = auto-pick best; [] = no coupon; ["cpn_..."] = specific coupon
+    """
+    url = f"{base_url}/orders/preview"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-Consent-Grant-Id": consent_grant_id,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "shop_id": shop_id,
+        "cart_id": cart_id,
+        "address_id": address_id,
+        "items": items,
+        "quote_id": quote_id,
+        "coupon_ids": coupon_ids,
+        "order_remark": order_remark,
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
+# Usage example
+preview = preview_order(
+    consent_grant_id, "shop_...", "cart_...", address_id, items,
+    quote_id=quote_id, order_remark="Leave at door, please ring bell",
+)
+
+# Amounts are in cents; divide by 100 for display
+print(f"Payable: ¥{preview['price']['payable_price'] / 100:.2f}")
+print(f"Delivery address: {preview['address']['address_detail']}")
+
+preview_id = preview["preview_id"]
+confirmation_token = preview["confirmation_token"]
+```
+
+`preview_id` + `confirmation_token` must be used as a pair, are produced by the same preview, and are valid for about 10 minutes. Full fields and the `coupon_ids` tri-state are in [Preview Order](/en/api-reference/orders/preview).
+
+### Phase 6: Create Order
+
+```python
+def create_order(consent_grant_id: str, preview_id: str, confirmation_token: str,
+                 callback_url: str = None):
+    """
+    Create the order (POST /orders/create)
+    Place the order with the preview_id + confirmation_token from the same preview
+    """
+    url = f"{base_url}/orders/create"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-Consent-Grant-Id": consent_grant_id,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "preview_id": preview_id,
+        "confirmation_token": confirmation_token,
+        "callback_url": callback_url,  # optional: payment status callback
+    }
 
     response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
@@ -335,32 +460,49 @@ def create_order(
 
     print(f"\n✓ Order created")
     print(f"Order ID: {order['order_id']}")
-    print(f"Total: ¥{order['total']}")
-    print(f"Estimated delivery: {order['estimated_delivery_time']} minutes")
-    print(f"Tracking URL: {order['tracking_url']}")
+    print(f"Status: {order['status']}")
 
     return order
 
 
 # Usage example
-order = create_order(
-    shop_id="shop_123456",
-    items=[
-        {"item_id": "item_001", "quantity": 2, "notes": "not spicy"},
-        {"item_id": "item_002", "quantity": 1, "notes": ""}
-    ],
-    delivery_address="No. 1 Zhongguancun Avenue, Floor 19",
-    contact_phone="+86 138 0000 0000",
-    user_token=user_token,
-    coupon_code="WELCOME20"
-)
+order = create_order(consent_grant_id, preview_id, confirmation_token)
 ```
+
+This endpoint uses `confirmation_token` as the idempotency key: a token can place only one order; re-ordering requires a fresh preview for a new token. Returns `order_id`, `status`, and (when payment is needed) `payment_action`. You may pass `callback_url`; the gateway polls order status and POSTs a callback once it leaves the unpaid state — otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields in [Create Order](/en/api-reference/orders/create).
+
+### Phase 7: Password-Free Sign
+
+```python
+def get_sign_action(consent_grant_id: str, return_url: str):
+    """
+    Initiate password-free payment signing (POST /payment/sign-action)
+    Returns an action: when action_type=open_h5, direct the user to action_url to sign
+    """
+    url = f"{base_url}/payment/sign-action"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "X-Consent-Grant-Id": consent_grant_id,
+        "Content-Type": "application/json"
+    }
+    payload = {"return_url": return_url}
+
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+
+    action = response.json()["action"]
+    if action["action_type"] == "open_h5":
+        print(f"Open in browser to sign: {action['action_url']}")
+    return action
+```
+
+Password-free signing is a prerequisite for password-free payment orders: when `action_type=open_h5`, direct the user to `action.action_url` (the H5 sign page); the browser returns to `return_url` afterwards. `none` means already signed. Then poll the result with `get_sign_status` (`GET /payment/sign-status`). Full chain and fields in [Order Flow](/en/gateway/order-flow).
 
 ---
 
 ## Step 4: Handle Edge Cases
 
-Robust Agents gracefully handle edge cases and provide friendly error messages.
+Robust Agents gracefully handle edge cases and provide friendly error messages. Gateway errors return a uniform `{"error": {"code", "message"}}` structure.
 
 ### Error Handling
 
@@ -378,20 +520,26 @@ def safe_api_call(func, *args, **kwargs):
         print("❌ Cannot connect to server, retry later")
         return None
     except requests.exceptions.HTTPError as e:
-        status_code = e.response.status_code
+        # Gateway error body: {"error": {"code", "message"}}
+        try:
+            code = e.response.json()["error"]["code"]
+        except Exception:
+            code = None
 
-        if status_code == 400:
-            print("❌ Request parameter error, check input")
-        elif status_code == 401:
-            print("❌ API Key or User Token invalid, please re-bind")
-        elif status_code == 403:
-            print("❌ Permission denied, ensure account is activated")
-        elif status_code == 429:
-            print("❌ Request too frequent, retry later")
-        elif status_code == 500:
-            print("❌ Server error, retry later")
+        if code in ("AUTH_REQUIRED", "AUTH_INVALID"):
+            print("❌ API Key missing or invalid, check the Authorization header")
+        elif code in ("CONSENT_GRANT_INVALID", "CONSENT_GRANT_EXPIRED"):
+            print("❌ User consent invalid or expired, please re-initiate binding")
+        elif code == "CAP_NOT_BOUND":
+            print("❌ This Agent has not enabled the capability, enable it in the Portal")
+        elif code == "PUBLIC_REFERENCE_INVALID":
+            print("❌ Platform ID (shop / address / order) invalid, expired, or not the user's")
+        elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):
+            print("❌ Too many requests or quota exhausted, retry later")
+        elif code == "ELEME_ERROR":
+            print("❌ Upstream error, retry later")
         else:
-            print(f"❌ API error ({status_code}): {e}")
+            print(f"❌ API error ({e.response.status_code}): {code or e}")
 
         return None
     except Exception as e:
@@ -400,28 +548,26 @@ def safe_api_call(func, *args, **kwargs):
 
 
 # Usage
-shops = safe_api_call(search_shops, "food delivery", "Zhongguancun", user_token)
+shops = safe_api_call(search_shops, consent_grant_id, keyword="milk tea", address_id=address_id)
 ```
 
-### User Token Expiration Handling
+### User Consent Expiration Handling
 
 ```python
-def get_valid_user_token(stored_token: str, phone: str) -> str:
+def get_valid_consent_grant(stored_grant_id: str, phone: str) -> str:
     """
-    Check and update User Token (if expired)
+    Check whether the consent is still valid; if expired or revoked, re-bind
     """
-    # Should store token generation time, check if close to 90 days
-    # For simplicity, recommend re-binding every 60 days
+    # Any business endpoint returning CONSENT_GRANT_INVALID / CONSENT_GRANT_EXPIRED
+    # means re-authorization is needed (or proactively compare the recorded expires_at)
+    is_invalid = check_consent_grant(stored_grant_id)
 
-    # If token expired, return None for re-binding
-    is_expired = check_token_expiry(stored_token)
+    if is_invalid:
+        print("User consent invalid, please re-bind")
+        new_grant_id = bind_user_interactive()  # re-authorization rotates the grant
+        return new_grant_id
 
-    if is_expired:
-        print("User binding expired, please re-bind")
-        new_token = bind_user_interactive()
-        return new_token
-
-    return stored_token
+    return stored_grant_id
 ```
 
 ### Shop Closed Handling
@@ -433,22 +579,23 @@ def handle_shop_closed_error(shop_id: str):
     """
     print(f"❌ Shop temporarily closed or stopped operating")
     print("Please choose another shop or try later")
-    # Recommend returning search results to let user choose another shop
+    # Recommend returning search results to let the user choose another shop
+    # The available / unavailable_reason in search_shops browse results can pre-check this
 ```
 
 ### Order Query with Retry
 
 ```python
-def get_order_with_retry(order_id: str, user_token: str, max_retries: int = 3):
+def get_order_with_retry(consent_grant_id: str, order_id: str, max_retries: int = 3):
     """
-    Query order with retry mechanism
+    Query order (GET /orders/{order_id}) with retry mechanism
     """
     for attempt in range(max_retries):
         try:
-            url = f"{base_url}/api/v1/gateway/orders/{order_id}"
+            url = f"{base_url}/orders/{order_id}"
             headers = {
                 "Authorization": f"Bearer {api_key}",
-                "X-User-Token": user_token
+                "X-Consent-Grant-Id": consent_grant_id,
             }
             response = requests.get(url, headers=headers, timeout=5)
             response.raise_for_status()
@@ -467,25 +614,25 @@ def get_order_with_retry(order_id: str, user_token: str, max_retries: int = 3):
 ## Best Practices
 
 <CardGroup cols={2}>
-  <Card title="Cache Address Info" icon="database">
-    Store user's common addresses to avoid re-entering. Can cache locally or store in database.
+  <Card title="Reuse Saved Addresses" icon="database">
+    `search_addresses` returns `saved_addresses[]`; prefer reusing their `address_id` instead of re-registering a new address.
 
     ```python
-    addresses = {
-        "home": "No. 1 Zhongguancun Avenue, Floor 19",
-        "office": "No. 2 Zhongguancun Avenue, Floor 12"
-    }
+    result = search_addresses(consent_grant_id, keyword="home")
+    saved = result["saved_addresses"]
+    if saved:
+        address_id = saved[0]["address_id"]
     ```
   </Card>
 
-  <Card title="Use Default Settings" icon="sliders">
-    Remember user's common options (payment method, delivery preferences, etc.) to speed up ordering.
+  <Card title="Progressive Menu Disclosure" icon="sliders">
+    Menus can have 100+ items. Use `keyword` or `limit`/`offset` to page, following `next_offset` until `has_more=false`.
 
     ```python
-    default_settings = {
-        "payment_method": "alipay",
-        "remarks": "Please ring doorbell"
-    }
+    menu = get_shop_menu(
+        consent_grant_id, shop_id, cart_id,
+        keyword="latte",  # only matching items
+    )
     ```
   </Card>
 
@@ -496,37 +643,35 @@ def get_order_with_retry(order_id: str, user_token: str, max_retries: int = 3):
     import logging
 
     logging.info(f"Order created: {order_id}")
-    logging.error(f"API error: {error_msg}")
+    logging.error(f"API error: {error_code}")
     ```
   </Card>
 
   <Card title="Rate Limit Handling" icon="throttle">
-    Respect API rate limits, avoid frequent requests. Use exponential backoff retry.
+    Respect rate limits (create order 10/min, others 60/min, per Agent). On limit you get `429 RATE_LIMITED`; use exponential backoff.
 
     ```python
     import time
 
     for attempt in range(5):
         try:
-            # API call
-        except RateLimitError:
+            ...  # API call
+        except RateLimited:
             time.sleep(2 ** attempt)  # exponential backoff
     ```
   </Card>
 
-  <Card title="Validate User Input" icon="shield-check">
-    Validate all user input (phone, address, quantity, etc.) to prevent malicious input.
+  <Card title="Amounts Are in Cents" icon="shield-check">
+    All amount fields are **cents (integer)**. Divide by 100 when showing to users — never treat cents as yuan.
 
     ```python
-    import re
-
-    def validate_phone(phone: str) -> bool:
-        return re.match(r"^\+?86\d{10}$", phone) is not None
+    payable = preview["price"]["payable_price"]  # unit: cents
+    print(f"Payable ¥{payable / 100:.2f}")
     ```
   </Card>
 
   <Card title="Graceful Degradation" icon="minimize">
-    Provide alternatives when API features are unavailable (show cached results or notify user).
+    When upstream is unavailable (`ELEME_ERROR`), provide alternatives (show cached results or ask the user to retry later).
 
     ```python
     if api_available:
@@ -551,124 +696,136 @@ from typing import List, Dict, Optional
 class LocalLifeAgent:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("CLAWDOT_API_KEY")
-        self.base_url = "https://api.clawdot.com"
-        self.user_token = None
+        self.base_url = "https://api.clawdot.ai/api/v1"
+        self.consent_grant_id = None
         self.user_phone = None
 
+    def _headers(self) -> Dict[str, str]:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        if self.consent_grant_id:
+            headers["X-Consent-Grant-Id"] = self.consent_grant_id
+        return headers
+
     def bind_user(self, phone: str) -> bool:
-        """User binding process"""
+        """User consent flow"""
         try:
-            # Request code
-            request_id = self._request_verification(phone)
-            # Input code
+            bind_id = self._request_bind(phone)
             code = input("Enter verification code: ")
-            # Verify and get token
-            self.user_token = self._verify_code(request_id, code)
+            self.consent_grant_id = self._verify_bind(bind_id, code)
             self.user_phone = phone
             return True
         except Exception as e:
-            print(f"Binding failed: {e}")
+            print(f"Consent failed: {e}")
             return False
 
-    def search_and_order(self, query: str, location: str) -> Optional[Dict]:
-        """Search shops and order"""
-        if not self.user_token:
-            print("Please bind user account first")
+    def order(self, keyword: str, address_id: str) -> Optional[Dict]:
+        """Search shops and complete the order chain"""
+        if not self.consent_grant_id:
+            print("Please complete user consent first")
             return None
 
-        # Search shops
-        shops = self._search_shops(query, location)
+        # 1. Search shops
+        shops = self._search_shops(keyword, address_id)
         if not shops:
             print("No matching shops found")
             return None
-
-        # Show results
         for i, shop in enumerate(shops[:5], 1):
-            print(f"{i}. {shop['name']} - Rating {shop['rating']}⭐")
+            print(f"{i}. {shop['name']} - Rating {shop.get('rating')}⭐")
+        shop = shops[int(input("Select shop (1-5): ")) - 1]
 
-        # User selects
-        choice = int(input("Select shop (1-5): ")) - 1
-        shop = shops[choice]
+        # 2. Get menu, pick items (amounts in cents)
+        menu = self._get_shop_menu(shop["shop_id"], shop["cart_id"])
+        items = self._pick_items(menu)  # your UI collects item_id / sku_id / quantity
 
-        # Get menu
-        shop_detail = self._get_shop_detail(shop['id'])
-        print(f"\n{shop_detail['name']} Menu:")
+        # 3. Quote
+        quote = self._quote_cart(shop["shop_id"], shop["cart_id"], address_id, items)
 
-        # Build order
-        items = []
-        for category in shop_detail['categories']:
-            print(f"\n【{category['name']}】")
-            for item in category['items']:
-                print(f"  {item['name']} - ¥{item['price']}")
-
-        # Create order
-        order = self._create_order(shop['id'], items, location)
-        return order
-
-    def _search_shops(self, query: str, location: str) -> List[Dict]:
-        """Search shops"""
-        url = f"{self.base_url}/api/v1/gateway/shops/search"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "X-User-Token": self.user_token
-        }
-        response = requests.post(url, json={"query": query, "location": location}, headers=headers)
-        return response.json().get("shops", [])
-
-    def _get_shop_detail(self, shop_id: str) -> Dict:
-        """Get shop details"""
-        url = f"{self.base_url}/api/v1/gateway/shops/{shop_id}"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "X-User-Token": self.user_token
-        }
-        response = requests.get(url, headers=headers)
-        return response.json()
-
-    def _create_order(self, shop_id: str, items: List[Dict], location: str) -> Dict:
-        """Create order"""
-        url = f"{self.base_url}/api/v1/gateway/orders"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "X-User-Token": self.user_token,
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "shop_id": shop_id,
-            "items": items,
-            "delivery_address": location,
-            "contact_phone": self.user_phone
-        }
-        response = requests.post(url, json=payload, headers=headers)
-        return response.json()
-
-    def _request_verification(self, phone: str) -> str:
-        """Request SMS verification code"""
-        url = f"{self.base_url}/api/v1/auth/sms/request"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        response = requests.post(url, json={"phone": phone}, headers=headers)
-        return response.json()["request_id"]
-
-    def _verify_code(self, request_id: str, code: str) -> str:
-        """Verify SMS code"""
-        url = f"{self.base_url}/api/v1/auth/sms/verify"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        response = requests.post(
-            url,
-            json={"request_id": request_id, "code": code},
-            headers=headers
+        # 4. Preview, get preview_id + confirmation_token
+        preview = self._preview_order(
+            shop["shop_id"], shop["cart_id"], address_id, items, quote["quote_id"],
         )
-        return response.json()["user_token"]
+        print(f"Payable ¥{preview['price']['payable_price'] / 100:.2f}")
+
+        # 5. Create order
+        return self._create_order(preview["preview_id"], preview["confirmation_token"])
+
+    def _request_bind(self, phone: str) -> str:
+        url = f"{self.base_url}/auth/bind/request"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        resp = requests.post(url, json={"phone": phone, "auth_type": "sms"}, headers=headers)
+        resp.raise_for_status()
+        return resp.json()["bind_id"]
+
+    def _verify_bind(self, bind_id: str, code: str) -> str:
+        url = f"{self.base_url}/auth/bind/verify"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        resp = requests.post(
+            url, json={"auth_type": "sms", "bind_id": bind_id, "code": code}, headers=headers
+        )
+        resp.raise_for_status()
+        return resp.json()["consent_grant_id"]
+
+    def _search_shops(self, keyword: str, address_id: str) -> List[Dict]:
+        url = f"{self.base_url}/shops/search"
+        resp = requests.post(
+            url, json={"keyword": keyword, "address_id": address_id}, headers=self._headers()
+        )
+        return resp.json().get("shops", [])
+
+    def _get_shop_menu(self, shop_id: str, cart_id: str) -> Dict:
+        url = f"{self.base_url}/shops/menu"
+        resp = requests.post(
+            url, json={"shop_id": shop_id, "cart_id": cart_id}, headers=self._headers()
+        )
+        return resp.json()
+
+    def _quote_cart(self, shop_id: str, cart_id: str, address_id: str, items: List[Dict]) -> Dict:
+        url = f"{self.base_url}/cart/quote"
+        resp = requests.post(
+            url,
+            json={"shop_id": shop_id, "cart_id": cart_id, "address_id": address_id, "items": items},
+            headers=self._headers(),
+        )
+        return resp.json()
+
+    def _preview_order(self, shop_id: str, cart_id: str, address_id: str,
+                       items: List[Dict], quote_id: str) -> Dict:
+        url = f"{self.base_url}/orders/preview"
+        resp = requests.post(
+            url,
+            json={
+                "shop_id": shop_id, "cart_id": cart_id, "address_id": address_id,
+                "items": items, "quote_id": quote_id, "order_remark": "Please ring doorbell",
+            },
+            headers=self._headers(),
+        )
+        return resp.json()
+
+    def _create_order(self, preview_id: str, confirmation_token: str) -> Dict:
+        url = f"{self.base_url}/orders/create"
+        resp = requests.post(
+            url,
+            json={"preview_id": preview_id, "confirmation_token": confirmation_token},
+            headers=self._headers(),
+        )
+        return resp.json()
+
+    def _pick_items(self, menu: Dict) -> List[Dict]:
+        """Illustrative: collect item_id / sku_id / quantity from the menu (list, not a JSON string)"""
+        return []
 
 
 # Usage example
 if __name__ == "__main__":
     agent = LocalLifeAgent()
 
-    # Bind user
-    if agent.bind_user("+86 138 0000 0000"):
-        # Search and order
-        order = agent.search_and_order("food delivery", "No. 1 Zhongguancun Avenue")
+    # User consent
+    if agent.bind_user("13800138000"):
+        # Search and order (address_id obtained from the address flow)
+        order = agent.order("iced latte", address_id="addr_...")
         if order:
             print(f"\nOrder created: {order['order_id']}")
 ```
@@ -677,6 +834,7 @@ if __name__ == "__main__":
 
 ## Next Steps
 
-- See [API Reference](/api/gateway) for complete API documentation
-- Read [Security Model](/skills/security-model) to learn data protection best practices
-- Explore [Supported Platforms](/skills/supported-platforms) to integrate with your Agent app
+- See [API Overview](/en/api-reference/introduction) for complete REST and MCP documentation
+- Read [Order Flow](/en/gateway/order-flow) to master the full stateful order chain
+- Read [Security Model](/en/skills/security-model) to learn data protection best practices
+- Explore [Supported Platforms](/en/skills/supported-platforms) to integrate with your Agent app

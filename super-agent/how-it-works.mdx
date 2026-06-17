@@ -18,27 +18,31 @@ sequenceDiagram
   Agent->>GW: search_shops(keyword="瑞幸")
   GW->>Platform: 搜索商家
   Platform-->>GW: 商家列表
-  GW-->>Agent: 结构化结果
+  GW-->>Agent: 结构化结果（含 shop_id + cart_id）
 
-  Agent->>GW: get_shop_detail(shop_id)
+  Agent->>GW: get_shop_menu(shop_id, cart_id)
   GW->>Platform: 获取菜单 + 规格
   Platform-->>GW: 原始菜单数据
-  GW-->>Agent: 标准化菜单（含默认选项）
+  GW-->>Agent: 标准化菜单（含 item_id / sku_id / 默认选项）
 
   Agent->>Agent: 选择商品，使用默认规格
-  Agent->>GW: preview_order(items)
-  GW->>Platform: 渲染订单（自动选优惠券）
+  Agent->>GW: quote_cart(items) → preview_order(items)
+  GW->>Platform: 算价 + 渲染订单（自动选优惠券）
   Platform-->>GW: 价格明细
-  GW-->>Agent: 总价 + session_id
+  GW-->>Agent: 总价 + preview_id + confirmation_token
 
   Agent->>User: "瑞幸拿铁 ¥9.9，确认下单吗？"
   User->>Agent: "确认"
-  Agent->>GW: confirm_order(session_id)
+  Agent->>GW: create_order(preview_id, confirmation_token)
   GW->>Platform: 创建订单
   Platform-->>GW: 订单号
-  GW-->>Agent: 下单成功
+  GW-->>Agent: 下单成功（order_id）
   Agent->>User: "已下单，预计 35 分钟送达"
 ```
+
+<Note>
+  所有金额字段单位为**分（整数）**。例如 `payable_price: 990` 表示 ¥9.90。
+</Note>
 
 ## Clawdot 的抽象层
 
@@ -46,11 +50,11 @@ AI Agent 直接对接商家平台会遇到复杂性。Clawdot Gateway 在中间�
 
 | Agent 看到的 | Gateway 帮你处理的 |
 |-------------|-------------------|
-| 简单的 `shop_id` | 多种 ID 格式转换（加密 ID、内部 ID、第三方 ID）|
+| 简单的 `shop_id` + `cart_id` | 多种 ID 格式转换（加密 ID、内部 ID、第三方 ID），坐标随 `cart_id` 封装 |
 | 标准化的菜单结构 | 规格/属性/加料解析，互斥规则计算 |
-| `default_ingredients` 一键下单 | 遍历所有规格组，排除互斥项，选择默认项 |
+| `ingredient_option_ids` 一键下单 | 遍历所有规格组，排除互斥项，选择默认项 |
 | 一个最终价格 | 两次渲染：先获取优惠券列表，再用最优券重新渲染 |
-| 统一的认证方式 | Token 自动刷新、请求签名、User-Agent 适配 |
+| 统一的认证方式 | API Key 与 consent grant 校验、请求签名、User-Agent 适配 |
 | 统一的错误码 | 各种平台错误归类为标准错误码 |
 
 ## Super Agent 的角色
@@ -101,7 +105,7 @@ graph TB
 
 ## 双协议入口
 
-同一个 Clawdot Gateway 实例同时暴露两种协议，满足不同的接入需求：
+同一个 Clawdot Gateway 实例同时暴露两种协议，满足不同的接入需求。两种协议共用同一套能力：**18 个 MCP 工具与 18 个 REST 端点一一对应**，参数也一致（MCP 工具多一个 `consent_grant_id` 参数，REST 则走 `X-Consent-Grant-Id` 请求头）。
 
 <Tabs>
   <Tab title="REST API">
@@ -109,103 +113,125 @@ graph TB
 
     ```bash
     # 搜索商家
-    GET /api/v1/shops/search?keyword=瑞幸 \
-      -H "Authorization: Bearer {token}"
+    POST /api/v1/shops/search \
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"keyword": "瑞幸", "address_id": "addr_..."}'
 
-    # 获取商家详情（含菜单）
-    GET /api/v1/shops/{shop_id} \
-      -H "Authorization: Bearer {token}"
+    # 获取店铺菜单
+    POST /api/v1/shops/menu \
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"shop_id": "shop_...", "cart_id": "cart_..."}'
 
     # 预览订单
     POST /api/v1/orders/preview \
-      -H "Authorization: Bearer {token}" \
-      -d '{"shop_id": "...", "items": [...]}'
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"shop_id": "...", "cart_id": "...", "address_id": "...", "items": [...]}'
 
-    # 确认下单
-    POST /api/v1/orders \
-      -H "Authorization: Bearer {token}" \
-      -d '{"session_id": "..."}'
+    # 创建订单
+    POST /api/v1/orders/create \
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..." \
+      -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
 
     # 查询订单
     GET /api/v1/orders/{order_id} \
-      -H "Authorization: Bearer {token}"
+      -H "Authorization: Bearer clw_..." \
+      -H "X-Consent-Grant-Id: cg_..."
     ```
 
-    认证通过 HTTP Header 传递（Bearer Token）。
+    认证走两层：`Authorization: Bearer clw_...` 标识 Agent，`X-Consent-Grant-Id: cg_...` 标识已授权用户。详见 [认证机制](/gateway/authentication)。
   </Tab>
 
   <Tab title="MCP Protocol">
-    Model Context Protocol 是 AI 原生的调用方式，专为 Claude 等 AI 模型设计。Super Agent 直接通过 MCP 工具调用：
+    Model Context Protocol 是 AI 原生的调用方式，专为 Claude 等 AI 模型设计。Super Agent 通过 MCP 公开端点 `/mcp/v1` 直接调用工具（`Authorization: Bearer clw_...` 走 HTTP 头，用户授权走每个工具的 `consent_grant_id` 参数）：
 
     ```
-    # 商家搜索
-    search_shops(keyword, city, limit)
+    # 商家搜索 / 浏览
+    search_shops(consent_grant_id, keyword, address_id, lat, lng)
 
-    # 商家详情
-    get_shop_detail(shop_id)
+    # 店铺菜单
+    get_shop_menu(consent_grant_id, shop_id, cart_id)
 
     # 地址管理
-    search_pois(keyword, city)
-    list_addresses()
-    create_address(poi_id, name)
-    select_address(address_id)
+    search_addresses(consent_grant_id, keyword, lat, lng)   # 返回 saved_addresses + suggestions[].token
+    select_address(consent_grant_id, suggestion_token, contact_name, contact_phone)
 
-    # 订单操作
-    preview_order(items)
-    confirm_order(session_id)
-    get_order(order_id)
+    # 算价与下单
+    quote_cart(consent_grant_id, shop_id, cart_id, address_id, items)
+    preview_order(consent_grant_id, shop_id, cart_id, address_id, items)
+    create_order(consent_grant_id, preview_id, confirmation_token)
+    get_order_status(consent_grant_id, order_id)
     ```
 
-    MCP 工具更符合 AI 的思维方式，参数和返回值都经过优化，用户体验更流畅。
+    MCP 工具更符合 AI 的思维方式，参数和返回值都经过优化，用户体验更流畅。完整工具清单见 [MCP 概览](/mcp/overview)。
   </Tab>
 </Tabs>
 
 ## 工作流程细节
 
+完整下单链路是一条**有状态的链路**，每步返回的 ID 必须原样回传给下一步：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。完整字段表见 [下单流程](/gateway/order-flow)。
+
 <AccordionGroup>
   <Accordion title="搜索阶段" icon="magnifying-glass">
-    Agent 调用 `search_shops` 搜索商家。Gateway 支持按关键词、位置、品类等维度搜索，并可并行搜索 10 个品类。结果返回商家 ID、名称、距离、配送费等关键信息。
+    Agent 调用 `search_shops` 搜索或浏览商家。不传 `keyword` 为浏览模式（返回附近至多 20 家店铺，含距离、评分、配送费等决策字段）；传 `keyword` 为精确搜索（约 5 家，可传店名、品类或具体商品名）。每个结果都附带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，是后续步骤的入口。
   </Accordion>
 
   <Accordion title="菜单浏览阶段" icon="list">
-    Agent 调用 `get_shop_detail` 获取某个商家的完整菜单。返回包含：
-    - 商品列表及价格
-    - 商品规格（大小、冷热、甜度等）
-    - 加料及收费
+    Agent 调用 `get_shop_menu`（传 `shop_id` + `cart_id`）获取某个商家的完整菜单。返回包含：
+    - 商品列表及价格（单位分）
+    - 可下单的 `item_id` / `sku_id`
+    - 商品规格（大小、冷热、甜度等）与加料的 `ingredient_option_ids`
     - **默认选项** —— 包含了商家推荐的规格组合
+
+    菜单可能很大（100+ 项），可用 `keyword` 或 `limit`/`offset` 渐进披露。
   </Accordion>
 
   <Accordion title="地址管理阶段" icon="location-dot">
     首次使用时：
-    1. 调用 `search_pois` 搜索用户说的地址
-    2. 用户从 POI 列表中选择
-    3. 调用 `create_address` 保存为常用地址
+    1. 调用 `search_addresses` 搜索用户说的地址，返回 `suggestions[].token`
+    2. 用户从候选列表中选择
+    3. 调用 `select_address`（传 `suggestion_token` + 联系人）登记为收货地址，返回 `address_id`
 
-    后续使用：调用 `list_addresses` 复用已保存的地址，减少交互步骤。
+    后续使用：`search_addresses` 同时返回 `saved_addresses[]`（传了 `lat`/`lng` 时还带 `nearest_address_id`），可直接复用其 `address_id`，减少交互步骤。
   </Accordion>
 
-  <Accordion title="预览 + 确认阶段" icon="clipboard-check">
-    这是核心的两步流程：
+  <Accordion title="算价 + 预览 + 下单阶段" icon="clipboard-check">
+    这是核心的有状态链路：
 
-    **第一步：预览** → `preview_order`
-    - 输入：商家 ID + 商品列表
-    - 输出：总价、优惠券、配送费、`session_id`
+    **算价** → `quote_cart`
+    - 输入：`shop_id` + `cart_id` + `address_id` + `items`（list）
+    - 输出：`quote_id` + 价格明细
 
-    **第二步：确认** → `confirm_order`
-    - 输入：`session_id`
-    - 输出：订单号、预计配送时间
+    **预览** → `preview_order`
+    - 输入：`shop_id` + `cart_id` + `address_id` + `items`（可选传 `quote_id` 校验报价上下文）
+    - 输出：最终价格（单位分）+ `preview_id` + `confirmation_token`（须配对使用，有效期约 10 分钟）
 
-    中间必须向用户展示价格，获得明确确认后才能下单。
+    **下单** → `create_order`
+    - 输入：同一次预览的 `preview_id` + `confirmation_token`
+    - 输出：`order_id`、`status` 与（需支付时的）`payment_action`
+
+    中间必须向用户展示价格，获得明确确认后才能调用 `create_order`。`confirmation_token` 是幂等键，同一令牌只能下一单。
   </Accordion>
 
   <Accordion title="订单追踪阶段" icon="truck">
-    下单后，Agent 可以调用 `get_order` 查询订单状态：
+    下单后，Agent 可以调用 `get_order_status`（`GET /orders/{order_id}`）查询订单状态：
     - 等待商家接单
     - 商家正在打单
     - 骑手已取餐
     - 骑手配送中
     - 已送达
 
-    可用于主动更新用户订单进展。
+    可用于主动更新用户订单进展。下单时也可在 `create_order` 传 `callback_url`，由网关轮询并在订单脱离未支付态时 POST 回调。
+  </Accordion>
+
+  <Accordion title="免密签约阶段" icon="credit-card">
+    免密支付类订单需先签约：调用 `get_sign_action`（传 `return_url`）获取签约 `action`。`action_type` 为 `open_h5` 时把用户引导到 `action.action_url` 完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status` 轮询结果。
   </Accordion>
 </AccordionGroup>
+
+<Note>
+  在 [Portal](https://portal.clawdot.ai) 创建 Agent 获取 API Key；用户授权（consent grant）走绑定流程（SMS 验证码或 H5）获取。完整链路与字段见 [下单流程](/gateway/order-flow) 与 [认证机制](/gateway/authentication)。
+</Note>
