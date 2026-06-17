@@ -99,7 +99,7 @@ See [Error Handling](/en/gateway/error-handling) for the full list.
 **SMS mode:**
 
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{"phone": "13800138000", "auth_type": "sms"}'
@@ -108,7 +108,7 @@ curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
 **H5 mode (with callback):**
 
 ```bash
-curl -X POST "https://api.clawdot.ai/api/v1/auth/bind/request" \
+curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/request" \
   -H "Authorization: Bearer clw_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{

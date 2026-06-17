@@ -53,7 +53,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
        - Create enterprise application
 
     2. **Create Agent**
-       Create a dedicated Agent in [Clawdot Portal](https://portal.clawdot.ai), record the API Key (`clw_` prefix)
+       Create a dedicated Agent in [Clawdot Portal](http://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
 
     3. **Configure WebHook**
        In DingTalk app settings, configure Clawdot Skills API as message processing endpoint
@@ -80,7 +80,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
 
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
+    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
 
     def sign_message(timestamp, secret):
         """DingTalk message signature verification"""
@@ -196,7 +196,7 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
        - Create application and get API Key
 
     2. **Create Clawdot Agent**
-       Create an Agent in [Clawdot Portal](https://portal.clawdot.ai), record the API Key (`clw_` prefix)
+       Create an Agent in [Clawdot Portal](http://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
 
     3. **Define Function Schema**
        Register Clawdot Gateway API as Function Calling tool in Kimi app
@@ -216,7 +216,7 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
 
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "https://api.clawdot.ai/api/v1"
+    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
 
     def call_kimi_with_function_calling(user_message, consent_grant_id):
         """Use Kimi API with Function Calling"""
@@ -412,7 +412,7 @@ Tencent Cloud provides enterprise-grade AI Agent service supporting cloud-native
        - Configure basic info and permissions
 
     3. **Create Clawdot Agent**
-       Create a dedicated Agent in [Clawdot Portal](https://portal.clawdot.ai)
+       Create a dedicated Agent in [Clawdot Portal](http://console.hicaspian.com/agents)
 
     4. **Configure Integration**
        Configure Clawdot Skills Platform API endpoint in Tencent Cloud Agent
@@ -447,11 +447,11 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     - Follow instructions to complete installation and login
 
     **2. Create Clawdot Agent**
-    Create an Agent in [Clawdot Portal](https://portal.clawdot.ai) and get the API Key (`clw_` prefix)
+    Create an Agent in [Clawdot Portal](http://console.hicaspian.com/agents) and get the API Key (`clw_` prefix)
 
     **3. Configure MCP Server**
     The Gateway exposes a native Streamable HTTP MCP endpoint
-    (`https://api.clawdot.ai/mcp/v1`); Agent identity is passed on the connection
+    (`http://eleme-gateway.hicaspian.com/mcp/v1`); Agent identity is passed on the connection
     via the `Authorization: Bearer clw_...` header. Edit
     `~/.claude-desktop/config.json`:
 
@@ -459,7 +459,7 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     {
       "mcpServers": {
         "clawdot-skills": {
-          "url": "https://api.clawdot.ai/mcp/v1",
+          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
           "headers": {
             "Authorization": "Bearer clw_your_api_key_here"
           }
@@ -637,7 +637,7 @@ Configuration is similar to Claude Desktop — connect directly to the Gateway's
 {
   "mcpServers": {
     "clawdot": {
-      "url": "https://api.clawdot.ai/mcp/v1",
+      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_key"
       }
@@ -672,7 +672,7 @@ const CONSENT_GRANT_ID = process.env.CONSENT_GRANT_ID; // User consent grant, cg
 
 async function searchShops(keyword, lat, lng) {
   const response = await axios.post(
-    'https://api.clawdot.ai/api/v1/shops/search',
+    'http://eleme-gateway.hicaspian.com/api/v1/shops/search',
     { keyword, lat, lng },   // GCJ-02 coordinates; or use address_id
     {
       headers: {

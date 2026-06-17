@@ -36,7 +36,7 @@ MCP (Model Context Protocol) is the standard protocol released by Anthropic, ena
 
 ### Step 1: Get API Key
 
-Create your Agent in the [Clawdot Portal](https://portal.clawdot.ai):
+Create your Agent in the [Clawdot Portal](http://console.hicaspian.com/agents):
 
 1. Sign in to Portal and open **Agent Management**
 2. Click **Create New Agent**, enter a name and description
@@ -49,7 +49,7 @@ The API Key is only displayed once at creation. If lost, regenerate it in Portal
 
 ### Step 2: Configure MCP Server
 
-The Gateway's public MCP endpoint is `https://api.clawdot.ai/mcp/v1` (Streamable HTTP). Agent identity is passed at the **connection layer** via the `Authorization: Bearer clw_...` header.
+The Gateway's public MCP endpoint is `http://eleme-gateway.hicaspian.com/mcp/v1` (Streamable HTTP). Agent identity is passed at the **connection layer** via the `Authorization: Bearer clw_...` header.
 
 Configure it in any client that supports remote Streamable HTTP MCP:
 
@@ -58,7 +58,7 @@ Configure it in any client that supports remote Streamable HTTP MCP:
   "mcpServers": {
     "clawdot-gateway": {
       "type": "http",
-      "url": "https://api.clawdot.ai/mcp/v1",
+      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_api_key_here"
       }
@@ -71,7 +71,7 @@ Configure it in any client that supports remote Streamable HTTP MCP:
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `url` | Public MCP endpoint (Streamable HTTP) | `https://api.clawdot.ai/mcp/v1` |
+| `url` | Public MCP endpoint (Streamable HTTP) | `http://eleme-gateway.hicaspian.com/mcp/v1` |
 | `Authorization` | Agent identity, `Bearer ` + your API Key | `Bearer clw_abc123def456...` |
 
 <Warning>
@@ -140,11 +140,11 @@ For the full tool list and ordering chain see [MCP Overview](/en/mcp/overview).
 
 ## REST API
 
-Suitable for advanced scenarios requiring full control, or integration with platforms like DingTalk and Kimi. All REST endpoints live under `https://api.clawdot.ai/api/v1`.
+Suitable for advanced scenarios requiring full control, or integration with platforms like DingTalk and Kimi. All REST endpoints live under `http://eleme-gateway.hicaspian.com/api/v1`.
 
 ### Step 1: Get API Key
 
-Same as MCP Step 1 (create an Agent in [Portal](https://portal.clawdot.ai)).
+Same as MCP Step 1 (create an Agent in [Portal](http://console.hicaspian.com/agents)).
 
 ### Step 2: User Authorization (same as above)
 
@@ -155,7 +155,7 @@ Same as MCP Step 3, obtaining a `consent_grant_id`. On the REST side the binding
 Every REST request that needs user identity must carry both credential layers in the Header:
 
 ```bash
-curl -X POST https://api.clawdot.ai/api/v1/shops/search \
+curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
   -H "Authorization: Bearer clw_your_api_key_here" \
   -H "X-Consent-Grant-Id: cg_550e8400e29b41d4a716" \
   -H "Content-Type: application/json" \
@@ -366,7 +366,7 @@ import requests
 
 try:
     response = requests.post(
-        "https://api.clawdot.ai/api/v1/shops/search",
+        "http://eleme-gateway.hicaspian.com/api/v1/shops/search",
         headers={
             "Authorization": f"Bearer {api_key}",
             "X-Consent-Grant-Id": consent_grant_id,
@@ -404,7 +404,7 @@ Suitable for Agent frameworks using OpenAI API or compatible API (e.g. LangChain
 
 ### Step 1: Get API Key
 
-Same as above (create an Agent in [Portal](https://portal.clawdot.ai)).
+Same as above (create an Agent in [Portal](http://console.hicaspian.com/agents)).
 
 ### Step 2: User Authorization
 
@@ -534,7 +534,7 @@ import json
 
 def call_gateway_api(endpoint, params, api_key, consent_grant_id):
     """Helper to call a Clawdot Gateway REST endpoint"""
-    url = f"https://api.clawdot.ai/api/v1/{endpoint}"
+    url = f"http://eleme-gateway.hicaspian.com/api/v1/{endpoint}"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "X-Consent-Grant-Id": consent_grant_id,
@@ -621,7 +621,7 @@ def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
 <details>
 <summary>MCP fails to load</summary>
 
-- Confirm the endpoint is `https://api.clawdot.ai/mcp/v1`
+- Confirm the endpoint is `http://eleme-gateway.hicaspian.com/mcp/v1`
 - Confirm the `Authorization` header is `Bearer clw_...` with the correct API Key
 - Check the client supports remote Streamable HTTP MCP
 - Restart the MCP client
