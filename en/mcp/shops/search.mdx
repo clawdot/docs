@@ -16,6 +16,10 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 - **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
 - **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / delivery_fee fields are usually `null` (upstream limitation; `rating` may carry a value depending on the upstream).
 
+<Note>
+  **Browse pagination**: in browse mode (no `keyword`), pass `offset` to page through results — send `offset: 0` on the first call, then the response's `next_offset` on each subsequent call, until `shops` comes back empty (end reached). Page size is fixed and not adjustable (it only caps how many shops one page may return). Keyword search does not support pagination.
+</Note>
+
 ### Parameters
 
 | Parameter | Type | Required | Default | Description |
@@ -26,6 +30,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `lat` | float \| null | No | `null` | Latitude (GCJ-02) |
 | `lng` | float \| null | No | `null` | Longitude (GCJ-02) |
 | `city` | string \| null | No | `null` | City name to scope the search |
+| `offset` | integer \| null | No | `null` | **Browse mode only**: pagination cursor. Omit = first page; pass the previous `next_offset` to fetch the next page. Page size is fixed and not adjustable. Ignored when `keyword` is set |
 
 <Note>
   **How the delivery location is resolved**: in order, ① the coordinates of the saved address behind `address_id` → ② the `lat`/`lng` passed explicitly → ③ the user's most-recently-used saved address / remembered location. If none resolve, the call returns `COORDS_REQUIRED`. So `address_id` and `lat`/`lng` are both optional, but at least one location source must be resolvable.
@@ -59,7 +64,8 @@ Searches or browses shops near the delivery location. Each result carries a `sho
         }
       ]
     }
-  ]
+  ],
+  "next_offset": 20
 }
 ```
 
@@ -70,6 +76,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | Field | Type | Description |
 |-------|------|-------------|
 | `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
+| `next_offset` | integer \| null | **Returned only when paging in browse mode** (request included `offset`): cursor for the next page, use as the next request's `offset`; empty `shops` means the end. Requests without `offset` do **not** include this field |
 | `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `get_shop_menu` / `quote_cart` / `preview_order` as-is |
 | `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
 | `shops[].name` | string | Shop name |
