@@ -16,6 +16,10 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 - **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
 - **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / delivery_fee fields are usually `null` (upstream limitation; `rating` may carry a value depending on the upstream).
 
+<Note>
+  **Browse pagination**: in browse mode (no `keyword`), pass `offset` to page through results — send `offset: 0` on the first call, then the response's `next_offset` on each subsequent call, until `shops` comes back empty (end reached). Page size is fixed and not adjustable (it only caps how many shops one page may return). Keyword search does not support pagination.
+</Note>
+
 ### Request Headers
 
 | Name | Required | Description |
@@ -43,6 +47,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `lat` | float | No | `null` | Latitude (GCJ-02) |
 | `lng` | float | No | `null` | Longitude (GCJ-02) |
 | `city` | string | No | `null` | City name to scope the search |
+| `offset` | integer | No | `null` | **Browse mode only**: pagination cursor. Omit = first page (same as legacy); pass the previous response's `next_offset` to fetch the next page. Page size is fixed and not adjustable. Ignored when `keyword` is set |
 
 <Note>
   **How the delivery location is resolved**: in order, ① the coordinates of the saved address behind `address_id` → ② the `lat`/`lng` passed explicitly → ③ the user's most-recently-used saved address / remembered location. If none resolve, the call returns `COORDS_REQUIRED`. So `address_id` and `lat`/`lng` are both optional, but at least one location source must be resolvable.
@@ -58,6 +63,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
       "cart_id": "cart_9b3e...",
       "name": "瑞幸咖啡(人民广场店)",
       "brand_name": "瑞幸咖啡",
+      "tags": ["咖啡"],
       "logo_url": "https://image.url/shop.jpg",
       "distance_text": "1.2km",
       "delivery_time_text": "35分钟",
@@ -72,11 +78,13 @@ Searches or browses shops near the delivery location. Each result carries a `sho
           "name": "生椰拿铁",
           "description": "椰浆+浓缩咖啡",
           "price": 1600,
-          "original_price": 2900
+          "original_price": 2900,
+          "image_url": "https://cube.elemecdn.com/8/be/57a834efd750f506fb634dd3f6700jpg.jpg?x-oss-process=image/resize,m_fill,w_184,h_184/quality,q_75"
         }
       ]
     }
-  ]
+  ],
+  "next_offset": 20
 }
 ```
 
@@ -87,10 +95,12 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | Field | Type | Description |
 |-------|------|-------------|
 | `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
+| `next_offset` | integer \| null | **Returned only when paging in browse mode** (request included `offset`): cursor for the next page, use as the next request's `offset`; empty `shops` means the end. Requests without `offset` do **not** include this field |
 | `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `/shops/menu` / `/cart/quote` / `/orders/preview` as-is |
 | `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream calls reuse it instead of passing lat/lng |
 | `shops[].name` | string | Shop name |
 | `shops[].brand_name` | string \| null | Brand name |
+| `shops[].tags` | string[] | Category tags: one of `咖啡` / `奶茶` / `快餐`, or empty `[]` when none. For client-side category filtering; the gateway does not filter for you |
 | `shops[].logo_url` | string \| null | Shop logo URL |
 | `shops[].distance_text` | string \| null | Distance from the delivery location (text; may be `null` in keyword search mode) |
 | `shops[].delivery_time_text` | string \| null | Estimated delivery text (may be `null` in keyword search mode) |
@@ -105,6 +115,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].matched_items[].description` | string \| null | Item description (max 80 chars) |
 | `shops[].matched_items[].price` | integer | Item price (cents) |
 | `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
+| `shops[].matched_items[].image_url` | string \| null | Item image URL (upstream thumbnail, ~184×184). For the original or another size, rewrite/drop the trailing `?x-oss-process` parameter |
 
 <Warning>
   `matched_items` carry **no IDs and no stock state**. To order, you must first call `/shops/menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
