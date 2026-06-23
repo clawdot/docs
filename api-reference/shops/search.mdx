@@ -63,6 +63,7 @@ description: "POST /shops/search — 按位置搜索或浏览附近店铺，每�
       "cart_id": "cart_9b3e...",
       "name": "瑞幸咖啡(人民广场店)",
       "brand_name": "瑞幸咖啡",
+      "tags": ["咖啡"],
       "logo_url": "https://image.url/shop.jpg",
       "distance_text": "1.2km",
       "delivery_time_text": "35分钟",
@@ -77,7 +78,8 @@ description: "POST /shops/search — 按位置搜索或浏览附近店铺，每�
           "name": "生椰拿铁",
           "description": "椰浆+浓缩咖啡",
           "price": 1600,
-          "original_price": 2900
+          "original_price": 2900,
+          "image_url": "https://cube.elemecdn.com/8/be/57a834efd750f506fb634dd3f6700jpg.jpg?x-oss-process=image/resize,m_fill,w_184,h_184/quality,q_75"
         }
       ]
     }
@@ -98,6 +100,7 @@ description: "POST /shops/search — 按位置搜索或浏览附近店铺，每�
 | `shops[].cart_id` | string | 购物车上下文 ID（`cart_` 前缀），已封装该店铺与配送坐标；后续接口据此免传经纬度 |
 | `shops[].name` | string | 店铺名称 |
 | `shops[].brand_name` | string \| null | 品牌名 |
+| `shops[].tags` | string[] | 品类标签：`咖啡` / `奶茶` / `快餐` 之一；命不中为空数组 `[]`。供调用方按品类筛选展示，平台不替客户过滤 |
 | `shops[].logo_url` | string \| null | 店铺图标 URL |
 | `shops[].distance_text` | string \| null | 距配送位置距离（文案；关键词搜索模式可能为 `null`）|
 | `shops[].delivery_time_text` | string \| null | 预计送达文案（关键词搜索模式可能为 `null`）|
@@ -112,6 +115,7 @@ description: "POST /shops/search — 按位置搜索或浏览附近店铺，每�
 | `shops[].matched_items[].description` | string \| null | 商品描述（最多 80 字）|
 | `shops[].matched_items[].price` | integer | 商品价（分）|
 | `shops[].matched_items[].original_price` | integer \| null | 原价（分）|
+| `shops[].matched_items[].image_url` | string \| null | 商品图 URL（上游缩略图，约 184×184）。如需原图或其它尺寸，改写/删除末尾 `?x-oss-process` 参数 |
 
 <Warning>
   `matched_items` **不带任何 ID，也不含库存状态**。要下单必须先调 `/shops/menu`，使用其返回的 `item_id` / `sku_id` / 选项 ID；商品是否在售也以菜单为准。

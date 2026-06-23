@@ -46,6 +46,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
       "cart_id": "cart_9b3e...",
       "name": "瑞幸咖啡(人民广场店)",
       "brand_name": "瑞幸咖啡",
+      "tags": ["咖啡"],
       "logo_url": "https://image.url/shop.jpg",
       "distance_text": "1.2km",
       "delivery_time_text": "35分钟",
@@ -60,7 +61,8 @@ Searches or browses shops near the delivery location. Each result carries a `sho
           "name": "生椰拿铁",
           "description": "椰浆+浓缩咖啡",
           "price": 1600,
-          "original_price": 2900
+          "original_price": 2900,
+          "image_url": "https://cube.elemecdn.com/8/be/57a834efd750f506fb634dd3f6700jpg.jpg?x-oss-process=image/resize,m_fill,w_184,h_184/quality,q_75"
         }
       ]
     }
@@ -81,6 +83,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
 | `shops[].name` | string | Shop name |
 | `shops[].brand_name` | string \| null | Brand name |
+| `shops[].tags` | string[] | Category tags: one of `咖啡` / `奶茶` / `快餐`, or empty `[]` when none. For client-side category filtering; the gateway does not filter for you |
 | `shops[].logo_url` | string \| null | Shop logo URL |
 | `shops[].distance_text` | string \| null | Distance from the delivery location (text; may be `null` in keyword search mode) |
 | `shops[].delivery_time_text` | string \| null | Estimated delivery text (may be `null` in keyword search mode) |
@@ -95,6 +98,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].matched_items[].description` | string \| null | Item description (max 80 chars) |
 | `shops[].matched_items[].price` | integer | Item price (cents) |
 | `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
+| `shops[].matched_items[].image_url` | string \| null | Item image URL (upstream thumbnail, ~184×184). For the original or another size, rewrite/drop the trailing `?x-oss-process` parameter |
 
 <Warning>
   `matched_items` carry **no IDs and no stock state**. To order, you must first call `get_shop_menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
