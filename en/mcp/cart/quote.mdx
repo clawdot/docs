@@ -40,7 +40,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `goods_price` | integer | Goods subtotal (cents) |
 | `delivery_fee` | integer | Delivery fee (cents) |
 | `packing_fee` | integer | Packing fee (cents) |
-| `original_price` | integer | Pre-discount total (cents) = payable + discount = goods + delivery + packing; satisfies `original_price − discount = payable_price` |
+| `original_price` | integer | Pre-discount total (cents) = payable + discount; satisfies `original_price − discount = payable_price` |
 | `discount` | integer | Discount amount (cents) |
 | `payable_price` | integer | Payable amount (cents) |
 | `minimum_order_gap` | integer \| null | Amount short of the order minimum (cents); `null` when not applicable |

@@ -57,9 +57,9 @@ description: "MCP 工具，对应 REST POST /orders/preview — 校验已算价�
 | `price.goods_price` | integer | 商品小计（分）|
 | `price.delivery_fee` | integer | 配送费（分）|
 | `price.packing_fee` | integer | 打包费（分）|
-| `price.original_price` | integer | 优惠前总额（分）= 应付 + 优惠 = 商品 + 配送 + 打包；满足 `original_price − discount = payable_price` |
+| `price.original_price` | integer | 优惠前总额（分）= 应付 + 优惠；满足 `original_price − discount = payable_price` |
 | `price.discount` | integer | 优惠金额（分）|
-| `price.payable_price` | integer | 应付金额（分）= 商品 + 配送 + 打包 − 优惠 |
+| `price.payable_price` | integer | 应付金额（分） |
 | `delivery.estimated_time_text` | string \| null | 预计送达文案 |
 | `delivery.delivery_type` | string \| null | 配送类型（当前为 `null`）|
 | `payment.requires_payment` | boolean | 是否需要支付 |

@@ -57,9 +57,9 @@ Previews an order before creation: validates the shop / address / items, applies
 | `price.goods_price` | integer | Goods subtotal (cents) |
 | `price.delivery_fee` | integer | Delivery fee (cents) |
 | `price.packing_fee` | integer | Packing fee (cents) |
-| `price.original_price` | integer | Pre-discount total (cents) = payable + discount = goods + delivery + packing; satisfies `original_price − discount = payable_price` |
+| `price.original_price` | integer | Pre-discount total (cents) = payable + discount; satisfies `original_price − discount = payable_price` |
 | `price.discount` | integer | Discount amount (cents) |
-| `price.payable_price` | integer | Payable amount (cents) = goods + delivery + packing − discount |
+| `price.payable_price` | integer | Payable amount (cents) |
 | `delivery.estimated_time_text` | string \| null | Estimated delivery text |
 | `delivery.delivery_type` | string \| null | Delivery type (currently `null`) |
 | `payment.requires_payment` | boolean | Whether payment is required |
