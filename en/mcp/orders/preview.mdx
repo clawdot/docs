@@ -52,9 +52,12 @@ Previews an order before creation: validates the shop / address / items, applies
 | `items[].name` | string | Item name |
 | `items[].quantity` | integer | Quantity |
 | `items[].price` | integer | Item price (cents) |
+| `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
+| `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents); `[]` if none |
 | `price.goods_price` | integer | Goods subtotal (cents) |
 | `price.delivery_fee` | integer | Delivery fee (cents) |
 | `price.packing_fee` | integer | Packing fee (cents) |
+| `price.original_price` | integer | Pre-discount total (cents) = payable + discount = goods + delivery + packing; satisfies `original_price − discount = payable_price` |
 | `price.discount` | integer | Discount amount (cents) |
 | `price.payable_price` | integer | Payable amount (cents) = goods + delivery + packing − discount |
 | `delivery.estimated_time_text` | string \| null | Estimated delivery text |

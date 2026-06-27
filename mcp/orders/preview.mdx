@@ -52,9 +52,12 @@ description: "MCP 工具，对应 REST POST /orders/preview — 校验已算价�
 | `items[].name` | string | 商品名 |
 | `items[].quantity` | integer | 数量 |
 | `items[].price` | integer | 单品价（分）|
+| `items[].specs` | array | 该项已选规格，`[{name, value}]`（如 `{"name":"规格","value":"大杯"}`）；无规格时为 `[]` |
+| `items[].selected_ingredients` | array | 该项已选配料/做法，`[{group_name, name, price_delta}]`；`group_name` 可为 `null`，`price_delta` 为加价（分）；无则为 `[]` |
 | `price.goods_price` | integer | 商品小计（分）|
 | `price.delivery_fee` | integer | 配送费（分）|
 | `price.packing_fee` | integer | 打包费（分）|
+| `price.original_price` | integer | 优惠前总额（分）= 应付 + 优惠 = 商品 + 配送 + 打包；满足 `original_price − discount = payable_price` |
 | `price.discount` | integer | 优惠金额（分）|
 | `price.payable_price` | integer | 应付金额（分）= 商品 + 配送 + 打包 − 优惠 |
 | `delivery.estimated_time_text` | string \| null | 预计送达文案 |

@@ -161,3 +161,14 @@ This is the result of system automatically selecting the first non-conflicting o
 <Tip>
   For most ordering scenarios, directly using `default_ingredients` is the simplest approach. Only need manual selection when user explicitly requests customization.
 </Tip>
+
+## Echoing selected specs
+
+`get_shop_menu` returns the **available** options; `quote_cart` and `preview_order` **echo back the user's selected** specs and ingredients on each item, so you can show "what was ordered":
+
+| Field | Description |
+|-------|-------------|
+| `items[].specs` | Selected specs, `[{name, value}]`, e.g. `[{"name":"Size","value":"Large"}]` |
+| `items[].selected_ingredients` | Selected ingredients / options, `[{group_name, name, price_delta}]`, e.g. `[{"group_name":"Add-ons","name":"Boba","price_delta":200}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents) |
+
+The echo is translated by **each item's own `sku_id` / `ingredient_option_ids`**, so multiple items (including the same item with different specs) never cross-contaminate; fields are `[]` when there are no specs / ingredients.
