@@ -1,11 +1,11 @@
 ---
 title: "search_addresses"
-description: "MCP tool, maps to REST POST /addresses/search — list the user's saved delivery addresses and search new POI candidates by keyword"
+description: "MCP tool search_addresses — list the user's saved delivery addresses and search new POI candidates by keyword"
 ---
 
 ## search_addresses
 
-Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`) and, when a `keyword` is given, returns POI candidate addresses (`suggestions`). When `lat`/`lng` are passed, each saved address is annotated with `distance_meters` and the closest one's ID is surfaced at the top level as `nearest_address_id`. Maps to the REST endpoint `POST /addresses/search`.
+Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`) and, when a `keyword` is given, returns POI candidate addresses (`suggestions`). When `lat`/`lng` are passed, each saved address is annotated with `distance_meters` and the closest one's ID is surfaced at the top level as `nearest_address_id`.
 
 <Note>
   **Position in the order flow**: the `address_id` (a saved address) or `suggestions[].token` (a POI candidate) returned here feeds the next step, `select_address`, which returns the canonical `address_id` used by `preview_order` and `create_order`.

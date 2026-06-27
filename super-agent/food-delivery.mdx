@@ -9,7 +9,7 @@ description: "AI 外卖点餐场景"
 
 ## 能力矩阵
 
-Super Agent 在外卖场景下的核心能力（每个能力一一对应一个 MCP 工具 / REST 端点，共 18 个工具与 18 个端点）：
+Super Agent 在外卖场景下的核心能力（每个能力对应一个 MCP 工具，共 18 个工具）：
 
 | 能力 | 说明 | MCP 工具 |
 |------|------|--------|
@@ -264,5 +264,5 @@ graph LR
 - [MCP 工具总览](/mcp/overview) — 18 个工具的契约
 
 <Note>
-  认证为双层：`Authorization: Bearer clw_...` 标识 Agent；用户授权（`cg_` 前缀的 consent grant）在 MCP 工具里作为 `consent_grant_id` 参数传入，在 REST 里通过 `X-Consent-Grant-Id` 请求头传递。MCP 公开端点为 `/mcp/v1`。创建 Agent、签发 API Key 走 [Portal](http://console.hicaspian.com/agents)。
+  认证为双层：`Authorization: Bearer clw_...` 标识 Agent；用户授权（`cg_` 前缀的 consent grant）在 MCP 工具里作为 `consent_grant_id` 参数传入。MCP 公开端点为 `/mcp/v1`。创建 Agent、签发 API Key 走 [Portal](http://console.hicaspian.com/agents)。
 </Note>

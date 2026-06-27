@@ -6,7 +6,6 @@ icon: "grid"
 
 import { Card, CardGroup } from '/components/Card';
 import { Tabs, Tab } from '/components/Tabs';
-import { Info } from '/components/Callout';
 
 ## Integrated Platforms
 
@@ -34,7 +33,7 @@ Clawdot Skills Platform supports a wide range of AI Agent applications and frame
   </Card>
 
   <Card title="Custom Agent" icon="wrench">
-    Self-developed Agent application using REST API, suitable for custom requirements.
+    Any framework that speaks MCP (or tool calling) — integrate via the tool contract, suitable for custom requirements.
   </Card>
 </CardGroup>
 
@@ -67,8 +66,8 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
 
   <Tab title="Code Example">
     ```python
+    import asyncio
     from flask import Flask, request
-    import requests
     import hmac
     import hashlib
     import base64
@@ -76,11 +75,15 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
     import json
     import os
 
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
     app = Flask(__name__)
 
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
+    # Gateway's native MCP endpoint (Streamable HTTP)
+    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
 
     def sign_message(timestamp, secret):
         """DingTalk message signature verification"""
@@ -125,23 +128,30 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
 
         return {"code": 0, "message": "ok"}, 200
 
+    async def call_gateway_tool(tool_name, args):
+        """Call a Gateway tool over an MCP client.
+
+        Agent identity goes in the connection Authorization header; the user
+        consent_grant_id is passed as a tool argument.
+        """
+        headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}
+        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                return await session.call_tool(tool_name, args)
+
     def search_shops_for_dingtalk(query, user_id):
-        """Call Clawdot API to search shops"""
+        """Call the Gateway search_shops tool to search shops"""
         consent_grant_id = get_consent_grant(user_id)  # Get that user's consent grant (cg_ prefix)
 
-        url = f"{CLAWDOT_BASE_URL}/shops/search"
-        headers = {
-            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-Consent-Grant-Id": consent_grant_id
-        }
-        payload = {
+        # User consent is passed as a tool argument, not a header
+        result = asyncio.run(call_gateway_tool("search_shops", {
+            "consent_grant_id": consent_grant_id,
             "keyword": query,
             "lat": 39.9836,   # GCJ-02 coordinates, get from user location service
             "lng": 116.3164,
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
-        return response.json().get("shops", [])
+        }))
+        return result.get("shops", [])  # shops[]: shop_id, cart_id, next_offset?
 
     def format_shop_list_for_dingtalk(shops):
         """Format shop list as DingTalk card"""
@@ -163,7 +173,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
 
     def get_consent_grant(user_id):
         """Get user's consent grant (cg_ prefix) from database"""
-        # On first use, run the bind flow (auth/bind/request + auth/bind/verify),
+        # On first use, run the bind flow (request_user_bind + verify_user_bind),
         # then persist the returned consent_grant_id and reuse it on later requests
         pass
 
@@ -210,13 +220,18 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
 
   <Tab title="Code Example">
     ```python
+    import asyncio
     import requests
     import json
     import os
 
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
+    # Gateway's native MCP endpoint (Streamable HTTP)
+    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
 
     def call_kimi_with_function_calling(user_message, consent_grant_id):
         """Use Kimi API with Function Calling"""
@@ -347,35 +362,25 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
 
         return result
 
-    # Tool name -> REST endpoint (all POST), one per ordering step
-    ENDPOINTS = {
-        "search_shops": "/shops/search",
-        "get_shop_menu": "/shops/menu",
-        "quote_cart": "/cart/quote",
-        "select_address": "/addresses/select",
-        "preview_order": "/orders/preview",
-        "create_order": "/orders/create",
-    }
-
     def call_clawdot_function(function_name, args, consent_grant_id):
-        """Call Clawdot Gateway API"""
+        """Call a Clawdot Gateway tool over an MCP client.
 
-        headers = {
-            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-Consent-Grant-Id": consent_grant_id,
-            "Content-Type": "application/json"
-        }
+        The function_name returned by Kimi matches a Gateway tool name one-to-one,
+        so it is used directly as the call_tool name. The user consent_grant_id is
+        injected as a tool argument, not a header.
+        """
 
-        path = ENDPOINTS.get(function_name)
-        if path is None:
-            raise ValueError(f"Unknown tool: {function_name}")
+        async def _invoke():
+            headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}  # Agent identity
+            async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    return await session.call_tool(function_name, {
+                        "consent_grant_id": consent_grant_id,
+                        **args,
+                    })
 
-        response = requests.post(
-            f"{CLAWDOT_BASE_URL}{path}",
-            json=args,
-            headers=headers
-        )
-        return response.json()
+        return asyncio.run(_invoke())
 
     # Usage example
     user_message = "I want to order food in Zhongguancun"
@@ -478,140 +483,45 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     - Claude auto-calls corresponding Gateway skills
   </Tab>
 
-  <Tab title="MCP Server Implementation">
-    The Gateway already exposes a native MCP endpoint (`/mcp/v1`), so usually you
-    can **connect directly** (see the previous tab's config). Only refer to the
-    simplified example below if you need to adapt the Gateway's REST API into your
-    own MCP process. Each tool takes a `consent_grant_id` argument (user consent
-    grant, `cg_` prefix) that maps to the `X-Consent-Grant-Id` header on REST calls:
+  <Tab title="MCP Client Call">
+    The Gateway already exposes a native MCP endpoint (`/mcp/v1`), so Claude Desktop
+    can **connect directly** (see the previous tab's config) — there is no need to
+    stand up a local proxy of your own. If you want to verify the connection from a
+    script, or reuse the same tools inside a custom Agent, use any MCP client to
+    connect directly. Agent identity goes in the connection `Authorization` header;
+    the user consent `consent_grant_id` (`cg_` prefix) is passed as an argument on
+    each business tool:
 
-    ```typescript
-    import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-    import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-    import {
-      CallToolRequestSchema,
-      ListToolsRequestSchema,
-      Tool
-    } from "@modelcontextprotocol/sdk/types.js";
-    import axios from "axios";
+    ```python
+    import asyncio
 
-    const apiKey = process.env.CLAWDOT_API_KEY;
-    const gatewayUrl = process.env.CLAWDOT_GATEWAY_URL;
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
 
-    class ClawdotMCP {
-      private server: Server;
+    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    API_KEY = "clw_your_api_key_here"            # Agent identity, connection header
+    CONSENT_GRANT_ID = "cg_..."                  # User consent grant, tool argument
 
-      constructor() {
-        this.server = new Server(
-          {
-            name: "clawdot-skills",
-            version: "1.0.0"
-          },
-          {
-            capabilities: {
-              tools: {}
-            }
-          }
-        );
+    async def main():
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
 
-        this.setupHandlers();
-      }
+                # Once connected, all 18 tools are auto-discovered
+                tools = await session.list_tools()
+                print([t.name for t in tools.tools])
 
-      private setupHandlers() {
-        this.server.setRequestHandler(
-          ListToolsRequestSchema,
-          async () => ({
-            tools: [
-              {
-                name: "search_shops",
-                description: "Search / browse local shops",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    consent_grant_id: { type: "string" },
-                    keyword: { type: "string" },
-                    address_id: { type: "string" },
-                    lat: { type: "number" },
-                    lng: { type: "number" }
-                  },
-                  required: ["consent_grant_id"]
-                }
-              },
-              {
-                name: "get_shop_menu",
-                description: "Get shop menu (includes orderable item_id / sku_id)",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    consent_grant_id: { type: "string" },
-                    shop_id: { type: "string" },
-                    cart_id: { type: "string" }
-                  },
-                  required: ["consent_grant_id", "shop_id", "cart_id"]
-                }
-              },
-              {
-                name: "create_order",
-                description: "Place the order using preview_id + confirmation_token",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    consent_grant_id: { type: "string" },
-                    preview_id: { type: "string" },
-                    confirmation_token: { type: "string" }
-                  },
-                  required: ["consent_grant_id", "preview_id", "confirmation_token"]
-                }
-              }
-            ]
-          })
-        );
+                # User consent is passed as a tool argument, not a header
+                shops = await session.call_tool("search_shops", {
+                    "consent_grant_id": CONSENT_GRANT_ID,
+                    "keyword": "coffee",
+                    "lat": 39.9836,   # GCJ-02 coordinates; or use address_id
+                    "lng": 116.3164,
+                })
+                print(shops)   # contains shops[]: shop_id, cart_id, next_offset?
 
-        this.server.setRequestHandler(
-          CallToolRequestSchema,
-          async (request) => {
-            const { name, arguments: args } = request.params;
-
-            switch (name) {
-              case "search_shops":
-                return await this.callGateway("/shops/search", args);
-              case "get_shop_menu":
-                return await this.callGateway("/shops/menu", args);
-              case "create_order":
-                return await this.callGateway("/orders/create", args);
-              default:
-                return { isError: true, content: [{ type: "text", text: "Unknown tool" }] };
-            }
-          }
-        );
-      }
-
-      // Forward tool args to the matching REST endpoint: consent_grant_id goes
-      // in the X-Consent-Grant-Id header, the rest become the JSON body.
-      private async callGateway(path: string, args: any) {
-        const { consent_grant_id, ...body } = args;
-        const response = await axios.post(
-          `${gatewayUrl}/api/v1${path}`,
-          body,
-          {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "X-Consent-Grant-Id": consent_grant_id,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
-      }
-
-      async start() {
-        const transport = new StdioServerTransport();
-        await this.server.connect(transport);
-      }
-    }
-
-    const mcp = new ClawdotMCP();
-    mcp.start();
+    asyncio.run(main())
     ```
   </Tab>
 
@@ -656,40 +566,43 @@ Cursor integration is basically same as Claude Desktop, main difference is use c
 
 ## Custom Agent
 
-If your Agent platform is not in the above list, you can integrate using **REST API**.
+If your Agent platform is not in the list above, you can still integrate as long as it speaks **MCP (Model Context Protocol)** or generic tool calling — connect to the Gateway's tool contract directly. It uses the same MCP channel as Claude Desktop / Cursor, so there is no separate interface to stand up for food-delivery capabilities.
 
-### REST API Integration
+### Integration essentials
 
-Refer to [Integration Guide - REST API](/en/skills/integration-guide#rest-api) section.
+1. **Connect**: use any MCP client over Streamable HTTP to `http://eleme-gateway.hicaspian.com/mcp/v1`.
+2. **Agent identity**: send `Authorization: Bearer clw_...` on the connection (generated when you create an Agent in [Clawdot Portal](http://console.hicaspian.com/agents)).
+3. **User consent**: every business tool call carries a `consent_grant_id` argument (`cg_` prefix); obtain it on first use via `request_user_bind` / `verify_user_bind`.
+4. **Call tools along the chain**: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. All cross-step IDs are issued by the Gateway and passed back verbatim.
 
-**Quick Example:**
+<Info>
+The Gateway exposes a native MCP endpoint, so most clients can **connect directly** with no need to wrap HTTP yourself. See [MCP Tools](/en/gateway/mcp-tools) for the full tool list, parameters and return fields.
+</Info>
 
-```javascript
-const axios = require('axios');
+**Quick Example (calling a tool from an MCP client):**
 
-const CLAWDOT_API_KEY = process.env.CLAWDOT_API_KEY;
-const CONSENT_GRANT_ID = process.env.CONSENT_GRANT_ID; // User consent grant, cg_ prefix
+```python
+# Any MCP client works; the official SDK is shown here
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-async function searchShops(keyword, lat, lng) {
-  const response = await axios.post(
-    'http://eleme-gateway.hicaspian.com/api/v1/shops/search',
-    { keyword, lat, lng },   // GCJ-02 coordinates; or use address_id
-    {
-      headers: {
-        'Authorization': `Bearer ${CLAWDOT_API_KEY}`,
-        'X-Consent-Grant-Id': CONSENT_GRANT_ID,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+API_KEY = "clw_your_api_key_here"            # Agent identity, connection header
+CONSENT_GRANT_ID = "cg_..."                  # User consent grant, tool argument
 
-  return response.data;
-}
-
-// Usage
-searchShops('latte', 39.9836, 116.3164).then(data => {
-  console.log('Search results:', data.shops);
-});
+async def search_shops(keyword):
+    headers = {"Authorization": f"Bearer {API_KEY}"}
+    async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            # User consent is passed as a tool argument, not a header
+            result = await session.call_tool("search_shops", {
+                "consent_grant_id": CONSENT_GRANT_ID,
+                "keyword": keyword,
+                "lat": 39.9836,   # GCJ-02 coordinates; or use address_id
+                "lng": 116.3164,
+            })
+            return result   # contains shops[]: shop_id, cart_id, next_offset?
 ```
 
 ---
@@ -722,12 +635,12 @@ The following platforms are in development or testing, coming soon:
 
 | Platform | Integration | Difficulty | Enterprise | Developer-Friendly | Community Active |
 |----------|-------------|-----------|-----------|-------------------|------------------|
-| DingTalk | REST API / WebHook | Medium | ✓ | High | High |
-| Kimi | Function Calling | Low | ✓ | High | Medium |
-| QCloud | REST API | Medium | ✓ | Medium | Medium |
-| Claude Desktop | MCP | Low | - | High | High |
-| Cursor | MCP | Low | - | High | Medium |
-| Custom Agent | REST API | Medium | ✓ | High | - |
+| DingTalk | Server-side orchestration + MCP tool calls | Medium | ✓ | High | High |
+| Kimi | Function Calling + MCP tool calls | Low | ✓ | High | Medium |
+| QCloud | Server-side orchestration + MCP tool calls | Medium | ✓ | Medium | Medium |
+| Claude Desktop | MCP (native) | Low | - | High | High |
+| Cursor | MCP (native) | Low | - | High | Medium |
+| Custom Agent | MCP / tool calling | Medium | ✓ | High | - |
 
 ---
 
@@ -737,9 +650,8 @@ The following platforms are in development or testing, coming soon:
 <summary>What if my Agent platform is not in the list?</summary>
 
 You can:
-1. Use REST API to integrate yourself (refer to [Integration Guide](/en/skills/integration-guide))
-2. Contact us at support@clawdot.com to request new platform integration
-3. Contribute MCP server implementation (open source project)
+1. As long as the platform speaks MCP or tool calling, follow "Custom Agent" above and connect to `http://eleme-gateway.hicaspian.com/mcp/v1` yourself (see the [Integration Guide](/en/skills/integration-guide))
+2. Contact us at support@clawdot.com to request a new platform integration
 
 </details>
 
@@ -762,16 +674,14 @@ Best practices:
 </details>
 
 <details>
-<summary>What's the difference between MCP and REST API?</summary>
+<summary>Why integrate everything via MCP?</summary>
 
-**MCP**:
-- Standardized protocol, automatic tool discovery
-- Suitable for deep integration with large models
-- Simple configuration, no need to handle HTTP manually
+The Gateway exposes a single **MCP tool contract**, and every platform (including custom Agents) uses the same channel:
 
-**REST API**:
-- Universal HTTP interface, complete control
-- Suitable for custom apps and enterprise systems
-- Slightly higher learning cost, more flexibility
+- **Standardized protocol, automatic tool discovery**: once connected, the client gets all 18 tools with their parameters and return fields — no per-endpoint wiring
+- **Deep integration with large models**: tool names and parameter semantics are model-friendly, ideal for letting the Agent orchestrate the ordering chain autonomously
+- **Simple configuration**: Streamable HTTP straight to `/mcp/v1`; Agent identity goes in the `Authorization` header and user consent in the `consent_grant_id` argument — no low-level plumbing to wrap
+
+See [MCP Tools](/en/gateway/mcp-tools) for the full tool list.
 
 </details>

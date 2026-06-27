@@ -11,7 +11,7 @@ Clawdot Gateway 是 Clawdot 的**协议层 + 发现层**（Protocol Hub + Discov
 2. **连接商户** — 支持两类商户接入：
    - **Proxy 层** — 代理饿了么/美团/高德等平台商户（冷启动阶段）
    - **独立 Agent** — 大型商户自建 Agent，直接实现标准协议（长期生态）
-3. **统一接口** — 为 AI Agent 提供统一的 REST 和 MCP 接口，隐藏商户差异
+3. **统一接口** — 为 AI Agent 提供统一的 MCP 接口，隐藏商户差异
 
 ```mermaid
 graph TB
@@ -112,6 +112,6 @@ Gateway 支持两种商户接入方式，灵活满足不同规模商户的需求
     三层架构设计、数据流和数据库模型。
   </Card>
   <Card title="认证机制" icon="lock" href="/gateway/authentication">
-    API Key + User Token 双层认证体系。
+    API Key + consent grant 双层认证体系。
   </Card>
 </Columns>

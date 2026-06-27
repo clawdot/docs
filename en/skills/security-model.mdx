@@ -83,17 +83,15 @@ The Skills Platform uses an **API Key + user consent grant** two-layer authentic
 - **Prefix**: Starts with `clw_`, followed by random characters, e.g. `clw_a1b2c3d4...`
 - **Storage**: Server only stores a hash, never plaintext; each request is compared by hash
 - **Issuance**: Generated when creating an Agent in the [Portal](http://console.hicaspian.com/agents), **displayed only once** — if lost, regenerate it
-- **Usage**: In all requests' HTTP Header as `Authorization: Bearer {API_KEY}`; same for MCP and REST
+- **Usage**: Passed in the connection-layer HTTP Header as `Authorization: Bearer {API_KEY}` to identify the calling Agent
 
 ### Consent Grant (User Identification)
 
 - **Prefix**: Starts with `cg_`
-- **Source**: Obtained after the user authorizes through the binding flow (SMS code / H5); `verify_user_bind` (`POST /auth/bind/verify`) returns `consent_grant_id`, `scopes`, and `expires_at` (ISO 8601) on success
+- **Source**: Obtained after the user authorizes through the binding flow (SMS code / H5); `verify_user_bind` returns `consent_grant_id`, `scopes`, and `expires_at` (ISO 8601) on success
 - **Storage**: The plaintext is returned only once; only a hash is stored — keep it safe
-- **Transport**:
-  - **REST:** via the `X-Consent-Grant-Id` header (never in the JSON body)
-  - **MCP:** as the `consent_grant_id` argument on each tool (not a header)
-- **Invalidation**: Once `expires_at` is reached, or after being revoked via `revoke_user_bind` (`POST /auth/unbind`), it is immediately invalid on all endpoints; re-bind to obtain a new one
+- **Transport**: passed as the `consent_grant_id` argument on each tool (never in the body, never in a header)
+- **Invalidation**: Once `expires_at` is reached, or after being revoked via `revoke_user_bind`, it becomes invalid immediately; re-bind to obtain a new one
 
 ## Data Encryption
 

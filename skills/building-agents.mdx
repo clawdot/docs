@@ -12,7 +12,7 @@ import { Info, Warning, Check } from '/components/Callout';
 
 本指南将带你使用 Clawdot Gateway，从零构建一个完整的本地生活 Agent。通过遵循最佳实践和处理边界情况，你将能够创建一个健壮、用户友好的应用。
 
-下面的示例以 **REST API** 写法为主；同样的能力也通过 **MCP** 工具暴露，参数除 `consent_grant_id`（MCP 是工具参数，REST 是 `X-Consent-Grant-Id` 请求头）外完全一致，可按需切换。
+Gateway 以 **MCP（Model Context Protocol）工具**的形式对外开放能力——你连上 MCP，就能看到 18 个工具，用一串工具调用从绑定授权、找店选品，一路串到预览、下单、签约。本指南所有示例都以 **工具名 + JSON 参数** 给出（除绑定工具外，每个业务工具的参数都带 `consent_grant_id`）。
 
 ## 架构设计
 
@@ -31,7 +31,7 @@ import { Info, Warning, Check } from '/components/Callout';
 └────────────────────┬────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────┐
-│     Clawdot Gateway (REST / MCP)             │
+│     Clawdot Gateway (MCP)                    │
 │  • 商家搜索     • 订单预览 / 创建            │
 │  • 菜单查询     • 免密签约                   │
 │  • 地址管理     • 优惠券管理                │
@@ -39,147 +39,90 @@ import { Info, Warning, Check } from '/components/Callout';
 ```
 
 <Info>
-Gateway 同时提供 18 个 REST 端点与 18 个一一对应的 MCP 工具，覆盖完全相同的能力。本页用 REST 演示，MCP 工具名与端点对应关系见 [MCP 概览](/mcp/overview)。
+Gateway 通过 Streamable HTTP 暴露 **18 个 MCP 工具**，覆盖从绑定授权到下单支付的完整本地生活能力。工具的连接方式、分组与下单顺序见 [MCP 概览](/mcp/overview)。
 </Info>
 
 ---
 
-## Step 1：获取 API Key
+## Step 1：获取 API Key 并连接 MCP
 
 <Steps>
-  <Step title="在 Portal 创建 Agent">
-    访问 [Clawdot Portal](http://console.hicaspian.com/agents)，创建一个 Agent 并为它开通外卖能力。Agent 与 API Key 都在 Portal 管理。
+  <Step title="在控制台创建 Agent">
+    访问 [Clawdot 控制台](http://console.hicaspian.com/agents)，创建一个 Agent 并为它开通外卖能力。Agent 与 API Key 都在控制台管理。
   </Step>
 
   <Step title="复制 API Key">
     系统生成 API Key（`clw_` 开头），**仅显示一次**，立即复制并保存到安全位置。服务端只存哈希，遗失需重新生成。
   </Step>
 
-  <Step title="配置环境变量">
-    保存 API Key 到 `.env` 文件或环境变量：
+  <Step title="把 API Key 配进 MCP 客户端">
+    网关以 **Streamable HTTP**（FastMCP）对外提供 MCP 服务，Endpoint 为 `http://eleme-gateway.hicaspian.com/mcp/v1`。把 API Key 配进你的 MCP 客户端连接头：
 
-    ```bash
-    export CLAWDOT_API_KEY="clw_your_api_key_here"
+    ```json
+    {
+      "mcpServers": {
+        "clawdot": {
+          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+          "transport": "streamable-http",
+          "headers": {
+            "Authorization": "Bearer clw_your_api_key"
+          }
+        }
+      }
+    }
     ```
 
     <Warning>
-    不要将 API Key 提交到 Git 仓库。使用 `.gitignore` 排除 `.env` 文件。
+    不要把 API Key 提交到 Git 仓库或硬编码进代码，用环境变量或密钥管理注入。
     </Warning>
   </Step>
 </Steps>
 
 <Info>
-API Key 标识 **Agent**，通过 `Authorization: Bearer clw_...` 请求头传递，所有 REST 与 MCP 请求都需要它。后续操作用户资源时，还需要下一步获取的**用户授权（consent grant）**。详见 [认证机制](/gateway/authentication)。
+API Key 标识 **Agent**，在**连接层**通过 `Authorization: Bearer clw_...` 请求头传递，每个 MCP 请求都需要它。后续操作用户资源时，还需要下一步获取的**用户授权（consent grant）**，它作为业务工具的参数 `consent_grant_id` 传入，不走请求头。详见 [认证机制](/gateway/authentication)。
 </Info>
 
 ---
 
 ## Step 2：获取用户授权
 
-操作用户资源（搜店、下单、查地址等）需要双层认证：API Key 标识 Agent，**用户授权（consent grant）** 标识已授权的外卖用户。用户走一次绑定流程后，你拿到 `consent_grant_id`（`cg_` 前缀），后续业务接口凭它调用。
+操作用户资源（搜店、下单、查地址等）需要双层认证：连接层的 API Key 标识 Agent，**用户授权（consent grant）** 标识已授权的外卖用户。用户走一次绑定流程后，你拿到 `consent_grant_id`（`cg_` 前缀），后续业务工具调用都把它作为参数带上。
 
-绑定支持两种模式：`sms`（向手机号下发验证码）与 `h5`（返回授权链接，用户在链接中登录授权）。下面以 `sms` 模式演示。
+绑定支持两种模式：`sms`（向手机号下发验证码）与 `h5`（返回授权链接，用户在链接中登录授权）。绑定类工具 `request_user_bind` / `verify_user_bind` 是获取授权的入口，**只需 Agent 身份（连接层 API Key），本身不传 `consent_grant_id`**。下面以 `sms` 模式演示。
 
 ### 绑定流程
 
-```python
-import requests
-import os
+第一步，发起绑定，网关向用户手机下发验证码：
 
-api_key = os.getenv("CLAWDOT_API_KEY")
-base_url = "http://eleme-gateway.hicaspian.com/api/v1"
-
-# Step 2a：发起绑定，下发短信验证码
-def request_user_bind(phone: str) -> str:
-    """
-    发起 SMS 授权绑定
-    返回: bind_id（用于后续确认）
-    """
-    url = f"{base_url}/auth/bind/request"
-    payload = {"phone": phone, "auth_type": "sms"}
-    headers = {"Authorization": f"Bearer {api_key}"}
-
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-
-    data = response.json()
-    print(f"验证码已发送至 {data['masked_phone']}，{data['expires_in']} 秒内有效")
-    return data["bind_id"]  # 返回给用户，等待他们输入验证码
-
-
-# Step 2b：确认绑定，换取 consent_grant_id
-def verify_user_bind(bind_id: str, code: str) -> str:
-    """
-    核验短信验证码，换取 consent_grant_id
-    返回: consent_grant_id（后续 API 调用必需）
-    """
-    url = f"{base_url}/auth/bind/verify"
-    payload = {"auth_type": "sms", "bind_id": bind_id, "code": code}
-    headers = {"Authorization": f"Bearer {api_key}"}
-
-    response = requests.post(url, json=payload, headers=headers)
-
-    if response.status_code == 400:
-        # 验证码无效或已过期
-        raise ValueError("验证码错误或已过期，请重新获取")
-
-    response.raise_for_status()
-
-    data = response.json()
-    consent_grant_id = data["consent_grant_id"]
-
-    # 存储 consent_grant_id（用于后续 API 调用）
-    # 建议使用安全的本地存储或会话管理
-    print(f"用户授权成功！授权范围: {data['scopes']}，过期时间: {data['expires_at']}")
-    return consent_grant_id
+```json
+// 工具：request_user_bind —— 发起 SMS 绑定，用户收到验证码
+{
+  "phone": "18800000000",
+  "auth_type": "sms"
+}
+// → { "bind_id": "...", "expires_in": 300, "masked_phone": "188****0000" }
 ```
 
-### 完整绑定 UI 流程
+第二步，用户告知验证码后确认绑定，铸造 `consent_grant_id`：
 
-```python
-def bind_user_interactive():
-    """
-    交互式用户授权（Agent 对话流程）
-    """
-    print("欢迎使用本地生活 Agent，请先授权你的账号")
-    print("=" * 50)
-
-    # 第一步：获取用户电话号码
-    phone = input("请输入你的手机号码: ").strip()
-
-    # 第二步：发起绑定，下发验证码
-    try:
-        bind_id = request_user_bind(phone)
-    except requests.exceptions.RequestException as e:
-        print(f"发起绑定失败：{e}")
-        return None
-
-    # 第三步：用户输入验证码
-    max_attempts = 3
-    for attempt in range(max_attempts):
-        code = input(f"\n请输入验证码 (剩余 {max_attempts - attempt} 次): ").strip()
-
-        try:
-            consent_grant_id = verify_user_bind(bind_id, code)
-            print("\n授权成功！现在你可以开始使用本地生活服务了。")
-            return consent_grant_id
-        except ValueError as e:
-            print(f"验证失败：{e}")
-
-    print("\n验证次数过多，请稍后重试或重新发起绑定")
-    return None
-
-
-# 使用示例
-consent_grant_id = bind_user_interactive()
-if consent_grant_id:
-    # 保存 consent_grant_id 供后续使用
-    # 例如存储到文件或数据库
-    pass
+```json
+// 工具：verify_user_bind —— 核验验证码，换取 consent_grant_id
+{
+  "auth_type": "sms",
+  "bind_id": "<上一步返回的 bind_id>",
+  "code": "123456"
+}
+// → { "bound": true, "consent_grant_id": "cg_...", "scopes": [...], "expires_at": "..." }
 ```
+
+拿到 `consent_grant_id` 后，妥善保存——它明文仅本次返回一次，落库仅存哈希。后续每个业务工具调用都把它作为参数带上。
+
+<Note>
+也支持 **H5 模式**：`request_user_bind(auth_type="h5")` 返回 `h5_url`（有效期约 300 秒），把链接交给用户打开完成授权；随后 `verify_user_bind(auth_type="h5", request_id=...)` 轮询，`pending` 表示还没好，`bound=true` 时返回 `consent_grant_id`。也可在 `request_user_bind` 传 `callback_url`，授权完成后网关 POST 回调（`event=user_bind`）。完整字段见 [发起绑定](/mcp/user/bind-request) 与 [确认绑定](/mcp/user/bind-verify)。
+</Note>
 
 <Info>
-绑定成功返回的 `expires_at` 是授权过期时间（ISO 8601）。**重授权即轮换**：同一用户每次成功绑定都会铸造新的 `consent_grant_id`，旧的立即失效。`consent_grant_id` 明文仅本次返回一次，落库仅存哈希，请妥善保存。授权可随时通过 `POST /auth/unbind` 撤销。
+绑定成功返回的 `expires_at` 是授权过期时间（ISO 8601）。**重授权即轮换**：同一用户每次成功绑定都会铸造新的 `consent_grant_id`，旧的立即失效。授权可随时通过 `revoke_user_bind` 撤销，撤销后旧 `consent_grant_id` 即时失效。
 </Info>
 
 ---
@@ -197,188 +140,88 @@ search_shops → get_shop_menu → quote_cart → select_address
 所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
 </Warning>
 
-下面所有请求都带两个认证头：
-
-```python
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "X-Consent-Grant-Id": consent_grant_id,
-    "Content-Type": "application/json"
-}
-```
+下面每个业务工具调用都带 `consent_grant_id` 参数（来自 Step 2）。
 
 ### Phase 1：搜索商家
 
-```python
-def search_shops(consent_grant_id: str, keyword: str = None, address_id: str = None):
-    """
-    搜索 / 浏览附近的商家
-    - 不传 keyword：浏览模式，返回附近至多 20 家店铺
-    - 传 keyword：精确搜索（约 5 家），支持店名 / 品类 / 商品名
-    """
-    url = f"{base_url}/shops/search"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {"keyword": keyword, "address_id": address_id}
-
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-
-    shops = response.json()["shops"]
-    return shops
-
-
-# 使用示例
-shops = search_shops(consent_grant_id, keyword="生椰拿铁", address_id="addr_...")
-
-for shop in shops[:5]:  # 显示前 5 家
-    # 金额字段单位为分，展示时除以 100
-    print(f"""
-    【{shop['name']}】
-    评分: {shop.get('rating')}⭐
-    距离: {shop.get('distance_text')}
-    送达时间: {shop.get('delivery_time_text')}
-    起送价: ¥{shop['min_order_amount'] / 100:.2f} | 配送费: {shop.get('delivery_fee_text')}
-    """)
+```json
+// 工具：search_shops —— 搜索 / 浏览附近商家
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "生椰拿铁",
+  "address_id": "addr_..."
+}
+// → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", "rating": ..., "min_order_amount": ... } ], "next_offset": ... }
 ```
+
+不传 `keyword` 即按附近**浏览模式**（最多 20 家），带距离、评分、配送费、起送价等决策字段；传 `keyword`（店名 / 品类 / 商品名）则精确搜索（约 5 家）。浏览模式可传 `offset` 翻页：首次传 `offset: 0`，用返回的 `next_offset` 继续翻，直到 `shops` 为空。
 
 每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可。完整字段见 [搜索店铺](/mcp/shops/search)。
 
 ### Phase 2：查看菜单详情
 
-```python
-def get_shop_menu(consent_grant_id: str, shop_id: str, cart_id: str, keyword: str = None):
-    """
-    获取商家菜单（POST /shops/menu）
-    菜单可能很大（100+ 项），可用 keyword 或 limit/offset 渐进披露
-    """
-    url = f"{base_url}/shops/menu"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {"shop_id": shop_id, "cart_id": cart_id, "keyword": keyword}
-
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-
-    return response.json()
-
-
-# 使用示例
-menu = get_shop_menu(consent_grant_id, "shop_...", "cart_...", keyword="拿铁")
-
-for category in menu["categories"]:
-    print(f"\n【{category['name']}】")
-    for item in category["items"]:
-        status = "✓ 在售" if item.get("available") else "✗ 售罄"
-        # 价格单位为分
-        print(f"  {item['name']} - ¥{item['price'] / 100:.2f} {status}")
+```json
+// 工具：get_shop_menu —— 获取商家菜单
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "keyword": "拿铁"
+}
+// → { "categories": [...], "items": [ { "item_id": "...", "sku_id": "...", "ingredient_options": [...] } ], "has_more": false }
 ```
 
-下单必须使用 `get_shop_menu` 返回的 `item_id` / `sku_id`（以及规格 / 加料的 `ingredient_option_ids`）。完整字段见 [店铺菜单](/mcp/shops/detail)；规格 / 属性 / 加料体系见 [商品规格说明](/gateway/item-specs)。
+菜单可能很大（100+ 项），可用 `keyword` 或 `limit` / `offset` 渐进披露，按 `has_more` 判断是否还有更多。下单必须使用 `get_shop_menu` 返回的 `item_id` / `sku_id`（以及规格 / 加料的 `ingredient_option_ids`）。完整字段见 [店铺菜单](/mcp/shops/detail)；规格 / 属性 / 加料体系见 [商品规格说明](/gateway/item-specs)。
 
 ### Phase 3：准备收货地址
 
-```python
-def search_addresses(consent_grant_id: str, keyword: str, lat: float = None, lng: float = None):
-    """
-    搜索地址 POI（POST /addresses/search）
-    返回 saved_addresses[]（已保存地址）+ suggestions[]（POI 结果，含一次性 token）
-    """
-    url = f"{base_url}/addresses/search"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {"keyword": keyword, "lat": lat, "lng": lng}
+地址流程 = 搜 POI 拿一次性 `token` → 登记拿 `address_id`。先搜地址：
 
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-def select_address(consent_grant_id: str, suggestion_token: str,
-                   contact_name: str, contact_phone: str, address_detail: str):
-    """
-    登记 / 选择收货地址（POST /addresses/select）
-    用 search_addresses 返回的某条 suggestion 的 token 登记，返回 address_id
-    """
-    url = f"{base_url}/addresses/select"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "suggestion_token": suggestion_token,
-        "contact_name": contact_name,
-        "contact_phone": contact_phone,
-        "address_detail": address_detail,
-    }
-
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    return response.json()["address_id"]
-
-
-# 使用示例：地址流程 = 搜 POI 拿 token → 登记拿 address_id
-result = search_addresses(consent_grant_id, keyword="光谷世界城", lat=30.5, lng=114.4)
-
-# 已有地址可直接复用 saved_addresses[].address_id；新地址则登记一条
-suggestion = result["suggestions"][0]
-address_id = select_address(
-    consent_grant_id,
-    suggestion_token=suggestion["token"],
-    contact_name="张三",
-    contact_phone="13800138000",
-    address_detail="3 号楼 101",
-)
+```json
+// 工具：search_addresses —— 搜地址 POI，拿建议（含一次性 token）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "光谷世界城",
+  "lat": 30.5,
+  "lng": 114.4
+}
+// → { "saved_addresses": [ { "address_id": "...", ... } ], "suggestions": [ { "token": "...", ... } ] }
 ```
 
-`search_addresses` 返回的 `saved_addresses[]` 可直接复用其 `address_id`；`suggestions[].token` 是一次性令牌，传给 `select_address` 登记后得到 `address_id`。详见 [搜索地址](/mcp/addresses/search) 与 [选择/登记地址](/mcp/addresses/select)。
+`saved_addresses[]` 是已保存地址，可直接复用其 `address_id`；新地址则取一条 `suggestions[].token`，作为 `select_address` 的 `suggestion_token` 入参登记：
+
+```json
+// 工具：select_address —— 用 suggestion_token 登记/选择地址，拿 address_id
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "suggestion_token": "<上一步 suggestion_token>",
+  "contact_name": "张三",
+  "contact_phone": "13800138000",
+  "address_detail": "3 号楼 101"
+}
+// → { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
+```
+
+也可直接用已有地址的 `address_id` 调 `select_address`。详见 [搜索地址](/mcp/addresses/search) 与 [选择/登记地址](/mcp/addresses/select)；编辑门牌 / 标签用 [`update_address`](/mcp/addresses/update)（`address_id` 不变）。
 
 ### Phase 4：购物车算价
 
-```python
-def quote_cart(consent_grant_id: str, shop_id: str, cart_id: str,
-               address_id: str, items: list):
-    """
-    购物车算价（POST /cart/quote），返回 quote_id 与价格明细
-    """
-    url = f"{base_url}/cart/quote"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "shop_id": shop_id,
-        "cart_id": cart_id,
-        "address_id": address_id,
-        "items": items,
-    }
-
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-# 使用示例：items 是一个 list（不是 JSON 字符串）
-items = [
+```json
+// 工具：quote_cart —— 购物车算价，拿 quote_id
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "address_id": "<来自选址>",
+  "items": [
     {"item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": []},
-    {"item_id": "item_002", "sku_id": "sku_002", "quantity": 1, "ingredient_option_ids": []},
-]
-quote = quote_cart(consent_grant_id, "shop_...", "cart_...", address_id, items)
-quote_id = quote["quote_id"]
+    {"item_id": "item_002", "sku_id": "sku_002", "quantity": 1, "ingredient_option_ids": []}
+  ]
+}
+// → { "quote_id": "...", "can_checkout": true, "payable_price": 1500 }
 ```
 
-完整字段见 [购物车算价](/mcp/cart/quote)。
+`items` 是一个数组（不是 JSON 字符串），每项的 `item_id` / `sku_id` 来自 `get_shop_menu`。`can_checkout` 指示是否满足起送等下单条件，`payable_price` 是预估应付（单位分）。完整字段见 [购物车算价](/mcp/cart/quote)。
 
 ### Phase 5：预览订单（下单前确认）
 
@@ -386,228 +229,158 @@ quote_id = quote["quote_id"]
 始终在创建订单前用 `preview_order` 校验并向用户确认最终价格，避免误操作。预览产出的 `preview_id` + `confirmation_token` 是真正下单所需的凭据。
 </Check>
 
-```python
-def preview_order(consent_grant_id: str, shop_id: str, cart_id: str,
-                  address_id: str, items: list, quote_id: str = None,
-                  coupon_ids: list = None, order_remark: str = ""):
-    """
-    预览订单（POST /orders/preview）
-    校验店铺 / 地址 / 商品并应用优惠券，返回最终价格 + preview_id + confirmation_token
-    coupon_ids 三态：不传=自动选最优券；[]=不用券；["cpn_..."]=指定券
-    """
-    url = f"{base_url}/orders/preview"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "shop_id": shop_id,
-        "cart_id": cart_id,
-        "address_id": address_id,
-        "items": items,
-        "quote_id": quote_id,
-        "coupon_ids": coupon_ids,
-        "order_remark": order_remark,
-    }
-
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-# 使用示例
-preview = preview_order(
-    consent_grant_id, "shop_...", "cart_...", address_id, items,
-    quote_id=quote_id, order_remark="放门口，请按门铃",
-)
-
-# 金额单位为分，展示时除以 100
-print(f"应付：¥{preview['price']['payable_price'] / 100:.2f}")
-print(f"送达地址：{preview['address']['address_detail']}")
-
-preview_id = preview["preview_id"]
-confirmation_token = preview["confirmation_token"]
+```json
+// 工具：preview_order —— 预览订单，拿 preview_id + confirmation_token
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "address_id": "<来自选址>",
+  "items": [
+    {"item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": []}
+  ],
+  "quote_id": "<来自算价>",
+  "order_remark": "放门口，请按门铃"
+}
+// → { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, "available_coupons": [...] }
 ```
 
-`preview_id` + `confirmation_token` 须配对使用，由同一次预览产出，有效期约 10 分钟。完整字段与 `coupon_ids` 三态说明见 [预览订单](/mcp/orders/preview)。
+`preview_id` + `confirmation_token` 须配对使用，由同一次预览产出，有效期约 10 分钟。
+
+**优惠券在预览阶段生效**，当前订单可用券以返回的 `available_coupons` 为准（`coupon_ids` 三态：不传=自动选最优券；`[]`=不用券；`["<coupon_id>"]`=指定券）。要换券时，选中 `available_coupons[].coupon_id`，带 `coupon_ids=[...]` 重新调一次 `preview_order` 重算：
+
+```json
+// 工具：preview_order —— 选券后重算
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "address_id": "<来自选址>",
+  "items": [
+    {"item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": []}
+  ],
+  "coupon_ids": ["<选中的 coupon_id>"]
+}
+// → { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, "selected_coupons": [...] }
+```
+
+账户级券列表可用 [`list_coupons`](/mcp/coupons/list) 查看，但**当前订单实际可用以 `preview_order` 的 `available_coupons` 为准**。完整字段与 `coupon_ids` 三态说明见 [预览订单](/mcp/orders/preview)。
 
 ### Phase 6：创建订单
 
-```python
-def create_order(consent_grant_id: str, preview_id: str, confirmation_token: str,
-                 callback_url: str = None):
-    """
-    创建订单（POST /orders/create）
-    用同一次预览的 preview_id + confirmation_token 正式下单
-    """
-    url = f"{base_url}/orders/create"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "preview_id": preview_id,
-        "confirmation_token": confirmation_token,
-        "callback_url": callback_url,  # 可选：支付状态回调
-    }
+用同一次预览的 `preview_id` + `confirmation_token` 正式下单：
 
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-
-    order = response.json()
-
-    print(f"\n✓ 订单已创建")
-    print(f"订单号：{order['order_id']}")
-    print(f"状态：{order['status']}")
-
-    return order
-
-
-# 使用示例
-order = create_order(consent_grant_id, preview_id, confirmation_token)
+```json
+// 工具：create_order —— 创建订单（confirmation_token 即幂等键）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "preview_id": "prv_...",
+  "confirmation_token": "cf_...",
+  "callback_url": "https://your.app/callbacks/order"
+}
+// → { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-本接口以 `confirmation_token` 为幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调；不传则自行轮询 `get_order_status`（`GET /orders/{order_id}`）。完整字段见 [创建订单](/mcp/orders/create)。
+本工具以 `confirmation_token` 为**幂等键**：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调（`event=order_payment`，体含 `order_id`、`ispay`、`status` 等）；不传则自行用 `get_order_status` 轮询。完整字段见 [创建订单](/mcp/orders/create)。
 
 ### Phase 7：免密签约
 
-```python
-def get_sign_action(consent_grant_id: str, return_url: str):
-    """
-    发起免密支付签约（POST /payment/sign-action）
-    返回一个 action：action_type=open_h5 时把用户引导到 action_url 完成签约
-    """
-    url = f"{base_url}/payment/sign-action"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
-    payload = {"return_url": return_url}
+首次下单需用户完成免密支付签约。获取签约动作：
 
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-
-    action = response.json()["action"]
-    if action["action_type"] == "open_h5":
-        print(f"请在浏览器打开完成签约：{action['action_url']}")
-    return action
+```json
+// 工具：get_sign_action —— 获取免密签约动作（H5 链接）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// → 免密签约动作：action_type=open_h5 时含 action_url（H5 签约页）；none 表示已签约
 ```
 
-免密签约是免密支付类订单的前置条件：`action_type=open_h5` 时把用户引导到 `action.action_url`（H5 签约页），完成后浏览器跳回 `return_url`；`none` 表示已签约。随后用 `get_sign_status`（`GET /payment/sign-status`）轮询结果。完整链路与字段见 [下单流程](/gateway/order-flow)。
+`action_type=open_h5` 时把用户引导到 `action_url`（H5 签约页）完成签约；`none` 表示已签约。随后用 `get_sign_status` 轮询签约结果：
+
+```json
+// 工具：get_sign_status —— 查询签约状态
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// → { "signed": ..., "status": "...", ... }
+```
+
+完整链路与字段见 [下单流程](/gateway/order-flow)。
 
 ---
 
 ## Step 4：处理边界情况
 
-健壮的 Agent 应该优雅地处理各种边界情况，提供友好的错误提示。Gateway 的错误统一返回 `{"error": {"code", "message"}}` 结构。
+健壮的 Agent 应该优雅地处理各种边界情况，提供友好的错误提示。Gateway 的错误统一返回 `{"error": {"code", "message"}}` 结构（每个 MCP 工具失败时都是这个形状）。
 
 ### 错误处理
 
+按 `error.code` 分支给用户友好提示：
+
+| 错误码 | 含义 | 建议处理 |
+|--------|------|----------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 连接层 API Key 缺失或无效 | 检查 `Authorization: Bearer clw_...` 连接头 |
+| `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 用户授权无效或已过期 | 重新发起绑定（`request_user_bind` → `verify_user_bind`）|
+| `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 | 在控制台为 Agent 开通对应能力 |
+| `PUBLIC_REFERENCE_INVALID` | 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户 | 重新从上一步获取该 ID，不要自造或跨链路混用 |
+| `RATE_LIMITED` / `QUOTA_EXCEEDED` | 请求过于频繁或配额用尽 | 用指数退避稍后重试 |
+| `ELEME_ERROR` | 上游服务异常 | 提示用户稍后重试，或降级展示缓存结果 |
+
 ```python
-def safe_api_call(func, *args, **kwargs):
-    """
-    包装 API 调用，统一处理错误
-    """
-    try:
-        return func(*args, **kwargs)
-    except requests.exceptions.Timeout:
-        print("❌ 网络超时，请检查网络连接")
-        return None
-    except requests.exceptions.ConnectionError:
-        print("❌ 无法连接到服务器，请稍后重试")
-        return None
-    except requests.exceptions.HTTPError as e:
-        # Gateway 错误体：{"error": {"code", "message"}}
-        try:
-            code = e.response.json()["error"]["code"]
-        except Exception:
-            code = None
-
-        if code in ("AUTH_REQUIRED", "AUTH_INVALID"):
-            print("❌ API Key 缺失或无效，请检查 Authorization 头")
-        elif code in ("CONSENT_GRANT_INVALID", "CONSENT_GRANT_EXPIRED"):
-            print("❌ 用户授权无效或已过期，请重新发起绑定")
-        elif code == "CAP_NOT_BOUND":
-            print("❌ 当前 Agent 未开通该能力，请在 Portal 开通")
-        elif code == "PUBLIC_REFERENCE_INVALID":
-            print("❌ 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户")
-        elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):
-            print("❌ 请求过于频繁或配额用尽，请稍后再试")
-        elif code == "ELEME_ERROR":
-            print("❌ 上游服务异常，请稍后重试")
-        else:
-            print(f"❌ API 错误 ({e.response.status_code})：{code or e}")
-
-        return None
-    except Exception as e:
-        print(f"❌ 未知错误：{e}")
-        return None
-
-
-# 使用
-shops = safe_api_call(search_shops, consent_grant_id, keyword="奶茶", address_id=address_id)
+# 示意：包装一次 MCP 工具调用，按 error.code 分支处理
+def handle_tool_result(result: dict):
+    err = result.get("error")
+    if not err:
+        return result  # 成功，直接用
+    code = err["code"]
+    if code in ("AUTH_REQUIRED", "AUTH_INVALID"):
+        print("❌ 连接层 API Key 缺失或无效，请检查 Authorization 头")
+    elif code in ("CONSENT_GRANT_INVALID", "CONSENT_GRANT_EXPIRED"):
+        print("❌ 用户授权无效或已过期，请重新发起绑定")
+    elif code == "CAP_NOT_BOUND":
+        print("❌ 当前 Agent 未开通该能力，请在控制台开通")
+    elif code == "PUBLIC_REFERENCE_INVALID":
+        print("❌ 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户")
+    elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):
+        print("❌ 请求过于频繁或配额用尽，请稍后再试")
+    elif code == "ELEME_ERROR":
+        print("❌ 上游服务异常，请稍后重试")
+    else:
+        print(f"❌ 工具错误：{code} - {err.get('message')}")
+    return None
 ```
 
 ### 用户授权过期处理
 
-```python
-def get_valid_consent_grant(stored_grant_id: str, phone: str) -> str:
-    """
-    检查授权是否仍有效；过期或被撤销则重新绑定
-    """
-    # 任意业务接口返回 CONSENT_GRANT_INVALID / CONSENT_GRANT_EXPIRED
-    # 即表示需要重新授权（也可主动比对绑定时记录的 expires_at）
-    is_invalid = check_consent_grant(stored_grant_id)
+任意业务工具返回 `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` 即表示需要重新授权（也可主动比对绑定时记录的 `expires_at`）。重新走一遍绑定流程即可——**重授权即轮换**，会得到新的 `consent_grant_id`，把它替换掉本地存储的旧值。
 
-    if is_invalid:
-        print("用户授权已失效，请重新绑定")
-        new_grant_id = bind_user_interactive()  # 重授权即轮换，得到新的 consent_grant_id
-        return new_grant_id
-
-    return stored_grant_id
+```
+业务工具返回 CONSENT_GRANT_INVALID / EXPIRED
+  → request_user_bind（拿 bind_id，用户收验证码）
+  → verify_user_bind（拿新的 consent_grant_id）
+  → 用新 consent_grant_id 重试原工具调用
 ```
 
 ### 商家关闭处理
 
-```python
-def handle_shop_closed_error(shop_id: str):
-    """
-    处理商家已关闭的情况
-    """
-    print(f"❌ 商家暂时关闭或已停止营业")
-    print("请选择其他商家或稍后再试")
-    # 建议返回搜索结果，让用户选择其他商家
-    # search_shops 浏览模式结果中的 available / unavailable_reason 可提前判断
-```
+`search_shops` 浏览模式结果中的 `available` / `unavailable_reason` 可提前判断商家是否营业。若下单链路中途遇到商家关闭，提示用户选择其他商家，并回到 `search_shops` 重新选店。
 
 ### 订单查询重试
 
-```python
-def get_order_with_retry(consent_grant_id: str, order_id: str, max_retries: int = 3):
-    """
-    查询订单（GET /orders/{order_id}），支持重试机制
-    """
-    for attempt in range(max_retries):
-        try:
-            url = f"{base_url}/orders/{order_id}"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "X-Consent-Grant-Id": consent_grant_id,
-            }
-            response = requests.get(url, headers=headers, timeout=5)
-            response.raise_for_status()
-            return response.json()
+`get_order_status` 是只读查询，超时可安全重试：
 
-        except requests.exceptions.Timeout:
-            if attempt < max_retries - 1:
-                print(f"查询超时，正在重试... ({attempt + 1}/{max_retries})")
-            else:
-                print("❌ 无法获取订单信息，请稍后重试")
-                return None
+```json
+// 工具：get_order_status —— 查询订单（只读，可重试）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// → { "status": "...", "status_text": "...", "paid_at": ..., "delivery": {...} }
 ```
+
+建议对 `get_order_status` 这类只读工具做有上限的退避重试（如最多 3 次），下单类工具则**不要盲目重试**——靠 `confirmation_token` 幂等键避免重复下单。
 
 ---
 
@@ -617,224 +390,62 @@ def get_order_with_retry(consent_grant_id: str, order_id: str, max_retries: int 
   <Card title="复用已保存地址" icon="database">
     `search_addresses` 返回 `saved_addresses[]`，优先复用其 `address_id`，避免重复登记新地址。
 
-    ```python
-    result = search_addresses(consent_grant_id, keyword="家")
-    saved = result["saved_addresses"]
-    if saved:
-        address_id = saved[0]["address_id"]
+    ```json
+    // search_addresses 返回里取
+    // saved_addresses[0].address_id 直接喂给后续工具
     ```
   </Card>
 
   <Card title="渐进披露大菜单" icon="sliders">
-    菜单可能有 100+ 项。用 `keyword` 或 `limit`/`offset` 分页，按 `next_offset` 翻页直到 `has_more=false`。
+    菜单可能有 100+ 项。`get_shop_menu` 用 `keyword` 或 `limit` / `offset` 分页，按 `has_more` / `next_offset` 翻页直到取完。
 
-    ```python
-    menu = get_shop_menu(
-        consent_grant_id, shop_id, cart_id,
-        keyword="拿铁",  # 只返回命中项
-    )
+    ```json
+    // 工具：get_shop_menu
+    {"consent_grant_id": "cg_...", "shop_id": "...", "cart_id": "...", "keyword": "拿铁"}
     ```
   </Card>
 
   <Card title="日志和监控" icon="chart-line">
-    记录关键操作（API 调用、订单创建等），便于调试和监控。
-
-    ```python
-    import logging
-
-    logging.info(f"Order created: {order_id}")
-    logging.error(f"API error: {error_code}")
-    ```
+    记录关键工具调用（入参摘要、返回的 `order_id` / 错误码等），便于调试和监控。注意脱敏 `consent_grant_id` 等敏感字段。
   </Card>
 
   <Card title="速率限制处理" icon="throttle">
-    尊重 API 速率限制（下单 10 次/分钟，其他 60 次/分钟，每 Agent）。超限返回 `429 RATE_LIMITED`，用指数退避重试。
-
-    ```python
-    import time
-
-    for attempt in range(5):
-        try:
-            ...  # API 调用
-        except RateLimited:
-            time.sleep(2 ** attempt)  # 指数退避
-    ```
+    尊重速率限制（下单 10 次/分钟，其他 60 次/分钟，每 Agent）。超限时工具返回 `RATE_LIMITED`，用指数退避重试。
   </Card>
 
   <Card title="金额单位统一为分" icon="shield-check">
-    所有金额字段都是**分（整数）**。展示给用户时除以 100，不要把分当元。
-
-    ```python
-    payable = preview["price"]["payable_price"]  # 单位：分
-    print(f"应付 ¥{payable / 100:.2f}")
-    ```
+    所有金额字段都是**分（整数）**。展示给用户时除以 100，不要把分当元。`payable_price: 1500` 即 ¥15.00。
   </Card>
 
   <Card title="优雅降级" icon="minimize">
     当上游不可用（`ELEME_ERROR`）时，提供替代方案（展示缓存结果或提示用户稍后重试）。
-
-    ```python
-    if api_available:
-        shops = search_shops(...)
-    else:
-        shops = load_cached_shops()
-    ```
   </Card>
 </CardGroup>
 
 ---
 
-## 完整示例代码
+## 完整链路一览
 
-一个完整的本地生活 Agent 示例：
+把上面各步骤的工具调用串起来，就是一次完整下单：
 
-```python
-import os
-import requests
-from typing import List, Dict, Optional
-
-class LocalLifeAgent:
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv("CLAWDOT_API_KEY")
-        self.base_url = "http://eleme-gateway.hicaspian.com/api/v1"
-        self.consent_grant_id = None
-        self.user_phone = None
-
-    def _headers(self) -> Dict[str, str]:
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        if self.consent_grant_id:
-            headers["X-Consent-Grant-Id"] = self.consent_grant_id
-        return headers
-
-    def bind_user(self, phone: str) -> bool:
-        """用户授权流程"""
-        try:
-            bind_id = self._request_bind(phone)
-            code = input("请输入验证码: ")
-            self.consent_grant_id = self._verify_bind(bind_id, code)
-            self.user_phone = phone
-            return True
-        except Exception as e:
-            print(f"授权失败：{e}")
-            return False
-
-    def order(self, keyword: str, address_id: str) -> Optional[Dict]:
-        """搜索商家并完成下单链路"""
-        if not self.consent_grant_id:
-            print("请先完成用户授权")
-            return None
-
-        # 1. 搜索商家
-        shops = self._search_shops(keyword, address_id)
-        if not shops:
-            print("未找到相关商家")
-            return None
-        for i, shop in enumerate(shops[:5], 1):
-            print(f"{i}. {shop['name']} - 评分 {shop.get('rating')}⭐")
-        shop = shops[int(input("选择商家 (1-5): ")) - 1]
-
-        # 2. 查菜单，挑商品（金额单位为分）
-        menu = self._get_shop_menu(shop["shop_id"], shop["cart_id"])
-        items = self._pick_items(menu)  # 由你的 UI 收集 item_id / sku_id / quantity
-
-        # 3. 算价
-        quote = self._quote_cart(shop["shop_id"], shop["cart_id"], address_id, items)
-
-        # 4. 预览，拿 preview_id + confirmation_token
-        preview = self._preview_order(
-            shop["shop_id"], shop["cart_id"], address_id, items, quote["quote_id"],
-        )
-        print(f"应付 ¥{preview['price']['payable_price'] / 100:.2f}")
-
-        # 5. 下单
-        return self._create_order(preview["preview_id"], preview["confirmation_token"])
-
-    def _request_bind(self, phone: str) -> str:
-        url = f"{self.base_url}/auth/bind/request"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        resp = requests.post(url, json={"phone": phone, "auth_type": "sms"}, headers=headers)
-        resp.raise_for_status()
-        return resp.json()["bind_id"]
-
-    def _verify_bind(self, bind_id: str, code: str) -> str:
-        url = f"{self.base_url}/auth/bind/verify"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        resp = requests.post(
-            url, json={"auth_type": "sms", "bind_id": bind_id, "code": code}, headers=headers
-        )
-        resp.raise_for_status()
-        return resp.json()["consent_grant_id"]
-
-    def _search_shops(self, keyword: str, address_id: str) -> List[Dict]:
-        url = f"{self.base_url}/shops/search"
-        resp = requests.post(
-            url, json={"keyword": keyword, "address_id": address_id}, headers=self._headers()
-        )
-        return resp.json().get("shops", [])
-
-    def _get_shop_menu(self, shop_id: str, cart_id: str) -> Dict:
-        url = f"{self.base_url}/shops/menu"
-        resp = requests.post(
-            url, json={"shop_id": shop_id, "cart_id": cart_id}, headers=self._headers()
-        )
-        return resp.json()
-
-    def _quote_cart(self, shop_id: str, cart_id: str, address_id: str, items: List[Dict]) -> Dict:
-        url = f"{self.base_url}/cart/quote"
-        resp = requests.post(
-            url,
-            json={"shop_id": shop_id, "cart_id": cart_id, "address_id": address_id, "items": items},
-            headers=self._headers(),
-        )
-        return resp.json()
-
-    def _preview_order(self, shop_id: str, cart_id: str, address_id: str,
-                       items: List[Dict], quote_id: str) -> Dict:
-        url = f"{self.base_url}/orders/preview"
-        resp = requests.post(
-            url,
-            json={
-                "shop_id": shop_id, "cart_id": cart_id, "address_id": address_id,
-                "items": items, "quote_id": quote_id, "order_remark": "请按门铃",
-            },
-            headers=self._headers(),
-        )
-        return resp.json()
-
-    def _create_order(self, preview_id: str, confirmation_token: str) -> Dict:
-        url = f"{self.base_url}/orders/create"
-        resp = requests.post(
-            url,
-            json={"preview_id": preview_id, "confirmation_token": confirmation_token},
-            headers=self._headers(),
-        )
-        return resp.json()
-
-    def _pick_items(self, menu: Dict) -> List[Dict]:
-        """示意：从菜单收集 item_id / sku_id / quantity（list，非 JSON 字符串）"""
-        return []
-
-
-# 使用示例
-if __name__ == "__main__":
-    agent = LocalLifeAgent()
-
-    # 用户授权
-    if agent.bind_user("13800138000"):
-        # 搜索并下单（address_id 由地址流程获得）
-        order = agent.order("生椰拿铁", address_id="addr_...")
-        if order:
-            print(f"\n订单已创建: {order['order_id']}")
 ```
+request_user_bind / verify_user_bind  → consent_grant_id
+search_shops（得 shop_id + cart_id）
+get_shop_menu（得 item_id / sku_id）
+quote_cart（得 quote_id）
+select_address（得 address_id）
+preview_order（得 preview_id + confirmation_token）
+create_order（得 order_id）
+get_sign_action（免密签约）→ get_order_status（查状态）
+```
+
+所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` / `confirmation_token` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。`confirmation_token` 是下单幂等键，绑定阶段铸造的 `consent_grant_id` 是后续每个业务工具调用都要带的用户授权参数。
 
 ---
 
 ## 下一步
 
-- 查看 [API 概览](/mcp/overview) 了解完整的 REST 与 MCP 接口文档
-- 阅读 [下单流程](/gateway/order-flow) 掌握完整的有状态下单链路
+- 查看 [MCP 概览](/mcp/overview) 了解 18 个工具的连接方式、分组与完整入参 / 出参
+- 阅读 [下单流程](/gateway/order-flow) 掌握完整的有状态下单链路与支付时序
 - 阅读 [安全模型](/skills/security-model) 学习数据保护最佳实践
 - 探索 [支持的平台](/skills/supported-platforms) 集成到你的 Agent 应用

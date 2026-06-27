@@ -83,17 +83,15 @@ Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认�
 - **前缀**：`clw_` 开头，后接随机字符，例如 `clw_a1b2c3d4...`
 - **存储**：服务端只存哈希、不保留明文，每次请求按哈希比对
 - **颁发**：在 [Portal](http://console.hicaspian.com/agents) 创建 Agent 时生成，**仅显示一次**，遗失需重新生成
-- **使用**：在所有请求的 HTTP Header 中作为 `Authorization: Bearer {API_KEY}`；MCP 与 REST 都一样
+- **使用**：在连接层 HTTP Header 中作为 `Authorization: Bearer {API_KEY}` 传入，标识调用方 Agent
 
 ### 用户授权 consent grant（用户识别）
 
 - **前缀**：`cg_` 开头
-- **来源**：用户通过绑定流程（SMS 验证码 / H5）授权后获得；`verify_user_bind`（`POST /auth/bind/verify`）成功返回 `consent_grant_id`、`scopes`、`expires_at`（ISO 8601）
+- **来源**：用户通过绑定流程（SMS 验证码 / H5）授权后获得；`verify_user_bind` 成功返回 `consent_grant_id`、`scopes`、`expires_at`（ISO 8601）
 - **存储**：明文仅本次返回一次，落库仅存哈希，请妥善保存
-- **传递**：
-  - **REST：** 通过 `X-Consent-Grant-Id` 请求头传递（不要放进 JSON body）
-  - **MCP：** 作为每个工具的 `consent_grant_id` 参数传入（不走请求头）
-- **失效**：到达 `expires_at` 过期，或被 `revoke_user_bind`（`POST /auth/unbind`）撤销后，在所有端点即时失效，需重新绑定获取新的
+- **传递**：作为每个工具的 `consent_grant_id` 参数传入（不放进 body，也不走请求头）
+- **失效**：到达 `expires_at` 过期，或被 `revoke_user_bind` 撤销后即时失效，需重新绑定获取新的
 
 ## 数据加密
 

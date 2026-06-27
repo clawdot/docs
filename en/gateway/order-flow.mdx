@@ -1,32 +1,43 @@
 ---
 title: "Order Flow"
-description: "The complete end-to-end ordering chain from searching shops to passwordless signing — each step maps to one MCP tool / REST endpoint"
+description: "The complete end-to-end ordering chain from searching shops to passwordless signing — each step maps to one MCP tool"
 ---
 
-Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together; the full field table for each endpoint lives in the corresponding [API reference](/en/mcp/shops/search).
+Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together using MCP tools; the full field table for each tool lives in the corresponding [tool reference](/en/mcp/shops/search).
 
 <Note>
-  Examples below use **MCP tools** (tool arguments are identical to the REST body except for `consent_grant_id`). Each tool maps one-to-one to a REST endpoint with the same arguments; for the REST form, see the links at the end of each step and the "Authentication" section below.
+  Every example below is an **MCP tool call**: a tool name plus JSON arguments. Apart from the binding tools, each business tool carries a `consent_grant_id` argument (user consent, `cg_` prefix). The Agent identity is carried at the connection layer via the `Authorization: Bearer clw_...` header — see the "Authentication" section below.
 </Note>
 
 ## Overview
 
-```mermaid
-flowchart TD
-  A["search_shops<br/>POST /shops/search"] -->|"shop_id + cart_id"| B["get_shop_menu<br/>POST /shops/menu"]
-  B -->|"item_id / sku_id"| C["quote_cart<br/>POST /cart/quote"]
-  C -->|"quote_id"| E["preview_order<br/>POST /orders/preview"]
-  D["select_address<br/>POST /addresses/select"] -->|"address_id"| E
-  E -->|"preview_id + confirmation_token"| F["create_order<br/>POST /orders/create"]
-  F -->|"order_id"| G["get_sign_action<br/>POST /payment/sign-action"]
+The order flow calls 7 MCP tools in a fixed order: `search_shops` to pick a shop, `get_shop_menu` to pick items, then `quote_cart` to price, `select_address` to set the delivery address, then `preview_order` to get the ordering tokens, `create_order` to place the order, and finally `get_sign_action` for passwordless signing. Cross-step IDs are issued by the gateway and passed back verbatim.
 
-  style A fill:#fde8e4,stroke:#E8593C
-  style B fill:#fde8e4,stroke:#E8593C
-  style C fill:#fde8e4,stroke:#E8593C
-  style D fill:#fde8e4,stroke:#E8593C
-  style E fill:#fde8e4,stroke:#E8593C
-  style F fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-  style G fill:#fde8e4,stroke:#E8593C
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant A as Agent (caller)
+    participant G as Clawdot Gateway
+    Note over A,G: every business tool call carries consent_grant_id
+    A->>G: search_shops(keyword?)
+    G-->>A: shops[]: shop_id, cart_id, next_offset?
+    A->>G: get_shop_menu(shop_id, cart_id, keyword?/limit?/offset?)
+    G-->>A: items[]: item_id, sku_id, ingredient_options, has_more
+    A->>G: quote_cart(shop_id, cart_id, items)
+    G-->>A: quote_id, can_checkout, payable_price
+    A->>G: select_address(address_id or suggestion_token)
+    G-->>A: address_id, display_name, lat, lng
+    A->>G: preview_order(shop_id, cart_id, address_id, items, quote_id?, coupon_ids?)
+    G-->>A: preview_id, confirmation_token, price, available_coupons[]
+    opt re-price after user picks coupons
+        U->>A: choose coupons
+        A->>G: preview_order(…, coupon_ids=[selected])
+        G-->>A: new preview_id, confirmation_token, selected_coupons
+    end
+    A->>G: create_order(preview_id, confirmation_token, callback_url?)
+    G-->>A: order_id, status, payment_action
+    A->>G: get_sign_action(order_id)
+    G-->>A: passwordless signing action (H5 link)
 ```
 
 How IDs flow through the chain:
@@ -118,7 +129,7 @@ quote_cart(
 )
 ```
 
-Prices the chosen items and returns a `quote_id` (quote context) plus the price breakdown. The `quote_id` can be passed to `preview_order` to validate the quote context.
+Prices the chosen items and returns a `quote_id` (quote context), `can_checkout`, and `payable_price` and other price-breakdown fields. The `quote_id` can be passed to `preview_order` to validate the quote context.
 
 <Note>
   Full fields: [Quote Cart](/en/mcp/cart/quote).
@@ -139,7 +150,7 @@ preview_order(
 )
 ```
 
-Validates the shop / address / items, applies coupons, and returns the final price (`price.payable_price` etc., in cents) plus the `preview_id` + `confirmation_token` used to order (produced by the same preview, must be used as a pair, valid ~10 minutes).
+Validates the shop / address / items, applies coupons, and returns the final price (`price.payable_price` etc., in cents), the `available_coupons[]` usable for this order, plus the `preview_id` + `confirmation_token` used to order (produced by the same preview, must be used as a pair, valid ~10 minutes). Account-level coupons are also listed by `list_coupons`; the coupons actually usable for this order are those in `available_coupons` here — after the user picks one, re-run `preview_order(coupon_ids=[…])` with its `coupon_id` to re-price.
 
 <Note>
   Full fields and the `coupon_ids` tri-state: [Preview Order](/en/mcp/orders/preview).
@@ -160,7 +171,7 @@ create_order(
 Places the order with the `preview_id` + `confirmation_token` from the same preview, returning the platform `order_id`, `status`, and (when payment is required) `payment_action`.
 
 <Note>
-  This endpoint is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and POSTs a callback once it leaves the unpaid state; otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
+  This tool is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and calls back once it leaves the unpaid state (see "Query an order and payment result" below); otherwise poll `get_order_status` yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
 </Note>
 
 ### Passwordless signing
@@ -172,7 +183,7 @@ get_sign_action(
 )
 ```
 
-Initiates passwordless-payment signing for the user and returns an `action`: when `action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to `return_url`; when it is `none`, the user is already signed. Then poll the result with `get_sign_status` (`GET /payment/sign-status`). Passwordless signing is a prerequisite for passwordless-payment orders.
+Initiates passwordless-payment signing for the user and returns an `action`: when `action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to `return_url`; when it is `none`, the user is already signed. Then poll the result with `get_sign_status`. Passwordless signing is a prerequisite for passwordless-payment orders.
 
 <Note>
   Full fields: [Initiate Passwordless Signing](/en/mcp/payment/sign-action).
@@ -180,21 +191,38 @@ Initiates passwordless-payment signing for the user and returns an `action`: whe
 
 </Steps>
 
-## Query an order
+## Query an order and payment result
+
+After ordering, use `get_order_status` to actively query the order's current status and details:
 
 ```python
 get_order_status(consent_grant_id="cg_...", order_id="ord_...")
 ```
 
-Maps to `GET /orders/{order_id}`, returning the order status and details. See [Get Order](/en/mcp/orders/get).
+If you passed `callback_url` to `create_order`, the gateway also POSTs a payment-result callback (`event=order_payment`) once the order leaves the unpaid state, so you don't have to keep polling. The two paths:
+
+```mermaid
+sequenceDiagram
+    participant A as Agent (caller)
+    participant G as Clawdot Gateway
+    A->>G: get_order_status(order_id)
+    G-->>A: status, status_text, paid_at?, delivery?
+    opt callback_url provided at create_order
+        G-->>A: POST callback_url(event=order_payment){order_id, ispay, status}
+    end
+```
+
+The callback body has 6 keys: `event`, `order_id`, `ispay`, `status`, `status_text`, `consent_grant_id`. The `ispay` enum: `success` (entered the paid flow), `closed` (cancelled or closed), `timeout` (~15-minute polling window elapsed still unpaid), `unknown` (consent revoked/rotated or the order reference became invalid).
+
+<Note>
+  Full fields: [Get Order](/en/mcp/orders/get); the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
+</Note>
 
 ## Authentication
 
-Every step requires two-layer authentication:
+Every tool call requires two-layer authentication:
 
-- **API Key** (identifies the Agent): passed via the `Authorization: Bearer clw_...` header, the same for MCP and REST.
-- **User consent grant** (identifies the authorized user, `cg_` prefix):
-  - **MCP:** passed as each tool's `consent_grant_id` argument (not a header).
-  - **REST:** passed via the `X-Consent-Grant-Id` header.
+- **Agent identity (API Key)**: carried when connecting to MCP via the `Authorization: Bearer clw_...` header, on every request. Generated when you create an Agent in the console [`http://console.hicaspian.com/agents`](http://console.hicaspian.com/agents).
+- **User consent grant** (identifies the authorized user, `cg_` prefix): passed as each business tool's `consent_grant_id` argument (not a header). The binding tools `request_user_bind` / `verify_user_bind` are the exception — they are how you obtain consent, so they take no `consent_grant_id`.
 
 See [Authentication](/en/gateway/authentication). Errors are returned in the uniform shape `{"error": {"code", "message"}}`; see [Error Handling](/en/gateway/error-handling).

@@ -90,8 +90,8 @@ Each Skill is a standardized pack containing the following parts:
 
 Skills use **two-layer authentication**: an **API Key** identifies the Agent, and a **user authorization (consent grant)** identifies the authorized delivery user. The Agent holds its own API Key, then runs a binding flow per user to obtain a `consent_grant_id` (`cg_` prefix); the two together let it act on that user's behalf. Each authorization is independent and revocable at any time, naturally creating security isolation with no need for a complex permission-management system.
 
-- **API Key (Agent identity):** passed via the `Authorization: Bearer clw_...` header, the same for both MCP and REST; generated when you create an Agent in the Portal.
-- **User authorization (consent grant):** REST passes it via the `X-Consent-Grant-Id` header; MCP passes it as each tool's `consent_grant_id` parameter (not a header).
+- **API Key (Agent identity):** passed at the connection layer via the `Authorization: Bearer clw_...` header; generated when you create an Agent in the [console](http://console.hicaspian.com/agents).
+- **User authorization (consent grant):** passed as each MCP tool's `consent_grant_id` parameter (`cg_` prefix, not a header).
 
 Suitable for: personal assistants, desktop Agents (Claude Desktop, Cursor, etc.), and various Agent-platform integrations. See [Authentication](/en/gateway/authentication) for full details.
 
@@ -104,13 +104,13 @@ The Skill platform adaptation layer lets the same Skill run across multiple Agen
 | **Claude Code** | Python scripts + SKILL.md instructions | Desktop developers, personal Agents |
 | **OpenClaw** | Tool SDK + camelCase parameters | Open-platform integration |
 | **Codex** | Python scripts + AGENTS.md | OpenAI Codex Agent |
-| **Self-built Agent** | Direct REST API calls | DingTalk, Kimi, QCloud, any platform |
+| **Self-built Agent** | Connect directly to the MCP tool contract | DingTalk, Kimi, QCloud, any platform |
 
 ## Open Skills
 
 <CardGroup cols={2}>
   <Card title="Integration Guide" href="/en/skills/integration-guide" icon="code">
-    Choose the integration method that fits you (MCP / REST / Function Calling) and connect quickly.
+    Connect via the MCP tool contract and reach all 18 tools quickly.
   </Card>
 
   <Card title="Building Agents" href="/en/skills/building-agents" icon="hammer">

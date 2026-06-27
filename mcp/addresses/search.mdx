@@ -1,11 +1,11 @@
 ---
 title: "search_addresses"
-description: "MCP 工具，对应 REST POST /addresses/search — 列出用户已保存的收货地址，并按关键词搜索新的 POI 候选地址"
+description: "MCP 工具 search_addresses — 列出用户已保存的收货地址，并按关键词搜索新的 POI 候选地址"
 ---
 
 ## search_addresses
 
-列出当前授权用户在网关侧已保存的收货地址（`saved_addresses`），并在传入 `keyword` 时返回 POI 候选地址（`suggestions`）。传入 `lat`/`lng` 时，会为每个已保存地址标注 `distance_meters`，并把最近的一个地址 ID 放在顶层 `nearest_address_id`。对应 REST 端点 `POST /addresses/search`。
+列出当前授权用户在网关侧已保存的收货地址（`saved_addresses`），并在传入 `keyword` 时返回 POI 候选地址（`suggestions`）。传入 `lat`/`lng` 时，会为每个已保存地址标注 `distance_meters`，并把最近的一个地址 ID 放在顶层 `nearest_address_id`。
 
 <Note>
   **下单链路位置**：本工具拿到的 `address_id`（已保存地址）或 `suggestions[].token`（POI 候选）用于下一步 `select_address`，由 select 返回正式的 `address_id`，再用于 `preview_order` 与 `create_order`。

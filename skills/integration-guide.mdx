@@ -1,6 +1,6 @@
 ---
 title: "接入指南"
-description: "三种方式将本地生活技能接入你的 Agent"
+description: "通过 MCP 把本地生活技能接入你的 Agent"
 icon: "code"
 ---
 
@@ -10,24 +10,20 @@ import { Info, Warning } from '/components/Callout';
 
 ## 快速开始
 
-Skills 平台提供三种集成方式，满足不同 Agent 平台的接入需求。选择最适合你的方式，按照步骤逐一完成。
+Skills 平台以 **MCP（Model Context Protocol）** 作为对外接入协议。Clawdot Gateway 通过 **Streamable HTTP** 暴露 18 个 MCP 工具——授权、店铺、地址、下单、支付一条链路全覆盖。把网关配置成一个远程 MCP 服务器，你的 Agent 就能自动发现并调用这些工具。
 
-<CardGroup cols={3}>
-  <Card title="MCP" icon="plug" href="#mcp-protocol">
-    适合 Claude Desktop、Cursor 等支持 MCP 的客户端应用。通过 Streamable HTTP 接入，自动工具发现。
+<CardGroup cols={2}>
+  <Card title="MCP（推荐主线）" icon="plug" href="#mcp-协议">
+    适合 Claude Desktop、Cursor 等支持 MCP 的客户端，以及任何能连接远程 MCP 的 Agent 框架。Streamable HTTP 接入，工具自动发现，零样板代码。
   </Card>
 
-  <Card title="REST API" icon="link">
-    通用 HTTP 接口，支持任何编程语言。适合自建 Agent、钉钉、Kimi 等平台集成。
-  </Card>
-
-  <Card title="OpenAI Function Calling" icon="robot">
-    把 Gateway 的工具注册为 OpenAI 函数工具，适合 OpenAI 兼容的模型和平台。
+  <Card title="自建封装（Function Calling）" icon="robot" href="#自建封装function-calling">
+    平台暂不支持远程 MCP？按同一套工具契约（工具名 + 参数）把这些工具注册成你框架里的函数工具，在函数实现里转发到 MCP。
   </Card>
 </CardGroup>
 
 <Info>
-本页是叙述式上手指南，三种方式背后是**同一套契约**：18 个 MCP 工具与 18 个 REST 端点一一对应，参数与返回结构一致。完整字段表见 [MCP 概览](/mcp/overview) 与 [API 参考](/mcp/overview)；端到端下单顺序见 [下单流程](/gateway/order-flow)。
+本页是叙述式上手指南。无论哪种接入方式，背后都是**同一套契约**：18 个 MCP 工具，工具名、参数与返回结构一致。完整字段表见 [MCP 概览](/mcp/overview)；端到端下单顺序见 [下单流程](/gateway/order-flow)。
 </Info>
 
 ## MCP 协议
@@ -36,15 +32,15 @@ MCP（Model Context Protocol）是 Anthropic 推出的标准协议，支持 Clau
 
 ### 步骤 1：获取 API Key
 
-在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建你的 Agent：
+在 [Clawdot 控制台](http://console.hicaspian.com/agents) 创建你的 Agent：
 
-1. 登录 Portal，进入 **Agent 管理**
+1. 登录控制台，进入 **Agent 管理**
 2. 点击 **创建新 Agent**，填写名称和描述
 3. 系统自动生成 API Key（`clw_` 开头）
 4. 复制 API Key 到安全位置
 
 <Info>
-API Key 仅在创建时显示一次。如果遗失，需要在 Portal 重新生成。详见 [认证机制](/gateway/authentication)。
+API Key 仅在创建时显示一次。如果遗失，需要在控制台重新生成。详见 [认证机制](/gateway/authentication)。
 </Info>
 
 ### 步骤 2：配置 MCP 服务器
@@ -134,292 +130,32 @@ verify_user_bind(
 >
 > ... 返回推荐列表
 
-完整工具列表与下单链路见 [MCP 概览](/mcp/overview)。
+下单是一条有状态的链路：算价 → 选地址 → 预览 → 下单 → 签约支付，跨步 ID 由网关签发、原样回传。完整工具列表与下单链路见 [MCP 概览](/mcp/overview) 与 [下单流程](/gateway/order-flow)。
 
 ---
 
-## REST API
+## 自建封装（Function Calling）
 
-适合需要完整控制的高级场景，或集成到钉钉、Kimi 等平台。所有 REST 端点都在 `http://eleme-gateway.hicaspian.com/api/v1` 下。
-
-### 步骤 1：获取 API Key
-
-同 MCP 步骤 1（在 [Portal](http://console.hicaspian.com/agents) 创建 Agent）。
-
-### 步骤 2：用户授权（同上）
-
-同 MCP 步骤 3，拿到 `consent_grant_id`。REST 侧绑定端点为 `POST /api/v1/auth/bind/request` 和 `POST /api/v1/auth/bind/verify`，请求体字段与上面的工具参数一致。
-
-### 步骤 3：API 调用格式
-
-所有需要用户身份的 REST 请求都要在 Header 中带上两层凭证：
-
-```bash
-curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
-  -H "Authorization: Bearer clw_your_api_key_here" \
-  -H "X-Consent-Grant-Id: cg_550e8400e29b41d4a716" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "keyword": "水果",
-    "lat": 39.9854,
-    "lng": 116.3055
-  }'
-```
-
-**Header 说明：**
-
-| Header | 说明 | 必需 |
-|--------|------|------|
-| `Authorization: Bearer {API_KEY}` | 识别 Agent 身份 | 是 |
-| `X-Consent-Grant-Id: {CONSENT_GRANT_ID}` | 识别已授权用户 | 是（绑定类端点除外）|
-| `Content-Type: application/json` | 请求类型 | 是 |
-
-<Warning>
-`consent_grant_id` 只走 `X-Consent-Grant-Id` 请求头，不要放进 JSON body。绑定类端点（`auth/bind/request`、`auth/bind/verify`）是获取授权的入口，只需 API Key。详见 [认证机制](/gateway/authentication)。
-</Warning>
-
-### 步骤 4：常用 API 端点
-
-<Tabs>
-  <Tab title="搜索商店">
-    **搜索 / 浏览本地商店（外卖、商超、便利店等）**
-
-    ```bash
-    POST /api/v1/shops/search
-    ```
-
-    **请求体：**
-    ```json
-    {
-      "keyword": "外卖",
-      "lat": 39.9854,
-      "lng": 116.3055,
-      "address_id": "addr_123456"
-    }
-    ```
-
-    不传 `keyword` 为浏览模式（附近 ≤20 家），传 `keyword` 为精确搜索（约 5 家，命中店带 `matched_items` 预览）。每个结果都带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，原样回传给后续步骤。完整字段见 [搜索店铺](/mcp/shops/search)。
-
-    **响应示例：**
-    ```json
-    {
-      "shops": [
-        {
-          "shop_id": "shop_123456",
-          "cart_id": "cart_abcdef",
-          "name": "美食外卖馆",
-          "rating": 4.8,
-          "distance_text": "1.2km",
-          "delivery_time_text": "30分钟",
-          "delivery_fee_text": "¥5",
-          "min_order_amount": 1500
-        }
-      ]
-    }
-    ```
-  </Tab>
-
-  <Tab title="获取店铺菜单">
-    **获取单个店铺的菜单（含可下单的 item_id / sku_id）**
-
-    ```bash
-    POST /api/v1/shops/menu
-    ```
-
-    **请求体：**
-    ```json
-    {
-      "shop_id": "shop_123456",
-      "cart_id": "cart_abcdef",
-      "keyword": "拿铁",
-      "limit": 20,
-      "offset": 0
-    }
-    ```
-
-    菜单可能很大（100+ 项），用 `keyword` 或 `limit`/`offset` 渐进披露，按 `next_offset` 翻页直到 `has_more=false`。完整字段见 [店铺菜单](/mcp/shops/detail)。
-
-    **响应示例：**
-    ```json
-    {
-      "categories": [
-        {
-          "name": "招牌菜",
-          "items": [
-            {
-              "item_id": "item_001",
-              "sku_id": "sku_001",
-              "name": "红油炒手",
-              "price": 1200,
-              "description": "四川传统小吃",
-              "available": true
-            }
-          ]
-        }
-      ],
-      "total_items": 86,
-      "has_more": true,
-      "next_offset": 20
-    }
-    ```
-  </Tab>
-
-  <Tab title="算价 → 预览 → 下单">
-    **下单是一条有状态的链路：先算价、再预览、最后用预览产出的令牌创建订单。**
-
-    第一步，购物车算价（`POST /api/v1/cart/quote`，得 `quote_id`）：
-
-    ```json
-    {
-      "shop_id": "shop_123456",
-      "cart_id": "cart_abcdef",
-      "address_id": "addr_123456",
-      "items": [
-        { "item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": [] }
-      ]
-    }
-    ```
-
-    第二步，预览订单（`POST /api/v1/orders/preview`，得 `preview_id` + `confirmation_token`）：
-
-    ```json
-    {
-      "shop_id": "shop_123456",
-      "cart_id": "cart_abcdef",
-      "address_id": "addr_123456",
-      "items": [
-        { "item_id": "item_001", "sku_id": "sku_001", "quantity": 2 }
-      ],
-      "quote_id": "qt_...",
-      "order_remark": "不要辣"
-    }
-    ```
-
-    预览响应（节选，金额单位**分**）：
-
-    ```json
-    {
-      "preview_id": "prv_abc123",
-      "confirmation_token": "cf_abc123",
-      "price": { "payable_price": 3300 }
-    }
-    ```
-
-    第三步，创建订单（`POST /api/v1/orders/create`），用同一次预览的 `preview_id` + `confirmation_token` 正式下单：
-
-    ```json
-    {
-      "preview_id": "prv_abc123",
-      "confirmation_token": "cf_abc123"
-    }
-    ```
-
-    **响应示例：**
-    ```json
-    {
-      "order_id": "ord_abc123",
-      "status": "created",
-      "payment_action": { "...": "..." }
-    }
-    ```
-
-    <Info>
-    `confirmation_token` 是下单的幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。`items` 是**列表**（不是 JSON 字符串）。完整字段见 [购物车算价](/mcp/cart/quote) · [预览订单](/mcp/orders/preview) · [创建订单](/mcp/orders/create)。
-    </Info>
-  </Tab>
-
-  <Tab title="查询订单">
-    **查询订单状态和详情**
-
-    ```bash
-    GET /api/v1/orders/{order_id}
-    ```
-
-    **路径参数：**
-    - `order_id`：订单 ID，例如 `ord_abc123`
-
-    **响应示例（金额单位分）：**
-    ```json
-    {
-      "order_id": "ord_abc123",
-      "status": "delivering",
-      "shop_name": "美食外卖馆",
-      "price": { "payable_price": 3300 },
-      "created_at": "2026-03-29T10:00:00Z"
-    }
-    ```
-
-    完整字段见 [查询订单](/mcp/orders/get)。
-  </Tab>
-</Tabs>
-
-<Info>
-免密支付类订单还需要先完成**免密签约**（`POST /api/v1/payment/sign-action` → 引导用户在 H5 完成 → `GET /api/v1/payment/sign-status` 轮询）。完整端到端顺序见 [下单流程](/gateway/order-flow)。
-</Info>
-
-### 步骤 5：错误处理
-
-处理常见的 HTTP 错误响应。认证 / 授权失败统一返回 `{"error": {"code", "message"}}` 格式：
-
-```python
-import requests
-
-try:
-    response = requests.post(
-        "http://eleme-gateway.hicaspian.com/api/v1/shops/search",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "X-Consent-Grant-Id": consent_grant_id,
-            "Content-Type": "application/json"
-        },
-        json={"keyword": "外卖", "lat": 39.9854, "lng": 116.3055}
-    )
-
-    if response.status_code == 401:
-        # API Key 无效 (AUTH_INVALID)，或 consent_grant_id 缺失/无效/过期
-        # (CONSENT_GRANT_REQUIRED / CONSENT_GRANT_INVALID / CONSENT_GRANT_EXPIRED)
-        print("认证失败，请检查 API Key 或重新走授权绑定")
-    elif response.status_code == 403:
-        # 授权属于其它能力/服务商 (CONSENT_GRANT_WRONG_CAP)，
-        # 或当前 Agent 未开通该能力 (CAP_NOT_BOUND)
-        print("授权或能力不匹配，请检查 Agent 开通的能力")
-    elif response.status_code == 429:
-        # 触发速率限制
-        print("请求过于频繁，请稍后重试")
-    else:
-        data = response.json()
-        print(data)
-
-except requests.RequestException as e:
-    print(f"网络错误：{e}")
-```
-
-完整错误码见 [错误处理](/gateway/error-handling)。
-
----
-
-## OpenAI Function Calling
-
-适合使用 OpenAI API 或兼容 API 的 Agent 框架（如 LangChain、LlamaIndex）。把 Gateway 工具注册为函数，函数实现内部去调 REST 端点。
+如果你的平台暂时不支持远程 MCP，可以按**同一套工具契约**把这些工具注册成你框架里的函数工具（如 OpenAI Function Calling、LangChain、LlamaIndex），在函数实现里把调用转发到 MCP。工具名、参数、返回结构与 MCP 完全一致——你封装的只是"调用通道"，业务语义不变。
 
 ### 步骤 1：获取 API Key
 
-同上（在 [Portal](http://console.hicaspian.com/agents) 创建 Agent）。
+同上（在 [控制台](http://console.hicaspian.com/agents) 创建 Agent）。
 
 ### 步骤 2：用户授权
 
-同上，拿到 `consent_grant_id`。
+同上，走一次绑定流程拿到 `consent_grant_id`。
 
-### 步骤 3：注册函数工具
+### 步骤 3：按工具契约注册函数工具
 
-将 Gateway 工具注册为 OpenAI Function Calling 工具。工具名与参数对齐 Gateway 契约：
+把 Gateway 工具注册为你框架的函数工具。**工具名与参数严格对齐工具契约**——这样模型产出的工具调用可以直接喂给网关，无需翻译：
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(api_key="sk-...")
 
-# 注册 Gateway 工具作为函数工具
+# 按 Gateway 工具契约定义函数工具（工具名/参数与 MCP 一致）
 tools = [
     {
         "type": "function",
@@ -517,73 +253,58 @@ response = client.chat.completions.create(
     tool_choice="auto"
 )
 
-# 处理函数调用
+# 处理模型产出的工具调用
 for tool_call in response.tool_calls:
     if tool_call.function.name == "search_shops":
-        # 调用 Clawdot Gateway REST 端点
+        # 转发到 Gateway MCP（见下一步）
         # ...
 ```
 
-### 步骤 4：函数实现
+### 步骤 4：函数实现 —— 转发到 MCP
 
-每个函数内部去调对应的 REST 端点，带上 Agent 与用户两层凭证：
+每个函数把模型产出的参数（**补上当前用户的 `consent_grant_id`**）通过你的 MCP 客户端转发到对应工具。Agent 身份在 MCP 连接层用 API Key 标识，`consent_grant_id` 作为工具参数传入：
 
 ```python
-import requests
 import json
 
-def call_gateway_api(endpoint, params, api_key, consent_grant_id):
-    """调用 Clawdot Gateway REST 端点的辅助函数"""
-    url = f"http://eleme-gateway.hicaspian.com/api/v1/{endpoint}"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
+def call_gateway_tool(mcp_client, tool_name, tool_args, consent_grant_id):
+    """通过已连接的 Gateway MCP 客户端调用一个工具。
+    mcp_client 已用 Authorization: Bearer clw_... 连接到
+    http://eleme-gateway.hicaspian.com/mcp/v1（Streamable HTTP）。"""
+    # 业务工具都要带 consent_grant_id 参数；
+    # 绑定类工具 request_user_bind / verify_user_bind 除外（它们是拿授权的入口）。
+    args = {**tool_args}
+    if tool_name not in ("request_user_bind", "verify_user_bind"):
+        args["consent_grant_id"] = consent_grant_id
+    return mcp_client.call_tool(tool_name, args)
 
-    response = requests.post(url, json=params, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
-    """执行函数工具"""
-    if tool_name == "search_shops":
-        result = call_gateway_api("shops/search", tool_args, api_key, consent_grant_id)
-        return json.dumps(result, ensure_ascii=False)
-
-    elif tool_name == "get_shop_menu":
-        result = call_gateway_api("shops/menu", tool_args, api_key, consent_grant_id)
-        return json.dumps(result, ensure_ascii=False)
-
-    elif tool_name == "preview_order":
-        # items 是 list，直接透传；返回 preview_id + confirmation_token
-        result = call_gateway_api("orders/preview", tool_args, api_key, consent_grant_id)
-        return json.dumps(result, ensure_ascii=False)
-
-    elif tool_name == "create_order":
-        # 用上一步 preview 产出的 preview_id + confirmation_token 下单
-        result = call_gateway_api("orders/create", tool_args, api_key, consent_grant_id)
+def execute_tool(mcp_client, tool_name, tool_args, consent_grant_id):
+    """执行模型产出的一次工具调用，原样转发到 MCP。"""
+    if tool_name in ("search_shops", "get_shop_menu", "preview_order", "create_order"):
+        result = call_gateway_tool(mcp_client, tool_name, tool_args, consent_grant_id)
         return json.dumps(result, ensure_ascii=False)
 ```
+
+<Info>
+工具名、参数、返回结构与 MCP 完全一致——封装层只负责"把模型产出的工具调用转发到网关"。完整字段见 [购物车算价](/mcp/cart/quote) · [预览订单](/mcp/orders/preview) · [创建订单](/mcp/orders/create)。
+</Info>
 
 ---
 
 ## 对比选择
 
-| 维度 | MCP | REST API | Function Calling |
-|------|-----|----------|------------------|
-| **适用平台** | Claude Desktop、Cursor | 通用（任何语言/框架） | OpenAI API、兼容框架 |
-| **配置复杂度** | 极低（JSON 配置） | 中等（需要自己处理 HTTP） | 中等（需要定义 Schema） |
-| **工具发现** | 自动 | 手动 | 手动 |
-| **学习成本** | 低 | 中 | 中 |
-| **生产就绪** | 是 | 是 | 是 |
-| **响应速度** | 快 | 快 | 快 |
+| 维度 | MCP（推荐主线） | 自建封装（Function Calling） |
+|------|-----|------------------|
+| **适用平台** | Claude Desktop、Cursor，及支持远程 MCP 的框架 | 暂不支持远程 MCP 的 OpenAI 兼容框架 |
+| **配置复杂度** | 极低（JSON 配置） | 中等（需自己定义 Schema 并转发到 MCP） |
+| **工具发现** | 自动 | 手动（按契约逐个声明） |
+| **学习成本** | 低 | 中 |
+| **生产就绪** | 是 | 是 |
 
 **推荐选择：**
 
-- **MCP**：已使用 Claude Desktop 或 Cursor，需要最简单的集成
-- **REST API**：自建 Agent 系统，需要完整控制和自定义逻辑
-- **Function Calling**：使用 OpenAI API，希望最小化集成代码
+- **MCP**：首选主线。客户端/框架支持远程 MCP 时，配置一个服务器即可，工具自动发现、零样板。
+- **自建封装（Function Calling）**：仅当平台暂不支持远程 MCP。按同一套工具契约声明函数工具，在实现里转发到 MCP；后续平台支持 MCP 后可平滑切换。
 
 ---
 
@@ -601,20 +322,20 @@ def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
 </details>
 
 <details>
-<summary>API 调用返回 401 Unauthorized</summary>
+<summary>工具调用返回 401 Unauthorized</summary>
 
-- API Key 不存在或已禁用（`AUTH_INVALID`），检查 Portal
-- API Key 格式错误，应以 `clw_` 开头，Header 为 `Authorization: Bearer ...`，区分大小写
+- API Key 不存在或已禁用（`AUTH_INVALID`），检查控制台
+- API Key 格式错误，应以 `clw_` 开头，连接头为 `Authorization: Bearer ...`，区分大小写
 - 缺少 `consent_grant_id`（`CONSENT_GRANT_REQUIRED`）
 - `consent_grant_id` 无效或已过期（`CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED`），需要重新走绑定流程拿新的
 
 </details>
 
 <details>
-<summary>API 调用返回 403 Forbidden</summary>
+<summary>工具调用返回 403 Forbidden</summary>
 
 - 授权属于其它能力 / 服务商（`CONSENT_GRANT_WRONG_CAP`）
-- 当前 Agent 未开通该能力（`CAP_NOT_BOUND`），在 Portal 检查 Agent 开通的能力
+- 当前 Agent 未开通该能力（`CAP_NOT_BOUND`），在控制台检查 Agent 开通的能力
 
 </details>
 

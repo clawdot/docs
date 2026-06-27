@@ -26,7 +26,7 @@ description: "统一错误格式与全部错误码"
 |---|---|---|
 | `AUTH_REQUIRED` | 缺少 API Key | 加 `Authorization: Bearer clw_...` |
 | `AUTH_INVALID` | API Key 无效或已禁用 | 检查 Key，或联系平台确认状态 |
-| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` | REST 传 `X-Consent-Grant-Id` 头 / MCP 传 `consent_grant_id` 参数 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` | 作为 `consent_grant_id` 工具参数传入 |
 | `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已过期 | 重新走绑定流程获取新的 |
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期 | 重新走绑定流程授权 |
 

@@ -1,158 +1,201 @@
 ---
 title: "Quick Start"
-description: "From API Key to your first order — run the full Clawdot Gateway flow end to end"
+description: "Connect over MCP — from API Key to your first order using MCP tools on Clawdot Gateway"
 ---
 
-Clawdot Gateway exposes food-delivery capabilities to AI Agents through a unified interface. This guide walks you through a complete order from scratch.
+Clawdot Gateway exposes food-delivery capabilities to AI Agents as **MCP tools**. This guide first connects you to MCP, then walks a single chain of tool calls to run a complete order from scratch.
 
-- **REST API** (this guide's main path): `http://eleme-gateway.hicaspian.com/api/v1`
-- **MCP** (tool calls): `http://eleme-gateway.hicaspian.com/mcp/v1` (each step lists its tool name)
+## 1. Connect over MCP
+
+The gateway serves MCP over **Streamable HTTP** (FastMCP):
+
+- **Endpoint**: `http://eleme-gateway.hicaspian.com/mcp/v1`
+- **Transport**: Streamable HTTP
+- **Connection-layer auth**: every MCP request carries the header `Authorization: Bearer clw_your_api_key`
+
+Create an Agent and enable the delivery capability in the [Clawdot Console](http://console.hicaspian.com/agents) to obtain your API Key (`clw_` prefix). Configure it in your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "clawdot": {
+      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key"
+      }
+    }
+  }
+}
+```
+
+Once connected, your Agent can see all 18 MCP tools.
 
 <Note>
-  Two-layer identity: the **API Key** (`clw_` prefix) identifies your Agent and is required on every request; the **consent grant** (`cg_` prefix) identifies an authorized food-delivery user and is required when operating on user resources. See [Authentication](/en/gateway/authentication).
+  **Two-layer identity**: the connection-layer **API Key** (`clw_` prefix) identifies your Agent and is required on every MCP request; the **consent grant** (`cg_` prefix) identifies an authorized food-delivery user and is passed as the **business-tool parameter** `consent_grant_id` (not as a header). The binding tools `request_user_bind` / `verify_user_bind` are the exception — they are the entry point for obtaining authorization and take no `consent_grant_id`. See [Authentication](/en/gateway/authentication).
 </Note>
 
-## Prerequisite: get an API Key
+## 2. Place an order with MCP tools
 
-Create an Agent and enable the delivery capability in the [Clawdot Portal](http://console.hicaspian.com/agents) to obtain your API Key. Every request then carries:
-
-```
-Authorization: Bearer clw_your_api_key
-```
+Examples are given as **tool name + JSON parameters**. Except for the binding tools, every business tool carries `consent_grant_id`.
 
 <Steps>
 <Step title="Bind user authorization">
-Placing an order acts on behalf of a real food-delivery user, so have them authorize first (SMS code mode).
+Placing an order acts on behalf of a real food-delivery user, so have them authorize first (SMS code mode). The binding tools need only the Agent identity (connection-layer API Key) and take no `consent_grant_id`.
 
-```bash
-# 1) Start binding -> get bind_id; the user receives an SMS code
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/request" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{"phone": "18800000000", "auth_type": "sms"}'
-
-# 2) After the user gives you the code, confirm -> get consent_grant_id
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/verify" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{"auth_type": "sms", "bind_id": "<bind_id from step 1>", "code": "123456"}'
-# -> { "consent_grant_id": "cg_...", "scopes": ["taobao_flash.delivery"], "expires_at": "..." }
+```json
+// Tool: request_user_bind — start binding; the user receives an SMS code
+{
+  "phone": "18800000000",
+  "auth_type": "sms"
+}
+// -> { "bind_id": "...", "expires_in": ..., "masked_phone": "188****0000" }
 ```
 
-Once you have `consent_grant_id`, every request below carries `X-Consent-Grant-Id: cg_...`.
+```json
+// Tool: verify_user_bind — confirm with the code the user gave you; mints consent_grant_id
+{
+  "auth_type": "sms",
+  "bind_id": "<bind_id from step 1>",
+  "code": "123456"
+}
+// -> { "bound": true, "consent_grant_id": "cg_...", "scopes": [...], "expires_at": "..." }
+```
 
-<Note>MCP: tools `request_user_bind` / `verify_user_bind`; `consent_grant_id` is then passed as a parameter on each tool (not as a header). H5 mode is also supported (`auth_type: "h5"` returns an authorization link) — see [Request Binding](/en/mcp/user/bind-request).</Note>
+Once you have `consent_grant_id`, every business tool call below carries it.
+
+<Note>H5 mode is also supported: `request_user_bind(auth_type="h5")` returns `h5_url`; the user opens it to authorize, then you call `verify_user_bind(auth_type="h5", request_id)` and poll until you get `consent_grant_id`. See [Request Binding](/en/mcp/user/bind-request).</Note>
 </Step>
 
 <Step title="Search shops">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/search" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"keyword": "Luckin Coffee", "lat": 31.23, "lng": 121.47}'
-# -> { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ] }
+```json
+// Tool: search_shops
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "Luckin Coffee",
+  "lat": 31.23,
+  "lng": 121.47
+}
+// -> { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ], "next_offset": ... }
 ```
 
-Each shop carries a `shop_id` and a `cart_id` (the `cart_id` encapsulates the shop and delivery coordinates; pass it back as-is in later steps).
+Each shop carries a `shop_id` and a `cart_id` (the `cart_id` encapsulates the shop and delivery coordinates; pass it back as-is in later steps). Omit `keyword` to browse nearby (up to 20 shops).
 
-<Note>MCP: `search_shops`</Note>
 </Step>
 
 <Step title="Browse the menu, pick items">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/menu" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"shop_id": "<from search>", "cart_id": "<from search>"}'
-# -> items[]: each carries item_id / sku_id / ingredient_options ...
+```json
+// Tool: get_shop_menu
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<from search>",
+  "cart_id": "<from search>"
+}
+// -> items[]: each carries item_id / sku_id / ingredient_options; has_more signals if there is more
 ```
 
-Note the `item_id` and `sku_id` of what you want to buy.
+Supports `keyword` / `limit` / `offset` for progressive loading. Note the `item_id` and `sku_id` of what you want to buy.
 
-<Note>MCP: `get_shop_menu`</Note>
-</Step>
-
-<Step title="Choose a delivery address">
-```bash
-# Search addresses -> get a suggestion token
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/search" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" -d '{"keyword": "People'\''s Square, Huangpu, Shanghai"}'
-# -> suggestions[].token
-
-# Save the address -> get address_id
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/select" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"suggestion_token": "<token from above>", "contact_name": "Zhang San", "contact_phone": "18800000000"}'
-# -> { "address_id": "...", ... }
-```
-
-<Note>MCP: `search_addresses` / `select_address`</Note>
 </Step>
 
 <Step title="Quote the cart">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/cart/quote" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "shop_id": "<from search>", "cart_id": "<from search>", "address_id": "<from select>",
-    "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}]
-  }'
-# -> { "quote_id": "...", "payable_price": 1500, ... }
+```json
+// Tool: quote_cart
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<from search>",
+  "cart_id": "<from search>",
+  "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}]
+}
+// -> { "quote_id": "...", "can_checkout": true, "payable_price": 1500 }
 ```
 
 <Warning>All amount fields are in **cents (integers)**; `1500` means ¥15.00.</Warning>
-<Note>MCP: `quote_cart`</Note>
+</Step>
+
+<Step title="Choose a delivery address">
+```json
+// Tool: search_addresses — search addresses; get suggestions (each with a token)
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "People's Square, Huangpu, Shanghai"
+}
+// -> { "suggestions": [ { "token": "...", ... } ] }
+```
+
+```json
+// Tool: select_address — select/save the address; get address_id
+// Contact info is required when creating a new address from a suggestion
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "suggestion_token": "<a suggestion's token from above>",
+  "contact_name": "John Doe",
+  "contact_phone": "13800000000",
+  "address_detail": "Bldg 3, Room 101"
+}
+// -> { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
+```
+
+You can also call `select_address` directly with an existing `address_id`.
 </Step>
 
 <Step title="Preview the order">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/preview" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "shop_id": "<from search>", "cart_id": "<from search>", "address_id": "<from select>",
-    "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}]
-  }'
-# -> { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, ... }
+```json
+// Tool: preview_order
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<from search>",
+  "cart_id": "<from search>",
+  "address_id": "<from select>",
+  "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}],
+  "quote_id": "<from quote>"
+}
+// -> { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, "available_coupons": [...] }
 ```
 
-<Note>MCP: `preview_order`</Note>
+Coupons usable on the current order are the returned `available_coupons`. To apply a coupon, pick `available_coupons[].coupon_id` and call `preview_order` again with `coupon_ids=[...]` to re-price (the account-level coupon list is available via `list_coupons`).
+
 </Step>
 
 <Step title="Place the order">
-Use the `preview_id` + `confirmation_token` returned by the preview:
+Use the `preview_id` + `confirmation_token` returned by the preview (`confirmation_token` is the idempotency key):
 
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/create" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
-# -> { "order_id": "ord_...", "status": "pending_payment", "payment_action": {...} }
+```json
+// Tool: create_order
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "preview_id": "prv_...",
+  "confirmation_token": "cf_..."
+}
+// -> { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-<Note>MCP: `create_order`</Note>
+You may pass an optional `callback_url`: the payment result is pushed as a callback (`event=order_payment`).
+
 </Step>
 
 <Step title="Sign for payment + check the order">
 A first order requires the user to complete no-password payment signing (returns an H5 link for the user); afterwards you can check order status anytime.
 
-```bash
-# Start no-password signing
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/payment/sign-action" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" -d '{"return_url": "https://your-app.example.com/done"}'
-
-# Check order status
-curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```json
+// Tool: get_sign_action — get the no-password signing action (H5 link)
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// -> no-password signing action (H5 link)
 ```
 
-<Note>MCP: `get_sign_action` / `get_order_status` / `get_sign_status`</Note>
+```json
+// Tool: get_order_status — check the order status
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// -> { "status": "...", "status_text": "...", ... }
+```
+
+Signing progress can be checked with `get_sign_status`.
 </Step>
 </Steps>
 
@@ -160,12 +203,13 @@ curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
 
 `search_shops` (-> shop_id + cart_id) -> `get_shop_menu` (-> item_id / sku_id) -> `quote_cart` (-> quote_id) -> `select_address` (-> address_id) -> `preview_order` (-> preview_id + confirmation_token) -> `create_order` (-> order_id) -> `get_sign_action` (no-password signing)
 
-Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is issued by the gateway and **passed back as-is** — never construct them yourself.
+Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is issued by the gateway and **passed back as-is** — never construct them yourself or mix them across chains.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="MCP Tools" icon="plug" href="/en/mcp/overview">Full request / response for the 18 MCP tools</Card>
   <Card title="Authentication" icon="key" href="/en/gateway/authentication">API Key + consent grant in detail</Card>
+  <Card title="Order Flow" icon="route" href="/en/gateway/order-flow">End-to-end order and payment sequence</Card>
   <Card title="Error Handling" icon="triangle-exclamation" href="/en/gateway/error-handling">Unified error codes and handling</Card>
 </CardGroup>

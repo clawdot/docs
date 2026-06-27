@@ -26,7 +26,7 @@ The error body contains only `code` and `message`.
 |---|---|---|
 | `AUTH_REQUIRED` | Missing API Key | Add `Authorization: Bearer clw_...` |
 | `AUTH_INVALID` | Invalid or disabled API Key | Check the Key, or contact the platform |
-| `CONSENT_GRANT_REQUIRED` | Missing `consent_grant_id` | REST: `X-Consent-Grant-Id` header / MCP: `consent_grant_id` parameter |
+| `CONSENT_GRANT_REQUIRED` | Missing `consent_grant_id` | Pass it as the `consent_grant_id` tool parameter |
 | `CONSENT_GRANT_INVALID` | `consent_grant_id` is invalid or expired | Re-run the binding flow to get a new one |
 | `CONSENT_GRANT_EXPIRED` | User authorization has expired | Re-run the binding flow to re-authorize |
 
