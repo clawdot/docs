@@ -245,7 +245,7 @@ for shop in shops[:5]:  # 显示前 5 家
     """)
 ```
 
-每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可。完整字段见 [搜索店铺](/api-reference/shops/search)。
+每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可。完整字段见 [搜索店铺](/mcp/shops/search)。
 
 ### Phase 2：查看菜单详情
 
@@ -280,7 +280,7 @@ for category in menu["categories"]:
         print(f"  {item['name']} - ¥{item['price'] / 100:.2f} {status}")
 ```
 
-下单必须使用 `get_shop_menu` 返回的 `item_id` / `sku_id`（以及规格 / 加料的 `ingredient_option_ids`）。完整字段见 [店铺菜单](/api-reference/shops/detail)；规格 / 属性 / 加料体系见 [商品规格说明](/gateway/item-specs)。
+下单必须使用 `get_shop_menu` 返回的 `item_id` / `sku_id`（以及规格 / 加料的 `ingredient_option_ids`）。完整字段见 [店铺菜单](/mcp/shops/detail)；规格 / 属性 / 加料体系见 [商品规格说明](/gateway/item-specs)。
 
 ### Phase 3：准备收货地址
 
@@ -341,7 +341,7 @@ address_id = select_address(
 )
 ```
 
-`search_addresses` 返回的 `saved_addresses[]` 可直接复用其 `address_id`；`suggestions[].token` 是一次性令牌，传给 `select_address` 登记后得到 `address_id`。详见 [搜索地址](/api-reference/addresses/search) 与 [选择/登记地址](/api-reference/addresses/select)。
+`search_addresses` 返回的 `saved_addresses[]` 可直接复用其 `address_id`；`suggestions[].token` 是一次性令牌，传给 `select_address` 登记后得到 `address_id`。详见 [搜索地址](/mcp/addresses/search) 与 [选择/登记地址](/mcp/addresses/select)。
 
 ### Phase 4：购物车算价
 
@@ -378,7 +378,7 @@ quote = quote_cart(consent_grant_id, "shop_...", "cart_...", address_id, items)
 quote_id = quote["quote_id"]
 ```
 
-完整字段见 [购物车算价](/api-reference/cart/quote)。
+完整字段见 [购物车算价](/mcp/cart/quote)。
 
 ### Phase 5：预览订单（下单前确认）
 
@@ -430,7 +430,7 @@ preview_id = preview["preview_id"]
 confirmation_token = preview["confirmation_token"]
 ```
 
-`preview_id` + `confirmation_token` 须配对使用，由同一次预览产出，有效期约 10 分钟。完整字段与 `coupon_ids` 三态说明见 [预览订单](/api-reference/orders/preview)。
+`preview_id` + `confirmation_token` 须配对使用，由同一次预览产出，有效期约 10 分钟。完整字段与 `coupon_ids` 三态说明见 [预览订单](/mcp/orders/preview)。
 
 ### Phase 6：创建订单
 
@@ -469,7 +469,7 @@ def create_order(consent_grant_id: str, preview_id: str, confirmation_token: str
 order = create_order(consent_grant_id, preview_id, confirmation_token)
 ```
 
-本接口以 `confirmation_token` 为幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调；不传则自行轮询 `get_order_status`（`GET /orders/{order_id}`）。完整字段见 [创建订单](/api-reference/orders/create)。
+本接口以 `confirmation_token` 为幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调；不传则自行轮询 `get_order_status`（`GET /orders/{order_id}`）。完整字段见 [创建订单](/mcp/orders/create)。
 
 ### Phase 7：免密签约
 
@@ -834,7 +834,7 @@ if __name__ == "__main__":
 
 ## 下一步
 
-- 查看 [API 概览](/api-reference/introduction) 了解完整的 REST 与 MCP 接口文档
+- 查看 [API 概览](/mcp/overview) 了解完整的 REST 与 MCP 接口文档
 - 阅读 [下单流程](/gateway/order-flow) 掌握完整的有状态下单链路
 - 阅读 [安全模型](/skills/security-model) 学习数据保护最佳实践
 - 探索 [支持的平台](/skills/supported-platforms) 集成到你的 Agent 应用

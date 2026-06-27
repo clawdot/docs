@@ -41,7 +41,7 @@ curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/verify" \
 
 Once you have `consent_grant_id`, every request below carries `X-Consent-Grant-Id: cg_...`.
 
-<Note>MCP: tools `request_user_bind` / `verify_user_bind`; `consent_grant_id` is then passed as a parameter on each tool (not as a header). H5 mode is also supported (`auth_type: "h5"` returns an authorization link) — see [Request Binding](/en/api-reference/user/bind-request).</Note>
+<Note>MCP: tools `request_user_bind` / `verify_user_bind`; `consent_grant_id` is then passed as a parameter on each tool (not as a header). H5 mode is also supported (`auth_type: "h5"` returns an authorization link) — see [Request Binding](/en/mcp/user/bind-request).</Note>
 </Step>
 
 <Step title="Search shops">
@@ -165,8 +165,7 @@ Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/en/api-reference/introduction">Full request / response for the 18 REST endpoints</Card>
-  <Card title="MCP Tools" icon="plug" href="/en/mcp/overview">18 MCP tools, parameters matching REST</Card>
+  <Card title="MCP Tools" icon="plug" href="/en/mcp/overview">Full request / response for the 18 MCP tools</Card>
   <Card title="Authentication" icon="key" href="/en/gateway/authentication">API Key + consent grant in detail</Card>
   <Card title="Error Handling" icon="triangle-exclamation" href="/en/gateway/error-handling">Unified error codes and handling</Card>
 </CardGroup>

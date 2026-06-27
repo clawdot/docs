@@ -245,7 +245,7 @@ for shop in shops[:5]:  # Show top 5
     """)
 ```
 
-Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**. Full fields in [Search Shops](/en/api-reference/shops/search).
+Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**. Full fields in [Search Shops](/en/mcp/shops/search).
 
 ### Phase 2: View Menu Details
 
@@ -280,7 +280,7 @@ for category in menu["categories"]:
         print(f"  {item['name']} - ¥{item['price'] / 100:.2f} {status}")
 ```
 
-To order, you MUST use the `item_id` / `sku_id` returned by `get_shop_menu` (plus `ingredient_option_ids` for specs / add-ons). Full fields in [Shop Menu](/en/api-reference/shops/detail); the spec / attribute / add-on system is in [Item Specs](/en/gateway/item-specs).
+To order, you MUST use the `item_id` / `sku_id` returned by `get_shop_menu` (plus `ingredient_option_ids` for specs / add-ons). Full fields in [Shop Menu](/en/mcp/shops/detail); the spec / attribute / add-on system is in [Item Specs](/en/gateway/item-specs).
 
 ### Phase 3: Prepare Delivery Address
 
@@ -341,7 +341,7 @@ address_id = select_address(
 )
 ```
 
-The `saved_addresses[]` returned by `search_addresses` can be reused directly via their `address_id`; `suggestions[].token` is a single-use token — pass it to `select_address` to register and get an `address_id`. See [Search Addresses](/en/api-reference/addresses/search) and [Select/Register Address](/en/api-reference/addresses/select).
+The `saved_addresses[]` returned by `search_addresses` can be reused directly via their `address_id`; `suggestions[].token` is a single-use token — pass it to `select_address` to register and get an `address_id`. See [Search Addresses](/en/mcp/addresses/search) and [Select/Register Address](/en/mcp/addresses/select).
 
 ### Phase 4: Quote Cart
 
@@ -378,7 +378,7 @@ quote = quote_cart(consent_grant_id, "shop_...", "cart_...", address_id, items)
 quote_id = quote["quote_id"]
 ```
 
-Full fields in [Quote Cart](/en/api-reference/cart/quote).
+Full fields in [Quote Cart](/en/mcp/cart/quote).
 
 ### Phase 5: Preview Order (Pre-Order Confirmation)
 
@@ -430,7 +430,7 @@ preview_id = preview["preview_id"]
 confirmation_token = preview["confirmation_token"]
 ```
 
-`preview_id` + `confirmation_token` must be used as a pair, are produced by the same preview, and are valid for about 10 minutes. Full fields and the `coupon_ids` tri-state are in [Preview Order](/en/api-reference/orders/preview).
+`preview_id` + `confirmation_token` must be used as a pair, are produced by the same preview, and are valid for about 10 minutes. Full fields and the `coupon_ids` tri-state are in [Preview Order](/en/mcp/orders/preview).
 
 ### Phase 6: Create Order
 
@@ -469,7 +469,7 @@ def create_order(consent_grant_id: str, preview_id: str, confirmation_token: str
 order = create_order(consent_grant_id, preview_id, confirmation_token)
 ```
 
-This endpoint uses `confirmation_token` as the idempotency key: a token can place only one order; re-ordering requires a fresh preview for a new token. Returns `order_id`, `status`, and (when payment is needed) `payment_action`. You may pass `callback_url`; the gateway polls order status and POSTs a callback once it leaves the unpaid state — otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields in [Create Order](/en/api-reference/orders/create).
+This endpoint uses `confirmation_token` as the idempotency key: a token can place only one order; re-ordering requires a fresh preview for a new token. Returns `order_id`, `status`, and (when payment is needed) `payment_action`. You may pass `callback_url`; the gateway polls order status and POSTs a callback once it leaves the unpaid state — otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields in [Create Order](/en/mcp/orders/create).
 
 ### Phase 7: Password-Free Sign
 
@@ -834,7 +834,7 @@ if __name__ == "__main__":
 
 ## Next Steps
 
-- See [API Overview](/en/api-reference/introduction) for complete REST and MCP documentation
+- See [API Overview](/en/mcp/overview) for complete REST and MCP documentation
 - Read [Order Flow](/en/gateway/order-flow) to master the full stateful order chain
 - Read [Security Model](/en/skills/security-model) to learn data protection best practices
 - Explore [Supported Platforms](/en/skills/supported-platforms) to integrate with your Agent app

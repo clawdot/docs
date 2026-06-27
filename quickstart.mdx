@@ -41,7 +41,7 @@ curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/verify" \
 
 拿到 `consent_grant_id` 后，下面每个请求都带 `X-Consent-Grant-Id: cg_...`。
 
-<Note>MCP：对应工具 `request_user_bind` / `verify_user_bind`；`consent_grant_id` 之后作为各工具参数传入（不走请求头）。也支持 H5 模式（`auth_type: "h5"` 返回授权链接），见 [发起绑定](/api-reference/user/bind-request)。</Note>
+<Note>MCP：对应工具 `request_user_bind` / `verify_user_bind`；`consent_grant_id` 之后作为各工具参数传入（不走请求头）。也支持 H5 模式（`auth_type: "h5"` 返回授权链接），见 [发起绑定](/mcp/user/bind-request)。</Note>
 </Step>
 
 <Step title="搜索店铺">
@@ -165,8 +165,7 @@ curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/api-reference/introduction">18 个 REST 端点的完整入参 / 出参</Card>
-  <Card title="MCP 工具" icon="plug" href="/mcp/overview">18 个 MCP 工具，参数与 REST 一致</Card>
+  <Card title="MCP 工具" icon="plug" href="/mcp/overview">18 个 MCP 工具的完整入参 / 出参</Card>
   <Card title="认证机制" icon="key" href="/gateway/authentication">API Key + consent grant 详解</Card>
   <Card title="错误处理" icon="triangle-exclamation" href="/gateway/error-handling">统一错误码与处理</Card>
 </CardGroup>

@@ -53,16 +53,11 @@ graph TB
 | 传入 API Key | Token 管理、签名、UA 适配 |
 | 收到标准错误码 | 平台错误归类为统一格式 |
 
-## 双协议入口
+## MCP 接入
 
-<Columns cols={2}>
-  <Card title="REST API" icon="terminal" href="/api-reference/introduction">
-    标准 RESTful 接口，`/api/v1/*` 路径，适配任何 HTTP 客户端。
-  </Card>
-  <Card title="MCP Protocol" icon="plug" href="/gateway/mcp-overview">
-    `/mcp` 端点，9 个工具，Claude Desktop 等 MCP 客户端直接连接。
-  </Card>
-</Columns>
+<Card title="MCP Protocol" icon="plug" href="/gateway/mcp-overview">
+  `/mcp/v1` 端点，18 个工具，Claude Desktop 等 MCP 客户端直接连接。
+</Card>
 
 ## 核心功能
 

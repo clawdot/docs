@@ -1,6 +1,6 @@
 ---
 title: "MCP 集成"
-description: "Clawdot Gateway 同时提供 MCP 接口；权威文档见 api-reference/mcp"
+description: "Clawdot Gateway 对外提供 MCP 接口；工具签名与字段见 MCP 概览"
 ---
 
 Clawdot Gateway 在 REST API 之外同时提供 **MCP (Model Context Protocol)** 接口，使用 **Streamable HTTP** 传输协议，底层复用与 REST API 相同的服务层。MCP 暴露 **18 个工具**，每个对应一个 REST 端点；除 `consent_grant_id` 外，工具参数与对应 REST 端点的请求体字段一致。

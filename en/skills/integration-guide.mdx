@@ -27,7 +27,7 @@ The Skills Platform provides three integration methods to meet different Agent p
 </CardGroup>
 
 <Info>
-This is a narrative getting-started guide. All three methods sit on **one contract**: 18 MCP tools map one-to-one to 18 REST endpoints, sharing the same parameters and response shapes. For full field tables see [MCP Overview](/en/mcp/overview) and the [API Reference](/en/api-reference/introduction); for the end-to-end ordering sequence see [Order Flow](/en/gateway/order-flow).
+This is a narrative getting-started guide. All three methods sit on **one contract**: 18 MCP tools map one-to-one to 18 REST endpoints, sharing the same parameters and response shapes. For full field tables see [MCP Overview](/en/mcp/overview) and the [API Reference](/en/mcp/overview); for the end-to-end ordering sequence see [Order Flow](/en/gateway/order-flow).
 </Info>
 
 ## MCP Protocol
@@ -115,7 +115,7 @@ verify_user_bind(
 ```
 
 <Info>
-An H5 authorization mode is also supported (`auth_type="h5"`, `request_user_bind` returns an authorization link). For full fields and callback behavior see [Start Binding](/en/api-reference/user/bind-request) and [Confirm Binding](/en/api-reference/user/bind-verify).
+An H5 authorization mode is also supported (`auth_type="h5"`, `request_user_bind` returns an authorization link). For full fields and callback behavior see [Start Binding](/en/mcp/user/bind-request) and [Confirm Binding](/en/mcp/user/bind-verify).
 </Info>
 
 ### Step 4: Call Gateway Skills
@@ -198,7 +198,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     }
     ```
 
-    Omit `keyword` for browse mode (up to 20 nearby shops); pass `keyword` for precise search (~5 shops, with `matched_items` previews). Each result carries `shop_id` and `cart_id`; `cart_id` already encapsulates the shop and delivery coordinates — pass it through verbatim to later steps. Full fields: [Search Shops](/en/api-reference/shops/search).
+    Omit `keyword` for browse mode (up to 20 nearby shops); pass `keyword` for precise search (~5 shops, with `matched_items` previews). Each result carries `shop_id` and `cart_id`; `cart_id` already encapsulates the shop and delivery coordinates — pass it through verbatim to later steps. Full fields: [Search Shops](/en/mcp/shops/search).
 
     **Response example:**
     ```json
@@ -237,7 +237,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     }
     ```
 
-    Menus can be large (100+ items); use `keyword` or `limit`/`offset` for progressive disclosure, paging by `next_offset` until `has_more=false`. Full fields: [Shop Menu](/en/api-reference/shops/detail).
+    Menus can be large (100+ items); use `keyword` or `limit`/`offset` for progressive disclosure, paging by `next_offset` until `has_more=false`. Full fields: [Shop Menu](/en/mcp/shops/detail).
 
     **Response example:**
     ```json
@@ -324,7 +324,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     ```
 
     <Info>
-    `confirmation_token` is the idempotency key for ordering: one token can place exactly one order; placing another requires a new preview for a fresh token. `items` is a **list** (not a JSON string). Full fields: [Quote Cart](/en/api-reference/cart/quote) · [Preview Order](/en/api-reference/orders/preview) · [Create Order](/en/api-reference/orders/create).
+    `confirmation_token` is the idempotency key for ordering: one token can place exactly one order; placing another requires a new preview for a fresh token. `items` is a **list** (not a JSON string). Full fields: [Quote Cart](/en/mcp/cart/quote) · [Preview Order](/en/mcp/orders/preview) · [Create Order](/en/mcp/orders/create).
     </Info>
   </Tab>
 
@@ -349,7 +349,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     }
     ```
 
-    Full fields: [Query Order](/en/api-reference/orders/get).
+    Full fields: [Query Order](/en/mcp/orders/get).
   </Tab>
 </Tabs>
 

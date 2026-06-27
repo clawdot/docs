@@ -3,7 +3,7 @@ title: "Order Flow"
 description: "The complete end-to-end ordering chain from searching shops to passwordless signing — each step maps to one MCP tool / REST endpoint"
 ---
 
-Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together; the full field table for each endpoint lives in the corresponding [API reference](/en/api-reference/shops/search).
+Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together; the full field table for each endpoint lives in the corresponding [API reference](/en/mcp/shops/search).
 
 <Note>
   Examples below use **MCP tools** (tool arguments are identical to the REST body except for `consent_grant_id`). Each tool maps one-to-one to a REST endpoint with the same arguments; for the REST form, see the links at the end of each step and the "Authentication" section below.
@@ -64,7 +64,7 @@ Without `keyword` it is **browse mode**, returning up to 20 nearby shops (with d
 Every result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop and this delivery location, and is the entry point for the downstream `get_shop_menu` / `quote_cart` / `preview_order`. Pass it **verbatim** — downstream calls then need no lat/lng.
 
 <Note>
-  Full fields: [Search Shops](/en/api-reference/shops/search). `matched_items` are display-only and carry no IDs; to order you must use the `item_id` / `sku_id` returned by `get_shop_menu`.
+  Full fields: [Search Shops](/en/mcp/shops/search). `matched_items` are display-only and carry no IDs; to order you must use the `item_id` / `sku_id` returned by `get_shop_menu`.
 </Note>
 
 ### View the shop menu
@@ -82,7 +82,7 @@ get_shop_menu(
 Returns menu items, each carrying an orderable `item_id` / `sku_id` plus the `ingredient_option_ids` for specs / attributes / extra ingredients. Menus can be large (100+ items), so disclose progressively with `keyword` or `limit`/`offset`. IDs fetched earlier on the same `cart_id` remain valid for ordering.
 
 <Note>
-  For the specs / attributes / ingredients model, see [Item Specifications](/en/gateway/item-specs); full fields: [Shop Menu](/en/api-reference/shops/detail).
+  For the specs / attributes / ingredients model, see [Item Specifications](/en/gateway/item-specs); full fields: [Shop Menu](/en/mcp/shops/detail).
 </Note>
 
 ### Prepare the delivery address
@@ -103,7 +103,7 @@ select_address(
 `select_address` returns the `address_id` for that address, passed to `quote_cart` / `preview_order`. For an existing address, `search_addresses` returns `saved_addresses` (plus `nearest_address_id` when `lat`/`lng` are given), whose `address_id` you can reuse directly.
 
 <Note>
-  Address trio: [Search Addresses](/en/api-reference/addresses/search) · [Select / register address](/en/api-reference/addresses/select) · [Update address](/en/api-reference/addresses/update).
+  Address trio: [Search Addresses](/en/mcp/addresses/search) · [Select / register address](/en/mcp/addresses/select) · [Update address](/en/mcp/addresses/update).
 </Note>
 
 ### Quote the cart
@@ -121,7 +121,7 @@ quote_cart(
 Prices the chosen items and returns a `quote_id` (quote context) plus the price breakdown. The `quote_id` can be passed to `preview_order` to validate the quote context.
 
 <Note>
-  Full fields: [Quote Cart](/en/api-reference/cart/quote).
+  Full fields: [Quote Cart](/en/mcp/cart/quote).
 </Note>
 
 ### Preview the order
@@ -142,7 +142,7 @@ preview_order(
 Validates the shop / address / items, applies coupons, and returns the final price (`price.payable_price` etc., in cents) plus the `preview_id` + `confirmation_token` used to order (produced by the same preview, must be used as a pair, valid ~10 minutes).
 
 <Note>
-  Full fields and the `coupon_ids` tri-state: [Preview Order](/en/api-reference/orders/preview).
+  Full fields and the `coupon_ids` tri-state: [Preview Order](/en/mcp/orders/preview).
 </Note>
 
 ### Create the order
@@ -160,7 +160,7 @@ create_order(
 Places the order with the `preview_id` + `confirmation_token` from the same preview, returning the platform `order_id`, `status`, and (when payment is required) `payment_action`.
 
 <Note>
-  This endpoint is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and POSTs a callback once it leaves the unpaid state; otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/api-reference/orders/create).
+  This endpoint is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and POSTs a callback once it leaves the unpaid state; otherwise poll `get_order_status` (`GET /orders/{order_id}`) yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
 </Note>
 
 ### Passwordless signing
@@ -175,7 +175,7 @@ get_sign_action(
 Initiates passwordless-payment signing for the user and returns an `action`: when `action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to `return_url`; when it is `none`, the user is already signed. Then poll the result with `get_sign_status` (`GET /payment/sign-status`). Passwordless signing is a prerequisite for passwordless-payment orders.
 
 <Note>
-  Full fields: [Initiate Passwordless Signing](/en/api-reference/payment/sign-action).
+  Full fields: [Initiate Passwordless Signing](/en/mcp/payment/sign-action).
 </Note>
 
 </Steps>
@@ -186,7 +186,7 @@ Initiates passwordless-payment signing for the user and returns an `action`: whe
 get_order_status(consent_grant_id="cg_...", order_id="ord_...")
 ```
 
-Maps to `GET /orders/{order_id}`, returning the order status and details. See [Get Order](/en/api-reference/orders/get).
+Maps to `GET /orders/{order_id}`, returning the order status and details. See [Get Order](/en/mcp/orders/get).
 
 ## Authentication
 

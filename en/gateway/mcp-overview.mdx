@@ -1,6 +1,6 @@
 ---
 title: "MCP Integration"
-description: "Clawdot Gateway also exposes an MCP interface; the authoritative docs live under api-reference/mcp"
+description: "Clawdot Gateway exposes an MCP interface; tool signatures and fields are in the MCP Overview"
 ---
 
 Alongside the REST API, Clawdot Gateway exposes an **MCP (Model Context Protocol)** interface over the **Streamable HTTP** transport, reusing the same service layer as the REST API. MCP exposes **18 tools**, each mapping to one REST endpoint; apart from `consent_grant_id`, a tool's parameters match the request body fields of its corresponding REST endpoint.

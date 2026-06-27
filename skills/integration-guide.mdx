@@ -27,7 +27,7 @@ Skills 平台提供三种集成方式，满足不同 Agent 平台的接入需求
 </CardGroup>
 
 <Info>
-本页是叙述式上手指南，三种方式背后是**同一套契约**：18 个 MCP 工具与 18 个 REST 端点一一对应，参数与返回结构一致。完整字段表见 [MCP 概览](/mcp/overview) 与 [API 参考](/api-reference/introduction)；端到端下单顺序见 [下单流程](/gateway/order-flow)。
+本页是叙述式上手指南，三种方式背后是**同一套契约**：18 个 MCP 工具与 18 个 REST 端点一一对应，参数与返回结构一致。完整字段表见 [MCP 概览](/mcp/overview) 与 [API 参考](/mcp/overview)；端到端下单顺序见 [下单流程](/gateway/order-flow)。
 </Info>
 
 ## MCP 协议
@@ -115,7 +115,7 @@ verify_user_bind(
 ```
 
 <Info>
-也支持 H5 授权模式（`auth_type="h5"`，`request_user_bind` 返回授权链接）。完整字段与回调说明见 [发起绑定](/api-reference/user/bind-request) 与 [确认绑定](/api-reference/user/bind-verify)。
+也支持 H5 授权模式（`auth_type="h5"`，`request_user_bind` 返回授权链接）。完整字段与回调说明见 [发起绑定](/mcp/user/bind-request) 与 [确认绑定](/mcp/user/bind-verify)。
 </Info>
 
 ### 步骤 4：调用 Gateway 技能
@@ -198,7 +198,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     }
     ```
 
-    不传 `keyword` 为浏览模式（附近 ≤20 家），传 `keyword` 为精确搜索（约 5 家，命中店带 `matched_items` 预览）。每个结果都带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，原样回传给后续步骤。完整字段见 [搜索店铺](/api-reference/shops/search)。
+    不传 `keyword` 为浏览模式（附近 ≤20 家），传 `keyword` 为精确搜索（约 5 家，命中店带 `matched_items` 预览）。每个结果都带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，原样回传给后续步骤。完整字段见 [搜索店铺](/mcp/shops/search)。
 
     **响应示例：**
     ```json
@@ -237,7 +237,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     }
     ```
 
-    菜单可能很大（100+ 项），用 `keyword` 或 `limit`/`offset` 渐进披露，按 `next_offset` 翻页直到 `has_more=false`。完整字段见 [店铺菜单](/api-reference/shops/detail)。
+    菜单可能很大（100+ 项），用 `keyword` 或 `limit`/`offset` 渐进披露，按 `next_offset` 翻页直到 `has_more=false`。完整字段见 [店铺菜单](/mcp/shops/detail)。
 
     **响应示例：**
     ```json
@@ -324,7 +324,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     ```
 
     <Info>
-    `confirmation_token` 是下单的幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。`items` 是**列表**（不是 JSON 字符串）。完整字段见 [购物车算价](/api-reference/cart/quote) · [预览订单](/api-reference/orders/preview) · [创建订单](/api-reference/orders/create)。
+    `confirmation_token` 是下单的幂等键：同一令牌只能下一单，再次下单需重新预览取新令牌。`items` 是**列表**（不是 JSON 字符串）。完整字段见 [购物车算价](/mcp/cart/quote) · [预览订单](/mcp/orders/preview) · [创建订单](/mcp/orders/create)。
     </Info>
   </Tab>
 
@@ -349,7 +349,7 @@ curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
     }
     ```
 
-    完整字段见 [查询订单](/api-reference/orders/get)。
+    完整字段见 [查询订单](/mcp/orders/get)。
   </Tab>
 </Tabs>
 
