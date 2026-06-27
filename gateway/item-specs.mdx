@@ -161,3 +161,14 @@ ID 格式为 `ig_{组索引}_{选项索引}`，稳定且可预测。
 <Tip>
   对于大多数下单场景，直接使用 `default_ingredients` 是最简单的方式。只有用户明确要求定制时才需要手动选择。
 </Tip>
+
+## 回显已选规格
+
+`get_shop_menu` 返回的是**可选**项；而 `quote_cart`（算价）与 `preview_order`（预览）会在每个商品上**回显用户已选**的规格与配料，便于向用户展示「点了什么」：
+
+| 字段 | 说明 |
+|------|------|
+| `items[].specs` | 已选规格，`[{name, value}]`，如 `[{"name":"规格","value":"大杯"}]` |
+| `items[].selected_ingredients` | 已选配料 / 做法，`[{group_name, name, price_delta}]`，如 `[{"group_name":"小料","name":"珍珠","price_delta":200}]`；`group_name` 可为 `null`，`price_delta` 为加价（分）|
+
+回显按**每个商品各自的 `sku_id` / `ingredient_option_ids`** 翻译，多商品（含同款不同规格）互不串味；无规格 / 配料时对应字段为 `[]`。
