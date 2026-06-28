@@ -570,7 +570,7 @@ Cursor 集成方式与 Claude Desktop 基本相同，主要区别是使用场景
 4. **按链路调用工具**：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。所有跨步 ID 由网关签发、原样回传。
 
 <Info>
-Gateway 已原生暴露 MCP 端点，绝大多数客户端**直接连接即可**，无需自行封装 HTTP。完整工具清单、参数与返回字段见 [MCP 工具](/gateway/mcp-tools)。
+Gateway 已原生暴露 MCP 端点，绝大多数客户端**直接连接即可**，无需自行封装 HTTP。完整工具清单、参数与返回字段见 [MCP 概览](/mcp/overview)。
 </Info>
 
 **快速示例（MCP 客户端调用工具）：**
@@ -676,6 +676,6 @@ Gateway 对外只暴露一套 **MCP 工具契约**，所有平台（含自建 Ag
 - **与大模型深度集成**：工具名、参数语义对模型友好，适合直接交给 Agent 自主编排下单链路
 - **配置简单**：Streamable HTTP 直连 `/mcp/v1`，Agent 身份走 `Authorization` 头、用户授权走 `consent_grant_id` 参数，无需自行封装底层调用
 
-完整工具清单见 [MCP 工具](/gateway/mcp-tools)。
+完整工具清单见 [MCP 概览](/mcp/overview)。
 
 </details>

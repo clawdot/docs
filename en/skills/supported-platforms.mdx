@@ -576,7 +576,7 @@ If your Agent platform is not in the list above, you can still integrate as long
 4. **Call tools along the chain**: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. All cross-step IDs are issued by the Gateway and passed back verbatim.
 
 <Info>
-The Gateway exposes a native MCP endpoint, so most clients can **connect directly** with no need to wrap HTTP yourself. See [MCP Tools](/en/gateway/mcp-tools) for the full tool list, parameters and return fields.
+The Gateway exposes a native MCP endpoint, so most clients can **connect directly** with no need to wrap HTTP yourself. See [MCP Overview](/en/mcp/overview) for the full tool list, parameters and return fields.
 </Info>
 
 **Quick Example (calling a tool from an MCP client):**
@@ -682,6 +682,6 @@ The Gateway exposes a single **MCP tool contract**, and every platform (includin
 - **Deep integration with large models**: tool names and parameter semantics are model-friendly, ideal for letting the Agent orchestrate the ordering chain autonomously
 - **Simple configuration**: Streamable HTTP straight to `/mcp/v1`; Agent identity goes in the `Authorization` header and user consent in the `consent_grant_id` argument — no low-level plumbing to wrap
 
-See [MCP Tools](/en/gateway/mcp-tools) for the full tool list.
+See [MCP Overview](/en/mcp/overview) for the full tool list.
 
 </details>

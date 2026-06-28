@@ -88,6 +88,13 @@
                                 ]
                             },
                             {
+                                "group": "指南",
+                                "pages": [
+                                    "gateway/authentication",
+                                    "gateway/order-flow"
+                                ]
+                            },
+                            {
                                 "group": "授权",
                                 "pages": [
                                     "mcp/user/bind-request",
@@ -200,6 +207,13 @@
                                 ]
                             },
                             {
+                                "group": "Guides",
+                                "pages": [
+                                    "en/gateway/authentication",
+                                    "en/gateway/order-flow"
+                                ]
+                            },
+                            {
                                 "group": "Authorization",
                                 "pages": [
                                     "en/mcp/user/bind-request",
@@ -279,5 +293,23 @@
         "socials": {
             "github": "https://github.com/clawdot"
         }
-    }
+    },
+    "redirects": [
+        {
+            "source": "/gateway/mcp-overview",
+            "destination": "/mcp/overview"
+        },
+        {
+            "source": "/en/gateway/mcp-overview",
+            "destination": "/en/mcp/overview"
+        },
+        {
+            "source": "/gateway/mcp-tools",
+            "destination": "/mcp/overview"
+        },
+        {
+            "source": "/en/gateway/mcp-tools",
+            "destination": "/en/mcp/overview"
+        }
+    ]
 }
