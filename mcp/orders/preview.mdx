@@ -24,7 +24,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `items[].item_id` | string | 是 | — | 商品 ID（来自 `get_shop_menu`）|
 | `items[].sku_id` | string | 否 | `null` | SKU ID |
 | `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
-| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项）|
+| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项；非默认规格用该规格 `sku_options[].ingredient_options` 的 option_id）|
 | `items[].remark` | string | 否 | `""` | 单品备注 |
 | `coupon_ids` | string[] \| null | 否 | `null` | 优惠券选择，三态见下 |
 | `order_remark` | string | 否 | `""` | 订单备注（给骑手）|

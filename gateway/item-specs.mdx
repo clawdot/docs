@@ -51,6 +51,10 @@ description: "理解规格、属性和加料的三层定制体系"
 
 ## Ingredients — 加料
 
+<Warning>
+  **加料按规格（SKU）区分。** 同一商品不同规格（如不同杯型）可选的加料及其内部标识可能不同——例如某商品「超大杯」只能「冰」、「特大杯」只能「热」。`get_shop_menu` 顶层 `ingredient_options` 是**默认规格**的加料；选其他规格时请用该规格 `sku_options[].ingredient_options` 里的 `option_id`（见 [菜单接口](/api-reference/shops/detail)）。沿用默认规格的 `option_id` 下其他规格时，网关按「组名 + 选项名」自动映射；该规格不存在的加料在 `quote_cart` / `preview_order` 阶段即报错。
+</Warning>
+
 最复杂的定制层，包含**互斥规则**：
 
 ```json
