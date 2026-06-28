@@ -110,10 +110,13 @@ Every endpoint returns errors in the same structure:
 {
   "error": {
     "code": "ERROR_CODE",
-    "message": "Human-readable error description"
+    "message": "Human-readable error description",
+    "request_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
 }
 ```
+
+Gateway error responses (REST `/api/v1` and MCP) include a `request_id` — a per-request trace UUID (optional; clients should tolerate its absence). **Quote it when reporting an issue** so the team can jump straight to the logs.
 
 Common error codes:
 

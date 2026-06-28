@@ -11,12 +11,21 @@ All error responses (HTTP and MCP alike) follow a unified format:
 {
   "error": {
     "code": "ERROR_CODE",
-    "message": "Human-readable error description"
+    "message": "Human-readable error description",
+    "request_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
 }
 ```
 
-The error body contains only `code` and `message`.
+| Field | Type | Description |
+|---|---|---|
+| `code` | string | Machine-readable error code (see the reference below) |
+| `message` | string | Human-readable error description |
+| `request_id` | string | Per-request trace ID (UUID). Present on gateway error responses (REST `/api/v1` and MCP); **include it when reporting an issue** so the team can jump straight to the request logs. Clients should tolerate its absence. |
+
+<Note>
+  `request_id` is a newly added optional field; the structure and values of `code` and `message` are unchanged.
+</Note>
 
 ## Error code reference
 

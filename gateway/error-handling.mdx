@@ -11,12 +11,21 @@ description: "统一错误格式与全部错误码"
 {
   "error": {
     "code": "ERROR_CODE",
-    "message": "人类可读的错误描述"
+    "message": "人类可读的错误描述",
+    "request_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
 }
 ```
 
-错误体只含 `code` 与 `message` 两个字段。
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `code` | string | 机器可读错误码，见下方错误码参考 |
+| `message` | string | 人类可读的错误描述 |
+| `request_id` | string | 本次请求的追踪 ID（UUID）。网关路径（REST `/api/v1` 与 MCP）的错误响应会带上；**报障时请一并提供**，运维可凭它直达请求日志。客户端应容忍其缺省。|
+
+<Note>
+  `request_id` 为新增的可选字段，`code` 与 `message` 的结构与取值保持不变。
+</Note>
 
 ## 错误码参考
 

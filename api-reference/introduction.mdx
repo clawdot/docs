@@ -110,10 +110,13 @@ flowchart LR
 {
   "error": {
     "code": "ERROR_CODE",
-    "message": "人类可读的错误描述"
+    "message": "人类可读的错误描述",
+    "request_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
 }
 ```
+
+网关路径（REST `/api/v1` 与 MCP）的错误响应会带上 `request_id`——本次请求的追踪 UUID（可选字段，客户端应容忍其缺省）；**报障时请一并提供**，运维可凭它直达日志。
 
 常见错误码：
 
