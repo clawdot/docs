@@ -1,46 +1,169 @@
 ---
-title: "概览"
-description: "clawdot 虾点 — AI 时代的本地生活服务网络"
+title: "Clawdot 虾点 · 开放平台"
+description: "AI 时代的本地生活服务网络 — 一行配置，让你的 Agent 学会点外卖、找店、下单、支付"
+mode: custom
 ---
 
-<Frame>
-  <img src="/logo/light.png" alt="clawdot 虾点" style={{ display: 'block', margin: '0 auto', maxWidth: '480px', width: '100%' }} />
-</Frame>
+<div className="cl-page">
 
-## 想干什么，虾点一下
+{/* ===================== HERO ===================== */}
+<section className="cl-bleed cl-hero">
+<div className="cl-wrap">
+  <span className="cl-badge"><span className="cl-dot" />MCP · Model Context Protocol · 18 个工具</span>
+  <h1 className="cl-h1">想干什么，<span className="cl-accent">虾点一下</span></h1>
+  <div className="cl-sub">AI 时代的本地生活服务网络。<br />一行配置，让你的 Agent 学会点外卖、找店、下单、支付。</div>
+  <div className="cl-hero-cta">
+    <a className="cl-btn cl-btn-primary" href="/quickstart">快速开始 →</a>
+    <a className="cl-btn cl-btn-ghost" href="/mcp/overview">查看 18 个工具</a>
+  </div>
+  <p className="cl-trust">基于标准 <b>MCP</b> 协议 · <b>Streamable HTTP</b> 远程接入 · 现有 AI 应用可快速集成</p>
 
-clawdot 虾点是 AI 时代的本地生活服务网络。
+  <div className="cl-hub">
+    <div className="cl-core">
+      <div>
+        <img src="/images/shrimp-mark.png" alt="虾点 Gateway" />
+        <div className="cl-corelbl">Gateway<small>MCP HUB</small></div>
+      </div>
+    </div>
+    <div className="cl-node cl-n1"><span className="cl-nic"><Icon icon="coffee" size={17} color="#D14430" /></span>咖啡</div>
+    <div className="cl-node cl-n2"><span className="cl-nic"><Icon icon="utensils" size={17} color="#D14430" /></span>外卖</div>
+    <div className="cl-node cl-n3"><span className="cl-nic"><Icon icon="store" size={17} color="#D14430" /></span>找店选品</div>
+    <div className="cl-node cl-n4"><span className="cl-nic"><Icon icon="map-pin" size={17} color="#D14430" /></span>收货地址</div>
+    <div className="cl-node cl-n5"><span className="cl-nic"><Icon icon="ticket" size={17} color="#D14430" /></span>智能优惠</div>
+    <div className="cl-node cl-n6"><span className="cl-nic"><Icon icon="credit-card" size={17} color="#D14430" /></span>免密支付</div>
+  </div>
+</div>
+</section>
 
-你只需要跟 Agent 说出你想要什么——"今晚想吃点清淡的"、"明天出差帮我安排一下"、"周末带孩子去个有意思的地方"——你的 Agent 理解你、记得你、帮你搞定一切。
+{/* ===================== 特征 ===================== */}
+<section className="cl-section">
+<div className="cl-wrap">
+  <div className="cl-head">
+    <div className="cl-eyebrow">为什么选虾点 Gateway</div>
+    <h2 className="cl-h2">把外卖能力，开放给每一个 Agent</h2>
+    <p>一次接入，你的 Agent 就拥有从找店到支付的完整本地生活能力。</p>
+  </div>
+  <div className="cl-feat">
+    <div className="cl-fcard">
+      <div className="cl-ficon"><Icon icon="message-circle" size={22} color="#D14430" /></div>
+      <h3>一句话下单</h3>
+      <p>自然语言发起，自动串联找店、选品、算价，关键节点确认后完成支付。</p>
+    </div>
+    <div className="cl-fcard">
+      <div className="cl-ficon"><Icon icon="badge-percent" size={22} color="#D14430" /></div>
+      <h3>智能优惠</h3>
+      <p>预览下单自动匹配最优优惠券，永不错过最低价，无需手动比价。</p>
+    </div>
+    <div className="cl-fcard">
+      <div className="cl-ficon"><Icon icon="plug" size={22} color="#D14430" /></div>
+      <h3>标准 MCP 协议</h3>
+      <p>基于标准 MCP + Streamable HTTP，接入成本低，现有 AI 应用可快速集成。</p>
+    </div>
+    <div className="cl-fcard">
+      <div className="cl-ficon"><Icon icon="wrench" size={22} color="#D14430" /></div>
+      <h3>18 个工具全链路</h3>
+      <p>绑定授权、商家、地址、下单、支付，五大能力组 18 个工具覆盖完整链路。</p>
+    </div>
+  </div>
+</div>
+</section>
 
-服务者只需要把手艺做好。做了二十年湘菜的师傅不需要学会拍短视频，他的 Agent 会让好手艺自然触达需要它的人。
+{/* ===================== 四大板块 ===================== */}
+<section className="cl-bleed cl-cream-bg cl-section">
+<div className="cl-wrap">
+  <div className="cl-head">
+    <div className="cl-eyebrow">虾点的四大板块</div>
+    <h2 className="cl-h2">一张属于每个人的服务网络</h2>
+  </div>
+  <div className="cl-grid2">
+    <a className="cl-block" href="/super-agent/introduction">
+      <div className="cl-bi"><Icon icon="sparkles" size={26} color="#D14430" /></div>
+      <h3>Super Agent · 超级服务员</h3>
+      <div className="cl-quote">像跟一个懂你的朋友说话一样自然。</div>
+      <p>你的专属 AI 生活管家。一个 Agent，搞定吃、行、玩、生活——理解你、记得你、为你行动。</p>
+      <div className="cl-more">了解 Super Agent →</div>
+    </a>
+    <a className="cl-block" href="/skills/introduction">
+      <div className="cl-bi"><Icon icon="puzzle" size={26} color="#D14430" /></div>
+      <h3>Skills · 开放能力生态</h3>
+      <div className="cl-quote">每一个服务都可以成为 Agent 的一项 Skill。</div>
+      <p>吃、行、玩、生活，能力无限扩展。任何 Agent 都可以调用，任何开发者都可以贡献。</p>
+      <div className="cl-more">接入 Skills →</div>
+    </a>
+    <a className="cl-block" href="/gateway/introduction">
+      <div className="cl-bi"><Icon icon="server" size={26} color="#D14430" /></div>
+      <h3>Gateway · 服务网关</h3>
+      <div className="cl-quote">你做好服务，我们搞定技术。</div>
+      <p>帮服务者零门槛接入 AI 服务网络的基础设施。好服务会自然触达对的人。</p>
+      <div className="cl-more">阅读 Gateway 文档 →</div>
+    </a>
+    <a className="cl-block" href="/overview/love">
+      <div className="cl-bi"><Icon icon="heart" size={26} color="#D14430" /></div>
+      <h3>爱心 · 科技向善</h3>
+      <div className="cl-quote">一个善意的网络，不遗忘任何人。</div>
+      <p>从第一天起就设立的价值基因。Agent 助老、助残、社区守望——确保每个人都被看见。</p>
+      <div className="cl-more">了解我们的初心 →</div>
+    </a>
+  </div>
+</div>
+</section>
 
-这张网不属于任何公司或组织。**虾点属于生活中的每一个人。**
+{/* ===================== 快速接入 ===================== */}
+<section className="cl-section">
+<div className="cl-wrap">
+  <div className="cl-head">
+    <div className="cl-eyebrow">快速接入</div>
+    <h2 className="cl-h2">三十秒，连上虾点 Gateway</h2>
+    <p>在控制台创建 Agent 拿到 API Key，把下面这段配进你的 MCP 客户端即可。</p>
+  </div>
+  <div className="cl-codewrap">
 
----
+```json mcp.json
+{
+  "mcpServers": {
+    "clawdot": {
+      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key"
+      }
+    }
+  }
+}
+```
 
-## 虾点的四大板块
+  </div>
+  <p className="cl-qs-note">没有 API Key？<a href="http://console.hicaspian.com/agents">前往控制台创建 Agent →</a> · 连接成功后即可看到全部 18 个工具</p>
+</div>
+</section>
 
-<Columns cols={2}>
-  <Card title="Super Agent · 超级服务员" icon="sparkles" href="/super-agent/introduction">
-    *你只需要表达需求，像跟一个懂你的朋友说话一样自然。*
+{/* ===================== 使用示例 ===================== */}
+<section className="cl-bleed cl-cream-bg cl-section">
+<div className="cl-wrap">
+  <div className="cl-head">
+    <div className="cl-eyebrow">使用示例</div>
+    <h2 className="cl-h2">用自然语言告诉 Agent，剩下的交给虾点</h2>
+  </div>
+  <div className="cl-ex">
+    <div className="cl-echip"><span className="cl-tag">一句点单</span><span className="cl-say">「帮我点杯咖啡」</span></div>
+    <div className="cl-echip"><span className="cl-tag">按偏好</span><span className="cl-say">「今晚想吃点清淡的」</span></div>
+    <div className="cl-echip"><span className="cl-tag">指定商品</span><span className="cl-say">「一杯生椰拿铁，冰的」</span></div>
+    <div className="cl-echip"><span className="cl-tag">用优惠</span><span className="cl-say">「自动用最优优惠券下单」</span></div>
+    <div className="cl-echip"><span className="cl-tag">找门店</span><span className="cl-say">「附近有什么湘菜」</span></div>
+    <div className="cl-echip"><span className="cl-tag">查订单</span><span className="cl-say">「我的外卖到哪了」</span></div>
+  </div>
+</div>
+</section>
 
-    你的专属 AI 生活管家。一个 Agent，搞定吃、行、玩、生活——理解你、记得你、为你行动。
-  </Card>
-  <Card title="Skills · 开放能力生态" icon="puzzle" href="/skills/introduction">
-    *每一个服务都可以成为 Agent 的一项 Skill。*
+{/* ===================== CTA ===================== */}
+<section className="cl-section">
+<div className="cl-wrap">
+  <div className="cl-band">
+    <h2>准备好让你的 Agent 学会点外卖了吗？</h2>
+    <p>申请接入，拿到 API Key，三十秒跑通第一单。虾点属于生活中的每一个人。</p>
+    <a className="cl-btn cl-btn-white" href="http://console.hicaspian.com/agents">申请接入 →</a>
+  </div>
+</div>
+</section>
 
-    吃、行、玩、生活，能力无限扩展。任何 Agent 都可以调用，任何开发者都可以贡献。
-  </Card>
-  <Card title="Gateway · 服务网关" icon="server" href="/gateway/introduction">
-    *你做好服务，我们搞定技术。*
-
-    帮服务者零门槛接入 AI 服务网络的基础设施。好服务会自然触达对的人。
-  </Card>
-  <Card title="爱心 · 科技向善" icon="heart" href="/overview/love">
-    *一个善意的网络，不遗忘任何人。*
-
-    从第一天起就设立的价值基因。Agent 助老、助残、社区守望——确保每个人都被看见。
-  </Card>
-</Columns>
-
+</div>
