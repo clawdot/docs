@@ -1,11 +1,11 @@
 ---
 title: "revoke_user_bind"
-description: "MCP 工具，对应 REST POST /auth/unbind — 解除当前用户授权，滞空凭证使旧 consent_grant 即刻失效"
+description: "MCP 工具：解除当前用户授权，滞空凭证使旧 consent_grant 即刻失效"
 ---
 
 ## revoke_user_bind
 
-解除当前用户的授权：滞空 binding 行上的凭证，使本次使用的 `consent_grant_id` 在 REST 与 MCP 两个入口同步即刻失效。Agent 的凭证不受影响。对应 REST 端点 `POST /auth/unbind`。
+解除当前用户的授权：滞空 binding 行上的凭证，使本次使用的 `consent_grant_id` 即刻失效。Agent 的凭证不受影响。
 
 <Note>
   **授权链路**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用 → **`revoke_user_bind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达。

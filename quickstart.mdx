@@ -1,158 +1,201 @@
 ---
 title: "快速开始"
-description: "从拿到 API Key 到下出第一单——一条完整链路跑通 Clawdot Gateway"
+description: "连接 MCP，从拿到 API Key 到下出第一单——用 MCP 工具跑通 Clawdot Gateway"
 ---
 
-Clawdot Gateway 把外卖能力以统一接口开放给 AI Agent。本指南带你从零跑通一次完整下单。
+Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。本指南带你先连上 MCP，再用一串工具调用从零跑通一次完整下单。
 
-- **REST API**（本指南主线）：`http://eleme-gateway.hicaspian.com/api/v1`
-- **MCP**（工具调用）：`http://eleme-gateway.hicaspian.com/mcp/v1`（每步附对应工具名）
+## 1. 连接 MCP
+
+网关以 **Streamable HTTP**（FastMCP）对外提供 MCP 服务：
+
+- **Endpoint**：`http://eleme-gateway.hicaspian.com/mcp/v1`
+- **传输**：Streamable HTTP
+- **连接层认证**：每个 MCP 请求都带请求头 `Authorization: Bearer clw_your_api_key`
+
+在 [Clawdot 控制台](http://console.hicaspian.com/agents) 创建 Agent、开通外卖能力，即可拿到 API Key（`clw_` 前缀）。把它配进你的 MCP 客户端：
+
+```json
+{
+  "mcpServers": {
+    "clawdot": {
+      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key"
+      }
+    }
+  }
+}
+```
+
+连接成功后，你的 Agent 就能看到这 18 个 MCP 工具。
 
 <Note>
-  两层身份：**API Key**（`clw_` 前缀）标识你的 Agent，所有请求都要带；**consent grant**（`cg_` 前缀）标识已授权的外卖用户，操作用户资源的请求要带。详见 [认证机制](/gateway/authentication)。
+  **两层身份**：连接层的 **API Key**（`clw_` 前缀）标识你的 Agent，每个 MCP 请求都要带；**consent grant**（`cg_` 前缀）标识已授权的外卖用户，作为**业务工具的参数** `consent_grant_id` 传入（不走请求头）。绑定类工具 `request_user_bind` / `verify_user_bind` 例外——它们是拿授权的入口，本身不传 `consent_grant_id`。详见 [认证机制](/gateway/authentication)。
 </Note>
 
-## 前置：拿到 API Key
+## 2. 用 MCP 工具下单
 
-在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建 Agent、开通外卖能力，得到 API Key。之后每个请求都带：
-
-```
-Authorization: Bearer clw_your_api_key
-```
+示例以 **工具名 + JSON 参数** 给出。除绑定工具外，每个业务工具的参数都带 `consent_grant_id`。
 
 <Steps>
 <Step title="绑定用户授权">
-下单要代表一个真实外卖用户，先让 ta 授权（SMS 验证码模式）。
+下单要代表一个真实外卖用户，先让 ta 授权（SMS 验证码模式）。绑定工具只需 Agent 身份（连接层 API Key），不传 `consent_grant_id`。
 
-```bash
-# 1) 发起绑定 → 拿 bind_id，用户收到验证码
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/request" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{"phone": "18800000000", "auth_type": "sms"}'
-
-# 2) 用户告知验证码后确认 → 拿 consent_grant_id
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/auth/bind/verify" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{"auth_type": "sms", "bind_id": "<上一步的 bind_id>", "code": "123456"}'
-# → { "consent_grant_id": "cg_...", "scopes": ["taobao_flash.delivery"], "expires_at": "..." }
+```json
+// 工具：request_user_bind —— 发起绑定，用户收到验证码
+{
+  "phone": "18800000000",
+  "auth_type": "sms"
+}
+// → { "bind_id": "...", "expires_in": ..., "masked_phone": "188****0000" }
 ```
 
-拿到 `consent_grant_id` 后，下面每个请求都带 `X-Consent-Grant-Id: cg_...`。
+```json
+// 工具：verify_user_bind —— 用户告知验证码后确认，铸造 consent_grant_id
+{
+  "auth_type": "sms",
+  "bind_id": "<上一步的 bind_id>",
+  "code": "123456"
+}
+// → { "bound": true, "consent_grant_id": "cg_...", "scopes": [...], "expires_at": "..." }
+```
 
-<Note>MCP：对应工具 `request_user_bind` / `verify_user_bind`；`consent_grant_id` 之后作为各工具参数传入（不走请求头）。也支持 H5 模式（`auth_type: "h5"` 返回授权链接），见 [发起绑定](/api-reference/user/bind-request)。</Note>
+拿到 `consent_grant_id` 后，下面每个业务工具调用都带它。
+
+<Note>也支持 H5 模式：`request_user_bind(auth_type="h5")` 返回 `h5_url`，用户打开完成授权，再 `verify_user_bind(auth_type="h5", request_id)` 轮询直到拿到 `consent_grant_id`。见 [发起绑定](/mcp/user/bind-request)。</Note>
 </Step>
 
 <Step title="搜索店铺">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/search" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"keyword": "瑞幸咖啡", "lat": 31.23, "lng": 121.47}'
-# → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ] }
+```json
+// 工具：search_shops
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "瑞幸咖啡",
+  "lat": 31.23,
+  "lng": 121.47
+}
+// → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ], "next_offset": ... }
 ```
 
-每个店铺带 `shop_id` 和 `cart_id`（`cart_id` 已封装店铺与配送坐标，后续步骤原样回传）。
+每个店铺带 `shop_id` 和 `cart_id`（`cart_id` 已封装店铺与配送坐标，后续步骤原样回传）。不传 `keyword` 即按附近浏览（≤20 家）。
 
-<Note>MCP：`search_shops`</Note>
 </Step>
 
 <Step title="查看菜单、选商品">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/shops/menu" \
-  -H "Authorization: Bearer clw_your_api_key" \
-  -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"shop_id": "<来自搜索>", "cart_id": "<来自搜索>"}'
-# → items[]：每项含 item_id / sku_id / ingredient_options ...
+```json
+// 工具：get_shop_menu
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>"
+}
+// → items[]：每项含 item_id / sku_id / ingredient_options；has_more 指示是否还有更多
 ```
 
-记下要买的 `item_id` 和 `sku_id`。
+支持 `keyword` / `limit` / `offset` 渐进加载。记下要买的 `item_id` 和 `sku_id`。
 
-<Note>MCP：`get_shop_menu`</Note>
-</Step>
-
-<Step title="确定收货地址">
-```bash
-# 搜地址 → 拿 suggestion token
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/search" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" -d '{"keyword": "上海市黄浦区人民广场"}'
-# → suggestions[].token
-
-# 保存地址 → 拿 address_id
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/addresses/select" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"suggestion_token": "<上一步 token>", "contact_name": "张三", "contact_phone": "18800000000"}'
-# → { "address_id": "...", ... }
-```
-
-<Note>MCP：`search_addresses` / `select_address`</Note>
 </Step>
 
 <Step title="算价（购物车报价）">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/cart/quote" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "shop_id": "<来自搜索>", "cart_id": "<来自搜索>", "address_id": "<来自选址>",
-    "items": [{"item_id": "<来自菜单>", "sku_id": "<来自菜单>", "quantity": 1}]
-  }'
-# → { "quote_id": "...", "payable_price": 1500, ... }
+```json
+// 工具：quote_cart
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "items": [{"item_id": "<来自菜单>", "sku_id": "<来自菜单>", "quantity": 1}]
+}
+// → { "quote_id": "...", "can_checkout": true, "payable_price": 1500 }
 ```
 
 <Warning>所有金额字段单位为**分（整数）**，`1500` 表示 ¥15.00。</Warning>
-<Note>MCP：`quote_cart`</Note>
+</Step>
+
+<Step title="确定收货地址">
+```json
+// 工具：search_addresses —— 搜地址，拿建议（每条含 token）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "上海市黄浦区人民广场"
+}
+// → { "suggestions": [ { "token": "...", ... } ] }
+```
+
+```json
+// 工具：select_address —— 选定/保存地址，拿 address_id
+// 用建议新建地址时，收货人信息为必填
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "suggestion_token": "<上一步 suggestions[].token>",
+  "contact_name": "张三",
+  "contact_phone": "13800000000",
+  "address_detail": "3 号楼 101"
+}
+// → { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
+```
+
+也可直接用已有地址的 `address_id` 调 `select_address`。
 </Step>
 
 <Step title="预览订单">
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/preview" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "shop_id": "<来自搜索>", "cart_id": "<来自搜索>", "address_id": "<来自选址>",
-    "items": [{"item_id": "<来自菜单>", "sku_id": "<来自菜单>", "quantity": 1}]
-  }'
-# → { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, ... }
+```json
+// 工具：preview_order
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "address_id": "<来自选址>",
+  "items": [{"item_id": "<来自菜单>", "sku_id": "<来自菜单>", "quantity": 1}],
+  "quote_id": "<来自算价>"
+}
+// → { "preview_id": "prv_...", "confirmation_token": "cf_...", "price": {...}, "available_coupons": [...] }
 ```
 
-<Note>MCP：`preview_order`</Note>
+当前订单可用券以返回的 `available_coupons` 为准。要用券时，选中 `available_coupons[].coupon_id`，再带 `coupon_ids=[...]` 重新调一次 `preview_order` 即可重算（账户级券列表可用 `list_coupons` 查看）。
+
 </Step>
 
 <Step title="正式下单">
-用预览返回的 `preview_id` + `confirmation_token`：
+用预览返回的 `preview_id` + `confirmation_token`（`confirmation_token` 即幂等键）：
 
-```bash
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/orders/create" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" \
-  -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
-# → { "order_id": "ord_...", "status": "pending_payment", "payment_action": {...} }
+```json
+// 工具：create_order
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "preview_id": "prv_...",
+  "confirmation_token": "cf_..."
+}
+// → { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-<Note>MCP：`create_order`</Note>
+可选传 `callback_url`：支付结果会以回调推送（`event=order_payment`）。
+
 </Step>
 
 <Step title="支付签约 + 查询订单">
 首次下单需用户完成免密支付签约（返回 H5 链接交给用户完成）；之后可随时查订单状态。
 
-```bash
-# 发起免密签约
-curl -X POST "http://eleme-gateway.hicaspian.com/api/v1/payment/sign-action" \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant" \
-  -H "Content-Type: application/json" -d '{"return_url": "https://your-app.example.com/done"}'
-
-# 查询订单状态
-curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
-  -H "Authorization: Bearer clw_your_api_key" -H "X-Consent-Grant-Id: cg_your_consent_grant"
+```json
+// 工具：get_sign_action —— 获取免密签约动作（H5 链接）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// → 免密签约动作（H5 链接）
 ```
 
-<Note>MCP：`get_sign_action` / `get_order_status` / `get_sign_status`</Note>
+```json
+// 工具：get_order_status —— 查询订单状态
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "order_id": "ord_..."
+}
+// → { "status": "...", "status_text": "...", ... }
+```
+
+签约进度可用 `get_sign_status` 查询。
 </Step>
 </Steps>
 
@@ -160,13 +203,13 @@ curl "http://eleme-gateway.hicaspian.com/api/v1/orders/ord_..." \
 
 `search_shops`（得 shop_id + cart_id）→ `get_shop_menu`（得 item_id / sku_id）→ `quote_cart`（得 quote_id）→ `select_address`（得 address_id）→ `preview_order`（得 preview_id + confirmation_token）→ `create_order`（得 order_id）→ `get_sign_action`（免密签约）
 
-所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` …）都由网关签发、**原样回传**，不要自行构造。
+所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/api-reference/introduction">18 个 REST 端点的完整入参 / 出参</Card>
-  <Card title="MCP 工具" icon="plug" href="/mcp/overview">18 个 MCP 工具，参数与 REST 一致</Card>
+  <Card title="MCP 工具" icon="plug" href="/mcp/overview">18 个 MCP 工具的完整入参 / 出参</Card>
   <Card title="认证机制" icon="key" href="/gateway/authentication">API Key + consent grant 详解</Card>
+  <Card title="下单链路" icon="route" href="/gateway/order-flow">下单与支付时序全景</Card>
   <Card title="错误处理" icon="triangle-exclamation" href="/gateway/error-handling">统一错误码与处理</Card>
 </CardGroup>

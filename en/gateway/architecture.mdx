@@ -1,16 +1,15 @@
 ---
 title: "Architecture Overview"
-description: "Clawdot Gateway's dual entry points, authentication model, and ordering flow"
+description: "Clawdot Gateway's MCP entry point, authentication model, and ordering flow"
 ---
 
-Clawdot Gateway exposes food-delivery capabilities over **standard protocols**. The same service layer is mounted on two entry points at once: a REST API and an MCP Server. An Agent presents its identity with an API Key and asserts "I have been authorized by a given food-delivery user" with a consent_grant. The gateway routes the request to the upstream platform accordingly and converts the response into a unified standard format.
+Clawdot Gateway exposes food-delivery capabilities over **MCP (Model Context Protocol)**: an Agent calls the gateway's tools through the MCP Server (`/mcp/v1`), presents its identity with an API Key, and asserts "I have been authorized by a given food-delivery user" with a `consent_grant`. The gateway routes the request to the upstream platform accordingly and converts the response into a unified standard format.
 
 ## Overall Architecture
 
 ```mermaid
 graph LR
   Agent["AI Agent"]
-  REST["REST API<br/>/api/v1/*"]
   MCP["MCP Server<br/>/mcp/v1"]
   Service["Service Layer<br/>PublicGatewayService"]
   Gate["Auth + Capability Gate<br/>API Key · consent_grant · cap binding"]
@@ -19,9 +18,7 @@ graph LR
   DB[("MySQL")]
   Redis[("Redis")]
 
-  Agent -->|Bearer clw_| REST
   Agent -->|Bearer clw_| MCP
-  REST --> Service
   MCP --> Service
   Service --> Gate
   Service --> Provider
@@ -29,83 +26,71 @@ graph LR
   Service --> DB
   Service --> Redis
 
+  style MCP fill:#fde8e4,stroke:#E8593C,stroke-width:2px
   style Service fill:#fde8e4,stroke:#E8593C,stroke-width:2px
   style Gate fill:#f9c4bc,stroke:#D14430,stroke-width:2px
   style Provider fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
 ```
 
-- **Two entry points share one service layer** — REST and MCP expose the same capabilities; they differ only in how parameters are passed: REST uses Header + JSON body, MCP uses tool parameters.
-- **Auth + capability gate** — Before execution, every public entry point passes the same gate: validate the API Key (identify the Agent), validate the consent_grant (identify the authorized user), and check whether the Agent has the corresponding capability enabled (cap binding).
-- **Provider adapter** — Converts standard-protocol requests into upstream platform API calls, and converts platform responses back into the unified standard format and error codes.
+- **MCP is the only external entry point** — an Agent connects to `/mcp/v1` over Streamable HTTP and calls food-delivery capabilities as a set of standard tools. Underneath is a single service layer, `PublicGatewayService`; externally only the MCP protocol is exposed.
+- **Auth + capability gate** — Before execution, every tool call passes the same gate: validate the API Key (identify the Agent), validate the consent_grant (identify the authorized user), and check whether the Agent has the corresponding capability enabled (cap binding).
+- **Provider adapter** — Converts standard tool calls into upstream platform API calls, and converts platform responses back into the unified standard format and error codes.
 - **State storage** — MySQL holds records for Agents / API Keys / user bindings / orders; Redis carries short-lived state such as pricing context, single-flight locks, and shop-list caches.
 
 <Note>
-  This page only covers the **public** contract: the `/api/v1/*` REST endpoints and the `/mcp/v1` MCP tools. Operational actions such as creating an Agent, issuing an API Key, and enabling a capability go through the Portal ([portal.clawdot.ai](http://console.hicaspian.com/agents)) and are not part of the public API.
+  This page only covers the **public** contract: the MCP tools on `/mcp/v1`. Operational actions such as creating an Agent, issuing an API Key, and enabling a capability go through the console ([console.hicaspian.com/agents](http://console.hicaspian.com/agents)) and are not part of the public API.
 </Note>
 
-## Two Entry Points
+## Connection and Authentication
 
-<Tabs>
-  <Tab title="REST API">
-    Mounted under the `/api/v1` prefix, with 18 endpoints covering the full chain: authorization, addresses, shops, cart, coupons, orders, and payment signing.
+The MCP Server is mounted at `/mcp/v1` with Streamable HTTP transport (FastMCP); the external host is `eleme-gateway.hicaspian.com`. Authentication has two layers:
 
-    - **Agent identity** — `Authorization: Bearer clw_...` request header.
-    - **User authorization** — `X-Consent-Grant-Id: cg_...` request header (except for binding endpoints). `consent_grant_id` travels only in the header, never in the JSON body.
-    - **Request/response** — JSON body; all amount fields are in **cents (integers)**.
+- **Agent identity** — the connection-layer header `Authorization: Bearer clw_...` (sent on every MCP request). Issued when an Agent is created in the console.
+- **User authorization** — passed as the **`consent_grant_id` parameter** of each business tool (not a header). The binding tools `request_user_bind` / `verify_user_bind` are the exception — they are the entry points for obtaining authorization and themselves take no `consent_grant_id`.
 
-    See the [API Reference](/en/api-reference/user/bind-request).
-  </Tab>
+For a full connection example and the auth chain, see [Authentication](/en/gateway/authentication).
 
-  <Tab title="MCP Server">
-    Mounted via `app.mount("/mcp", create_mcp_app())`. FastMCP versions its routes, so the public endpoint is **`/mcp/v1`**, and the transport is streamable HTTP. It exposes 18 tools, one-to-one with the 18 REST endpoints.
+## MCP Tools
 
-    - **Agent identity** — Also via `Authorization: Bearer clw_...`, validated by the MCP middleware which injects `agent_id`.
-    - **User authorization** — Passed as the **`consent_grant_id` parameter** of each tool (not the `X-Consent-Grant-Id` header — that one is for REST).
-    - **Parameters** — Apart from `consent_grant_id`, a tool's parameters match the body fields of its corresponding REST endpoint.
+The gateway exposes 18 tools covering the full chain: authorization, addresses, shops, cart, coupons, orders, and payment signing:
 
-    See [MCP Tools](/en/mcp/overview).
-  </Tab>
-</Tabs>
+| Group | Tool | Purpose |
+|---|---|---|
+| Auth | `request_user_bind` | Start binding (SMS code or H5; Agent identity only) |
+| Auth | `verify_user_bind` | Confirm binding; mints `consent_grant_id` on success |
+| Auth | `get_user_auth_status` | Query authorization status |
+| Auth | `revoke_user_bind` | Unbind (old `consent_grant_id` invalidated instantly) |
+| Auth | `get_homepage_url` | Get the Taoshan homepage link |
+| Address | `search_addresses` | Search / list addresses |
+| Address | `select_address` | Select / save an address, returns `address_id` |
+| Address | `update_address` | Edit an address (unit / label; `address_id` unchanged) |
+| Shop | `search_shops` | Search / browse shops, returns `shop_id` + `cart_id` |
+| Shop | `get_shop_menu` | Shop menu, returns `item_id` / `sku_id` / `ingredient_options` |
+| Shop | `get_shop_share_url` | Shop share link |
+| Order | `quote_cart` | Price the cart, returns `quote_id` |
+| Order | `list_coupons` | Account coupon list |
+| Order | `preview_order` | Preview an order, returns `preview_id` + `confirmation_token` |
+| Order | `create_order` | Create an order, returns `order_id` |
+| Order | `get_order_status` | Query order status |
+| Payment | `get_sign_action` | Get the password-free signing action (H5 link) |
+| Payment | `get_sign_status` | Query signing status |
 
-### REST Endpoint ↔ MCP Tool Mapping
-
-The 18 MCP tools map one-to-one with the 18 REST endpoints:
-
-| MCP Tool | REST Endpoint |
-|---|---|
-| `request_user_bind` | `POST /auth/bind/request` |
-| `verify_user_bind` | `POST /auth/bind/verify` |
-| `get_user_auth_status` | `GET /auth/status` |
-| `revoke_user_bind` | `POST /auth/unbind` |
-| `get_homepage_url` | `POST /auth/homepage-url` |
-| `search_addresses` | `POST /addresses/search` |
-| `select_address` | `POST /addresses/select` |
-| `update_address` | `POST /addresses/update` |
-| `search_shops` | `POST /shops/search` |
-| `get_shop_menu` | `POST /shops/menu` |
-| `get_shop_share_url` | `POST /shops/share-url` |
-| `quote_cart` | `POST /cart/quote` |
-| `list_coupons` | `POST /coupons/list` |
-| `preview_order` | `POST /orders/preview` |
-| `create_order` | `POST /orders/create` |
-| `get_order_status` | `GET /orders/{order_id}` |
-| `get_sign_action` | `POST /payment/sign-action` |
-| `get_sign_status` | `GET /payment/sign-status` |
+For each tool's parameters and return fields, see [MCP Tools](/en/mcp/overview).
 
 ## Authentication Model
 
 The gateway uses a two-layer identity:
 
-- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores only the SHA-256 hash, never the plaintext, and compares by hash on every request; a disabled key fails immediately. Issued when an Agent is created in the Portal.
+- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores only the SHA-256 hash, never the plaintext, and compares by hash on every request; a disabled key fails immediately. Issued when an Agent is created in the console.
 - **consent_grant identifies the authorized user** — prefix `cg_`, representing "a given food-delivery user has authorized a given Agent to use a given capability." Obtained through the binding flow (`request_user_bind` + `verify_user_bind`), and revocable instantly via `revoke_user_bind`.
 
 ```mermaid
 flowchart LR
-  A["Request"] --> B["Validate API Key<br/>(identify Agent)"]
+  A["Tool call"] --> B["Validate API Key<br/>(identify Agent)"]
   B -- invalid --> E["401 AUTH_INVALID"]
   B -- valid --> C["agent_id"]
   C --> D{"User<br/>authorization required?"}
-  D -- no --> Z["Pass through<br/>(binding endpoints)"]
+  D -- no --> Z["Pass through<br/>(binding tools)"]
   D -- yes --> F["Capability gate<br/>+ consent_grant resolution"]
   F -- Agent lacks capability --> G["403 CAP_NOT_BOUND"]
   F -- grant invalid/expired --> H["401 CONSENT_GRANT_*"]
@@ -119,7 +104,7 @@ For the full auth chain, error codes, and how credentials are passed, see [Authe
 
 Authorization is not "the Agent directly gets the user"; it is bound to a specific **capability (cap)** and **provider**:
 
-- **Capability binding (cap binding)** — An `(agent_id, cap_code)` record declaring that a given Agent has a given capability enabled (the cap code for the food-delivery chain is `delivery`), carrying the provider coordinate (`provider_code`) on that record. Before any public entry point executes, it must first resolve an `active` capability binding; otherwise it returns `CAP_NOT_BOUND`.
+- **Capability binding (cap binding)** — An `(agent_id, cap_code)` record declaring that a given Agent has a given capability enabled (the cap code for the food-delivery chain is `delivery`), carrying the provider coordinate (`provider_code`) on that record. Before any tool call executes, it must first resolve an `active` capability binding; otherwise it returns `CAP_NOT_BOUND`.
 - **User binding (consent_grant)** — When a user authorizes, a user-binding record is written down recording which `agent_id`, which `cap_code`, and which `provider_code` it belongs to. When a request comes in, the gateway hashes `consent_grant_id` to look up this record and verifies that its capability/provider coordinates match the Agent's capability binding — a mismatch yields `CONSENT_GRANT_WRONG_CAP`.
 
 In other words, a successful call must satisfy three things at once: **the API Key is valid** (the Agent is trusted), **the capability is enabled** (the Agent is allowed to use this capability), and **the consent_grant is valid with matching coordinates** (the user did authorize this Agent to use this capability).
@@ -131,45 +116,47 @@ In a standard ordering flow, upstream-and-downstream IDs are chained hop by hop,
 ```mermaid
 sequenceDiagram
   participant Agent
-  participant GW as REST / MCP
+  participant GW as MCP Server
   participant Svc as PublicGatewayService
   participant Up as Upstream Platform
 
-  Agent->>GW: search_shops / POST /shops/search
+  Agent->>GW: search_shops
   GW->>Svc: gate + route
   Svc->>Up: platform search
   Up-->>Svc: shops
   Svc-->>Agent: shop_id + cart_id
 
-  Agent->>GW: get_shop_menu / POST /shops/menu
-  Svc-->>Agent: menu (item_id / sku_id / option_id)
+  Agent->>GW: get_shop_menu
+  Svc-->>Agent: menu (item_id / sku_id / ingredient_options)
 
-  Agent->>GW: quote_cart / POST /cart/quote
+  Agent->>GW: quote_cart
   Svc-->>Agent: quote_id (pricing)
 
-  Agent->>GW: select_address / POST /addresses/select
+  Agent->>GW: select_address
   Svc-->>Agent: address_id
 
-  Agent->>GW: preview_order / POST /orders/preview
+  Agent->>GW: preview_order
   Svc->>Up: render + coupon selection
   Svc-->>Agent: preview_id + confirmation_token + price breakdown
 
-  Agent->>GW: create_order / POST /orders/create
+  Agent->>GW: create_order
   Svc->>Up: place order
   Up-->>Svc: platform order
   Svc-->>Agent: order_id
 
-  Agent->>GW: get_sign_action / POST /payment/sign-action
+  Agent->>GW: get_sign_action
   Svc-->>Agent: password-free signing action
 ```
 
 1. `search_shops` → get `shop_id` + `cart_id` (`cart_id` already encapsulates the shop and delivery coordinates)
-2. `get_shop_menu` → pick items, get `item_id` / `sku_id` / `option_id`
+2. `get_shop_menu` → pick items, get `item_id` / `sku_id` / `ingredient_options`
 3. `quote_cart` → get `quote_id` (pricing)
 4. `select_address` → get `address_id`
 5. `preview_order` → get `preview_id` + `confirmation_token` and the final price breakdown
 6. `create_order` → get `order_id`
 7. `get_sign_action` → password-free signing action (`get_sign_status` queries the signing status)
+
+For the full sequence and fields, see [Ordering Flow](/en/gateway/order-flow).
 
 <Note>
   All amount fields are in **cents (integers)**; everything exposed externally is an opaque ID issued by the gateway (`shop_id` / `cart_id` / `quote_id` / `address_id` / `preview_id` / `order_id`), and the upstream platform's raw IDs are never leaked.
@@ -188,7 +175,7 @@ All errors return a unified structure, with no extra fields like `next_action`:
 }
 ```
 
-REST and MCP share the same set of error codes. For the full list, see [Error Handling](/en/gateway/error-handling).
+For the full list, see [Error Handling](/en/gateway/error-handling).
 
 ## Security Design
 
@@ -199,4 +186,4 @@ REST and MCP share the same set of error codes. For the full list, see [Error Ha
 | Phone number storage | Encrypted at rest, with a SHA-256 hash used for deduplication |
 | User ID storage | AES-256-GCM encryption |
 | External IDs | All are opaque IDs issued by the gateway, decoupled from the upstream platform's raw IDs |
-| Public-surface boundary | Externally exposes only `/api/v1/*` and `/mcp/v1`; operational / administrative actions (creating an Agent, enabling a capability, etc.) go through the Portal and are not part of the public API |
+| Public-surface boundary | Externally exposes only the `/mcp/v1` MCP tools; operational / administrative actions (creating an Agent, enabling a capability, etc.) go through the console and are not part of the public API |

@@ -11,7 +11,7 @@ Clawdot Gateway is Clawdot's **protocol layer + discovery layer**, positioned at
 2. **Connect merchants** — Support two types of merchant onboarding:
    - **Proxy layer** — Proxy merchants from Eleme/Meituan/Amap and other platforms (cold start phase)
    - **Independent Agent** — Large merchants build their own Agent, directly implementing standard protocol (long-term ecosystem)
-3. **Unified interface** — Provide unified REST and MCP interfaces for AI Agent, hiding merchant differences
+3. **Unified interface** — Provide a unified MCP interface for AI Agents, hiding merchant differences
 
 ```mermaid
 graph TB
@@ -53,16 +53,11 @@ graph TB
 | Pass API Key | Token management, signing, UA adaptation |
 | Receive standard error codes | Categorize platform errors into unified format |
 
-## Dual Protocol Entry Points
+## MCP Access
 
-<Columns cols={2}>
-  <Card title="REST API" icon="terminal" href="/api-reference/introduction">
-    Standard RESTful interface, `/api/v1/*` paths, compatible with any HTTP client.
-  </Card>
-  <Card title="MCP Protocol" icon="plug" href="/gateway/mcp-overview">
-    `/mcp` endpoint, 9 tools, directly connectable by MCP clients like Claude Desktop.
-  </Card>
-</Columns>
+<Card title="MCP Protocol" icon="plug" href="/en/mcp/overview">
+  `/mcp/v1` endpoint, 18 tools, directly connectable by MCP clients like Claude Desktop.
+</Card>
 
 ## Core Features
 
@@ -117,6 +112,6 @@ Gateway supports two merchant onboarding approaches, flexibly meeting the needs 
     Three-layer architecture design, data flow, and database models.
   </Card>
   <Card title="Authentication Mechanism" icon="lock" href="/gateway/authentication">
-    Dual-layer authentication system: API Key + User Token.
+    Dual-layer authentication system: API Key + consent grant.
   </Card>
 </Columns>

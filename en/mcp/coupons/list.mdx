@@ -1,11 +1,11 @@
 ---
 title: "list_coupons"
-description: "MCP tool, maps to REST POST /coupons/list — list the available coupons in the authorized user's account (account-level, not tied to any specific order)"
+description: "MCP tool that lists the available coupons in the authorized user's account (account-level, not tied to any specific order)"
 ---
 
 ## list_coupons
 
-Lists the available coupons in the authorized user's account. These are **account-level** coupons and do not indicate whether a given coupon applies to a specific order — whether a coupon is usable for the current cart is decided by `available_coupons` in `preview_order`. Maps to the REST endpoint `POST /coupons/list`.
+Lists the available coupons in the authorized user's account. These are **account-level** coupons and do not indicate whether a given coupon applies to a specific order — whether a coupon is usable for the current cart is decided by `available_coupons` in `preview_order`.
 
 <Note>
   This tool identifies the user from `consent_grant_id` and queries the upstream provider for that user's account coupons. The returned `coupon_id` is for display only and **cannot** be passed back to `preview_order`'s `coupon_ids` — when previewing, use that preview's `available_coupons[].coupon_id`.

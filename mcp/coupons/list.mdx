@@ -1,11 +1,11 @@
 ---
 title: "list_coupons"
-description: "MCP 工具，对应 REST POST /coupons/list — 列出当前授权用户账户下的可用优惠券（账户级，与具体订单无关）"
+description: "MCP 工具，列出当前授权用户账户下的可用优惠券（账户级，与具体订单无关）"
 ---
 
 ## list_coupons
 
-列出当前授权用户账户下的可用优惠券。返回的是**账户级**优惠券，与某次具体下单是否可用无关——某张券在当前购物车能否使用，由 `preview_order` 的 `available_coupons` 判定。对应 REST 端点 `POST /coupons/list`。
+列出当前授权用户账户下的可用优惠券。返回的是**账户级**优惠券，与某次具体下单是否可用无关——某张券在当前购物车能否使用，由 `preview_order` 的 `available_coupons` 判定。
 
 <Note>
   本工具仅凭 `consent_grant_id` 识别用户后，向上游服务商查询其账户优惠券。返回的 `coupon_id` 仅用于阅读展示，**不能**直接回传给 `preview_order` 的 `coupon_ids`——预览选券时应使用该次预览返回的 `available_coupons[].coupon_id`。

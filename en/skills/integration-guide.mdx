@@ -1,6 +1,6 @@
 ---
 title: "Integration Guide"
-description: "Three ways to integrate local life skills into your Agent"
+description: "Integrate local life skills into your Agent via MCP"
 icon: "code"
 ---
 
@@ -10,24 +10,20 @@ import { Info, Warning } from '/components/Callout';
 
 ## Quick Start
 
-The Skills Platform provides three integration methods to meet different Agent platform integration needs. Choose the method that works best for you and complete the steps one by one.
+The Skills Platform uses **MCP (Model Context Protocol)** as its integration protocol. Clawdot Gateway exposes 18 MCP tools over **Streamable HTTP** — covering the whole chain: authorization, shops, addresses, ordering, and payment. Configure the gateway as a remote MCP server and your Agent can auto-discover and call these tools.
 
-<CardGroup cols={3}>
-  <Card title="MCP" icon="plug" href="#mcp-protocol">
-    Suitable for client applications that support MCP like Claude Desktop and Cursor. Connect over Streamable HTTP, automatic tool discovery.
+<CardGroup cols={2}>
+  <Card title="MCP (recommended)" icon="plug" href="#mcp-protocol">
+    For clients that support MCP like Claude Desktop and Cursor, and any Agent framework that can connect to a remote MCP server. Streamable HTTP, automatic tool discovery, zero boilerplate.
   </Card>
 
-  <Card title="REST API" icon="link">
-    Universal HTTP interface, supports any programming language. Suitable for self-built Agents, DingTalk, Kimi and other platform integrations.
-  </Card>
-
-  <Card title="OpenAI Function Calling" icon="robot">
-    Register Gateway tools as OpenAI function tools, suitable for OpenAI-compatible models and platforms.
+  <Card title="Self-built wrapper (Function Calling)" icon="robot" href="#self-built-wrapper-function-calling">
+    Platform doesn't support remote MCP yet? Register the tools as function tools in your framework against the same tool contract (tool name + parameters), and forward each call to MCP in the function implementation.
   </Card>
 </CardGroup>
 
 <Info>
-This is a narrative getting-started guide. All three methods sit on **one contract**: 18 MCP tools map one-to-one to 18 REST endpoints, sharing the same parameters and response shapes. For full field tables see [MCP Overview](/en/mcp/overview) and the [API Reference](/en/api-reference/introduction); for the end-to-end ordering sequence see [Order Flow](/en/gateway/order-flow).
+This is a narrative getting-started guide. Whichever way you integrate, it sits on **one contract**: 18 MCP tools with the same tool names, parameters, and response shapes. For full field tables see [MCP Overview](/en/mcp/overview); for the end-to-end ordering sequence see [Order Flow](/en/gateway/order-flow).
 </Info>
 
 ## MCP Protocol
@@ -36,15 +32,15 @@ MCP (Model Context Protocol) is the standard protocol released by Anthropic, ena
 
 ### Step 1: Get API Key
 
-Create your Agent in the [Clawdot Portal](http://console.hicaspian.com/agents):
+Create your Agent in the [Clawdot Console](http://console.hicaspian.com/agents):
 
-1. Sign in to Portal and open **Agent Management**
+1. Sign in to the console and open **Agent Management**
 2. Click **Create New Agent**, enter a name and description
 3. The system auto-generates an API Key (starting with `clw_`)
 4. Copy the API Key to a safe location
 
 <Info>
-The API Key is only displayed once at creation. If lost, regenerate it in Portal. See [Authentication](/en/gateway/authentication).
+The API Key is only displayed once at creation. If lost, regenerate it in the console. See [Authentication](/en/gateway/authentication).
 </Info>
 
 ### Step 2: Configure MCP Server
@@ -115,7 +111,7 @@ verify_user_bind(
 ```
 
 <Info>
-An H5 authorization mode is also supported (`auth_type="h5"`, `request_user_bind` returns an authorization link). For full fields and callback behavior see [Start Binding](/en/api-reference/user/bind-request) and [Confirm Binding](/en/api-reference/user/bind-verify).
+An H5 authorization mode is also supported (`auth_type="h5"`, `request_user_bind` returns an authorization link). For full fields and callback behavior see [Start Binding](/en/mcp/user/bind-request) and [Confirm Binding](/en/mcp/user/bind-verify).
 </Info>
 
 ### Step 4: Call Gateway Skills
@@ -134,292 +130,32 @@ Through the MCP protocol, your Agent can auto-discover and call all Gateway tool
 >
 > ... returns recommendation list
 
-For the full tool list and ordering chain see [MCP Overview](/en/mcp/overview).
+Ordering is a stateful chain: quote → select address → preview → create → sign and pay, with cross-step IDs minted by the gateway and passed through verbatim. For the full tool list and ordering chain see [MCP Overview](/en/mcp/overview) and [Order Flow](/en/gateway/order-flow).
 
 ---
 
-## REST API
+## Self-built Wrapper (Function Calling)
 
-Suitable for advanced scenarios requiring full control, or integration with platforms like DingTalk and Kimi. All REST endpoints live under `http://eleme-gateway.hicaspian.com/api/v1`.
-
-### Step 1: Get API Key
-
-Same as MCP Step 1 (create an Agent in [Portal](http://console.hicaspian.com/agents)).
-
-### Step 2: User Authorization (same as above)
-
-Same as MCP Step 3, obtaining a `consent_grant_id`. On the REST side the binding endpoints are `POST /api/v1/auth/bind/request` and `POST /api/v1/auth/bind/verify`; their request bodies match the tool parameters above.
-
-### Step 3: API Call Format
-
-Every REST request that needs user identity must carry both credential layers in the Header:
-
-```bash
-curl -X POST http://eleme-gateway.hicaspian.com/api/v1/shops/search \
-  -H "Authorization: Bearer clw_your_api_key_here" \
-  -H "X-Consent-Grant-Id: cg_550e8400e29b41d4a716" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "keyword": "fruit",
-    "lat": 39.9854,
-    "lng": 116.3055
-  }'
-```
-
-**Header Information:**
-
-| Header | Description | Required |
-|--------|-------------|----------|
-| `Authorization: Bearer {API_KEY}` | Identify Agent identity | Yes |
-| `X-Consent-Grant-Id: {CONSENT_GRANT_ID}` | Identify the authorized user | Yes (except binding endpoints) |
-| `Content-Type: application/json` | Request type | Yes |
-
-<Warning>
-`consent_grant_id` travels only in the `X-Consent-Grant-Id` header, never in the JSON body. Binding endpoints (`auth/bind/request`, `auth/bind/verify`) are the entry point for obtaining authorization and need only the API Key. See [Authentication](/en/gateway/authentication).
-</Warning>
-
-### Step 4: Common API Endpoints
-
-<Tabs>
-  <Tab title="Search Shops">
-    **Search / browse local shops (food delivery, supermarkets, convenience stores, etc.)**
-
-    ```bash
-    POST /api/v1/shops/search
-    ```
-
-    **Request body:**
-    ```json
-    {
-      "keyword": "food delivery",
-      "lat": 39.9854,
-      "lng": 116.3055,
-      "address_id": "addr_123456"
-    }
-    ```
-
-    Omit `keyword` for browse mode (up to 20 nearby shops); pass `keyword` for precise search (~5 shops, with `matched_items` previews). Each result carries `shop_id` and `cart_id`; `cart_id` already encapsulates the shop and delivery coordinates — pass it through verbatim to later steps. Full fields: [Search Shops](/en/api-reference/shops/search).
-
-    **Response example:**
-    ```json
-    {
-      "shops": [
-        {
-          "shop_id": "shop_123456",
-          "cart_id": "cart_abcdef",
-          "name": "Delicious Food Delivery",
-          "rating": 4.8,
-          "distance_text": "1.2km",
-          "delivery_time_text": "30 min",
-          "delivery_fee_text": "¥5",
-          "min_order_amount": 1500
-        }
-      ]
-    }
-    ```
-  </Tab>
-
-  <Tab title="Get Shop Menu">
-    **Get a shop's menu (with orderable item_id / sku_id)**
-
-    ```bash
-    POST /api/v1/shops/menu
-    ```
-
-    **Request body:**
-    ```json
-    {
-      "shop_id": "shop_123456",
-      "cart_id": "cart_abcdef",
-      "keyword": "latte",
-      "limit": 20,
-      "offset": 0
-    }
-    ```
-
-    Menus can be large (100+ items); use `keyword` or `limit`/`offset` for progressive disclosure, paging by `next_offset` until `has_more=false`. Full fields: [Shop Menu](/en/api-reference/shops/detail).
-
-    **Response example:**
-    ```json
-    {
-      "categories": [
-        {
-          "name": "Signature dishes",
-          "items": [
-            {
-              "item_id": "item_001",
-              "sku_id": "sku_001",
-              "name": "Chili hand-torn noodles",
-              "price": 1200,
-              "description": "Traditional Sichuan snack",
-              "available": true
-            }
-          ]
-        }
-      ],
-      "total_items": 86,
-      "has_more": true,
-      "next_offset": 20
-    }
-    ```
-  </Tab>
-
-  <Tab title="Quote → Preview → Create">
-    **Ordering is a stateful chain: quote first, then preview, then create the order using the tokens the preview returns.**
-
-    Step 1, quote the cart (`POST /api/v1/cart/quote`, returns `quote_id`):
-
-    ```json
-    {
-      "shop_id": "shop_123456",
-      "cart_id": "cart_abcdef",
-      "address_id": "addr_123456",
-      "items": [
-        { "item_id": "item_001", "sku_id": "sku_001", "quantity": 2, "ingredient_option_ids": [] }
-      ]
-    }
-    ```
-
-    Step 2, preview the order (`POST /api/v1/orders/preview`, returns `preview_id` + `confirmation_token`):
-
-    ```json
-    {
-      "shop_id": "shop_123456",
-      "cart_id": "cart_abcdef",
-      "address_id": "addr_123456",
-      "items": [
-        { "item_id": "item_001", "sku_id": "sku_001", "quantity": 2 }
-      ],
-      "quote_id": "qt_...",
-      "order_remark": "not spicy"
-    }
-    ```
-
-    Preview response (excerpt, amounts in **cents**):
-
-    ```json
-    {
-      "preview_id": "prv_abc123",
-      "confirmation_token": "cf_abc123",
-      "price": { "payable_price": 3300 }
-    }
-    ```
-
-    Step 3, create the order (`POST /api/v1/orders/create`) using the `preview_id` + `confirmation_token` from the same preview:
-
-    ```json
-    {
-      "preview_id": "prv_abc123",
-      "confirmation_token": "cf_abc123"
-    }
-    ```
-
-    **Response example:**
-    ```json
-    {
-      "order_id": "ord_abc123",
-      "status": "created",
-      "payment_action": { "...": "..." }
-    }
-    ```
-
-    <Info>
-    `confirmation_token` is the idempotency key for ordering: one token can place exactly one order; placing another requires a new preview for a fresh token. `items` is a **list** (not a JSON string). Full fields: [Quote Cart](/en/api-reference/cart/quote) · [Preview Order](/en/api-reference/orders/preview) · [Create Order](/en/api-reference/orders/create).
-    </Info>
-  </Tab>
-
-  <Tab title="Query Order">
-    **Query order status and details**
-
-    ```bash
-    GET /api/v1/orders/{order_id}
-    ```
-
-    **Path parameters:**
-    - `order_id`: Order ID, e.g. `ord_abc123`
-
-    **Response example (amounts in cents):**
-    ```json
-    {
-      "order_id": "ord_abc123",
-      "status": "delivering",
-      "shop_name": "Delicious Food Delivery",
-      "price": { "payable_price": 3300 },
-      "created_at": "2026-03-29T10:00:00Z"
-    }
-    ```
-
-    Full fields: [Query Order](/en/api-reference/orders/get).
-  </Tab>
-</Tabs>
-
-<Info>
-Password-free payment orders also require a one-time **sign-up** first (`POST /api/v1/payment/sign-action` → guide the user through the H5 page → poll `GET /api/v1/payment/sign-status`). For the full end-to-end sequence see [Order Flow](/en/gateway/order-flow).
-</Info>
-
-### Step 5: Error Handling
-
-Handle common HTTP error responses. Auth / authorization failures return a unified `{"error": {"code", "message"}}` shape:
-
-```python
-import requests
-
-try:
-    response = requests.post(
-        "http://eleme-gateway.hicaspian.com/api/v1/shops/search",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "X-Consent-Grant-Id": consent_grant_id,
-            "Content-Type": "application/json"
-        },
-        json={"keyword": "food delivery", "lat": 39.9854, "lng": 116.3055}
-    )
-
-    if response.status_code == 401:
-        # API Key invalid (AUTH_INVALID), or consent_grant_id missing/invalid/expired
-        # (CONSENT_GRANT_REQUIRED / CONSENT_GRANT_INVALID / CONSENT_GRANT_EXPIRED)
-        print("Authentication failed; check API Key or re-run the binding flow")
-    elif response.status_code == 403:
-        # Grant belongs to another capability/provider (CONSENT_GRANT_WRONG_CAP),
-        # or this Agent has not enabled the capability (CAP_NOT_BOUND)
-        print("Authorization or capability mismatch; check the Agent's enabled capabilities")
-    elif response.status_code == 429:
-        # Rate limit triggered
-        print("Request too frequent, please retry later")
-    else:
-        data = response.json()
-        print(data)
-
-except requests.RequestException as e:
-    print(f"Network error: {e}")
-```
-
-For the full error code list see [Error Handling](/en/gateway/error-handling).
-
----
-
-## OpenAI Function Calling
-
-Suitable for Agent frameworks using OpenAI API or compatible API (e.g. LangChain, LlamaIndex). Register Gateway tools as functions, and have each function implementation call the REST endpoints.
+If your platform does not yet support remote MCP, you can register the tools as function tools in your framework (OpenAI Function Calling, LangChain, LlamaIndex, etc.) against the **same tool contract**, and forward each call to MCP in the function implementation. The tool names, parameters, and response shapes are identical to MCP — all you wrap is the "call channel"; the business semantics are unchanged.
 
 ### Step 1: Get API Key
 
-Same as above (create an Agent in [Portal](http://console.hicaspian.com/agents)).
+Same as above (create an Agent in the [Console](http://console.hicaspian.com/agents)).
 
 ### Step 2: User Authorization
 
-Same as above, obtaining a `consent_grant_id`.
+Same as above; run a binding flow once to obtain a `consent_grant_id`.
 
-### Step 3: Register Function Tools
+### Step 3: Register Function Tools Against the Tool Contract
 
-Register Gateway tools as OpenAI Function Calling tools. Tool names and parameters mirror the Gateway contract:
+Register Gateway tools as your framework's function tools. **Tool names and parameters mirror the tool contract exactly** — so the tool calls the model produces can be forwarded to the gateway without translation:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(api_key="sk-...")
 
-# Register Gateway tools as function tools
+# Define function tools against the Gateway tool contract (names/params match MCP)
 tools = [
     {
         "type": "function",
@@ -517,73 +253,60 @@ response = client.chat.completions.create(
     tool_choice="auto"
 )
 
-# Handle function calls
+# Handle the tool calls the model produces
 for tool_call in response.tool_calls:
     if tool_call.function.name == "search_shops":
-        # Call Clawdot Gateway REST endpoint
+        # Forward to the Gateway MCP (see next step)
         # ...
 ```
 
-### Step 4: Function Implementation
+### Step 4: Function Implementation — Forward to MCP
 
-Each function calls its corresponding REST endpoint, carrying both the Agent and user credential layers:
+Each function forwards the arguments the model produced (**plus the current user's `consent_grant_id`**) to the corresponding tool through your MCP client. Agent identity is carried by the API Key at the MCP connection layer; `consent_grant_id` is passed as a tool parameter:
 
 ```python
-import requests
 import json
 
-def call_gateway_api(endpoint, params, api_key, consent_grant_id):
-    """Helper to call a Clawdot Gateway REST endpoint"""
-    url = f"http://eleme-gateway.hicaspian.com/api/v1/{endpoint}"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "X-Consent-Grant-Id": consent_grant_id,
-        "Content-Type": "application/json"
-    }
+def call_gateway_tool(mcp_client, tool_name, tool_args, consent_grant_id):
+    """Call one tool through a connected Gateway MCP client.
+    mcp_client is already connected to
+    http://eleme-gateway.hicaspian.com/mcp/v1 (Streamable HTTP)
+    with Authorization: Bearer clw_..."""
+    # Business tools carry the consent_grant_id parameter;
+    # binding tools request_user_bind / verify_user_bind are exempt
+    # (they are the entry point for obtaining authorization).
+    args = {**tool_args}
+    if tool_name not in ("request_user_bind", "verify_user_bind"):
+        args["consent_grant_id"] = consent_grant_id
+    return mcp_client.call_tool(tool_name, args)
 
-    response = requests.post(url, json=params, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
-    """Execute a function tool"""
-    if tool_name == "search_shops":
-        result = call_gateway_api("shops/search", tool_args, api_key, consent_grant_id)
-        return json.dumps(result, ensure_ascii=False)
-
-    elif tool_name == "get_shop_menu":
-        result = call_gateway_api("shops/menu", tool_args, api_key, consent_grant_id)
-        return json.dumps(result, ensure_ascii=False)
-
-    elif tool_name == "preview_order":
-        # items is a list, pass through directly; returns preview_id + confirmation_token
-        result = call_gateway_api("orders/preview", tool_args, api_key, consent_grant_id)
-        return json.dumps(result, ensure_ascii=False)
-
-    elif tool_name == "create_order":
-        # Place the order with the preview_id + confirmation_token from the previous step
-        result = call_gateway_api("orders/create", tool_args, api_key, consent_grant_id)
+def execute_tool(mcp_client, tool_name, tool_args, consent_grant_id):
+    """Execute one tool call the model produced, forwarding it to MCP."""
+    if tool_name in ("search_shops", "get_shop_menu", "preview_order", "create_order"):
+        result = call_gateway_tool(mcp_client, tool_name, tool_args, consent_grant_id)
         return json.dumps(result, ensure_ascii=False)
 ```
+
+<Info>
+Tool names, parameters, and response shapes are identical to MCP — the wrapper only "forwards the model's tool calls to the gateway." Full fields: [Quote Cart](/en/mcp/cart/quote) · [Preview Order](/en/mcp/orders/preview) · [Create Order](/en/mcp/orders/create).
+</Info>
 
 ---
 
 ## Comparison and Selection
 
-| Dimension | MCP | REST API | Function Calling |
-|-----------|-----|----------|------------------|
-| **Applicable Platforms** | Claude Desktop, Cursor | Universal (any language/framework) | OpenAI API, compatible frameworks |
-| **Configuration Complexity** | Very low (JSON config) | Medium (need to handle HTTP) | Medium (need to define Schema) |
-| **Tool Discovery** | Automatic | Manual | Manual |
-| **Learning Cost** | Low | Medium | Medium |
-| **Production Ready** | Yes | Yes | Yes |
-| **Response Speed** | Fast | Fast | Fast |
+| Dimension | MCP (recommended) | Self-built wrapper (Function Calling) |
+|-----------|-----|------------------|
+| **Applicable Platforms** | Claude Desktop, Cursor, and frameworks that support remote MCP | OpenAI-compatible frameworks that don't support remote MCP yet |
+| **Configuration Complexity** | Very low (JSON config) | Medium (define schemas yourself and forward to MCP) |
+| **Tool Discovery** | Automatic | Manual (declare each tool per the contract) |
+| **Learning Cost** | Low | Medium |
+| **Production Ready** | Yes | Yes |
 
 **Recommendation:**
 
-- **MCP**: Already using Claude Desktop or Cursor, need simplest integration
-- **REST API**: Self-built Agent system, need full control and custom logic
-- **Function Calling**: Using OpenAI API, want to minimize integration code
+- **MCP**: The recommended path. When your client/framework supports remote MCP, configure one server and tools are auto-discovered with zero boilerplate.
+- **Self-built wrapper (Function Calling)**: Only when your platform doesn't support remote MCP yet. Declare function tools against the same tool contract and forward to MCP in the implementation; you can switch smoothly to MCP once the platform supports it.
 
 ---
 
@@ -601,20 +324,20 @@ def execute_tool(tool_name, tool_args, api_key, consent_grant_id):
 </details>
 
 <details>
-<summary>API call returns 401 Unauthorized</summary>
+<summary>Tool call returns 401 Unauthorized</summary>
 
-- API Key does not exist or is disabled (`AUTH_INVALID`), check Portal
-- API Key format error, should start with `clw_`; header is `Authorization: Bearer ...`, case-sensitive
+- API Key does not exist or is disabled (`AUTH_INVALID`), check the console
+- API Key format error, should start with `clw_`; connection header is `Authorization: Bearer ...`, case-sensitive
 - Missing `consent_grant_id` (`CONSENT_GRANT_REQUIRED`)
 - `consent_grant_id` invalid or expired (`CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED`), re-run the binding flow to get a new one
 
 </details>
 
 <details>
-<summary>API call returns 403 Forbidden</summary>
+<summary>Tool call returns 403 Forbidden</summary>
 
 - Grant belongs to another capability / provider (`CONSENT_GRANT_WRONG_CAP`)
-- This Agent has not enabled the capability (`CAP_NOT_BOUND`); check the Agent's enabled capabilities in Portal
+- This Agent has not enabled the capability (`CAP_NOT_BOUND`); check the Agent's enabled capabilities in the console
 
 </details>
 

@@ -103,72 +103,33 @@ graph TB
   style User fill:#f9c4bc,stroke:#D14430,stroke-width:2px
 ```
 
-## Dual Protocol Entry
+## MCP Access
 
-The same Clawdot Gateway instance exposes two protocols simultaneously, meeting different integration needs. Both protocols share the same capability set: **18 MCP tools map one-to-one to 18 REST endpoints** with identical parameters (MCP tools take an extra `consent_grant_id` argument; REST passes it via the `X-Consent-Grant-Id` header).
+Clawdot Gateway exposes its capabilities over **MCP (Model Context Protocol)** — the AI-native calling method designed for AI models like Claude. Super Agent connects with an MCP client (Streamable HTTP) to the public endpoint `http://eleme-gateway.hicaspian.com/mcp/v1`. Each request carries `Authorization: Bearer clw_...` in the HTTP header to identify the Agent, while user authorization is passed as the `consent_grant_id` argument on each business tool:
 
-<Tabs>
-  <Tab title="REST API">
-    Standard HTTP interface, suitable for any programming language and framework. Agents communicate with Gateway via HTTP requests:
+```
+# Merchant search / browse
+search_shops(consent_grant_id, keyword, address_id, lat, lng)
 
-    ```bash
-    # Search merchants
-    POST /api/v1/shops/search \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"keyword": "luckin", "address_id": "addr_..."}'
+# Shop menu
+get_shop_menu(consent_grant_id, shop_id, cart_id)
 
-    # Get shop menu
-    POST /api/v1/shops/menu \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"shop_id": "shop_...", "cart_id": "cart_..."}'
+# Address management
+search_addresses(consent_grant_id, keyword, lat, lng)   # returns saved_addresses + suggestions[].token
+select_address(consent_grant_id, suggestion_token, contact_name, contact_phone)
 
-    # Preview order
-    POST /api/v1/orders/preview \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"shop_id": "...", "cart_id": "...", "address_id": "...", "items": [...]}'
+# Quote and order
+quote_cart(consent_grant_id, shop_id, cart_id, address_id, items)
+preview_order(consent_grant_id, shop_id, cart_id, address_id, items)
+create_order(consent_grant_id, preview_id, confirmation_token)
+get_order_status(consent_grant_id, order_id)
+```
 
-    # Create order
-    POST /api/v1/orders/create \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
+Tool parameters and return values are optimized for how AI models call them. For the full tool list, see [MCP Overview](/en/mcp/overview).
 
-    # Query order
-    GET /api/v1/orders/{order_id} \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..."
-    ```
-
-    Authentication has two layers: `Authorization: Bearer clw_...` identifies the Agent, and `X-Consent-Grant-Id: cg_...` identifies the authorized user. See [Authentication](/en/gateway/authentication).
-  </Tab>
-
-  <Tab title="MCP Protocol">
-    Model Context Protocol is an AI-native calling method, designed specifically for AI models like Claude. Super Agent calls tools directly through the public MCP endpoint `/mcp/v1` (`Authorization: Bearer clw_...` via HTTP header; user authorization via each tool's `consent_grant_id` argument):
-
-    ```
-    # Merchant search / browse
-    search_shops(consent_grant_id, keyword, address_id, lat, lng)
-
-    # Shop menu
-    get_shop_menu(consent_grant_id, shop_id, cart_id)
-
-    # Address management
-    search_addresses(consent_grant_id, keyword, lat, lng)   # returns saved_addresses + suggestions[].token
-    select_address(consent_grant_id, suggestion_token, contact_name, contact_phone)
-
-    # Quote and order
-    quote_cart(consent_grant_id, shop_id, cart_id, address_id, items)
-    preview_order(consent_grant_id, shop_id, cart_id, address_id, items)
-    create_order(consent_grant_id, preview_id, confirmation_token)
-    get_order_status(consent_grant_id, order_id)
-    ```
-
-    MCP tools align better with AI thinking, with parameters and return values optimized for a smoother user experience. For the full tool list, see [MCP Overview](/en/mcp/overview).
-  </Tab>
-</Tabs>
+<Note>
+  MCP tools run on the same underlying gateway service layer, exposed externally only through the MCP interface.
+</Note>
 
 ## Workflow Details
 
@@ -217,7 +178,7 @@ The full ordering flow is a **stateful chain** — each step's returned ID must 
   </Accordion>
 
   <Accordion title="Order Tracking Phase" icon="truck">
-    After placing an order, Agent can call `get_order_status` (`GET /orders/{order_id}`) to query order status:
+    After placing an order, Agent can call `get_order_status` to query order status:
     - Waiting for merchant to accept
     - Merchant is preparing order
     - Rider has picked up food

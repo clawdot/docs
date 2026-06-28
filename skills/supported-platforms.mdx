@@ -6,7 +6,6 @@ icon: "grid"
 
 import { Card, CardGroup } from '/components/Card';
 import { Tabs, Tab } from '/components/Tabs';
-import { Info } from '/components/Callout';
 
 ## 已接入平台
 
@@ -34,7 +33,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
   </Card>
 
   <Card title="自建 Agent" icon="wrench">
-    使用 REST API 自行开发的 Agent 应用，适合定制需求。
+    任何支持 MCP（或工具调用）的框架，按工具契约自行接入，适合定制需求。
   </Card>
 </CardGroup>
 
@@ -67,8 +66,8 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
   <Tab title="代码示例">
     ```python
+    import asyncio
     from flask import Flask, request
-    import requests
     import hmac
     import hashlib
     import base64
@@ -76,11 +75,15 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
     import json
     import os
 
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
     app = Flask(__name__)
 
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
+    # Gateway 原生 MCP 端点（Streamable HTTP）
+    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
 
     def sign_message(timestamp, secret):
         """钉钉消息签名验证"""
@@ -125,23 +128,29 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
         return {"code": 0, "message": "ok"}, 200
 
+    async def call_gateway_tool(tool_name, args):
+        """通过 MCP 客户端调用 Gateway 工具
+
+        Agent 身份走连接层 Authorization 头；用户授权 consent_grant_id 作为工具参数。
+        """
+        headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}
+        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                return await session.call_tool(tool_name, args)
+
     def search_shops_for_dingtalk(query, user_id):
-        """调用 Clawdot API 搜索商店"""
+        """调用 Gateway 的 search_shops 工具搜索商店"""
         consent_grant_id = get_consent_grant(user_id)  # 获取该用户的授权（cg_ 前缀）
 
-        url = f"{CLAWDOT_BASE_URL}/shops/search"
-        headers = {
-            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-Consent-Grant-Id": consent_grant_id
-        }
-        payload = {
+        # 用户授权作为工具参数传入，不走请求头
+        result = asyncio.run(call_gateway_tool("search_shops", {
+            "consent_grant_id": consent_grant_id,
             "keyword": query,
             "lat": 39.9836,   # GCJ-02 坐标，应从用户位置服务获取
             "lng": 116.3164,
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
-        return response.json().get("shops", [])
+        }))
+        return result.get("shops", [])  # shops[]：shop_id、cart_id、next_offset?
 
     def format_shop_list_for_dingtalk(shops):
         """格式化商店列表为钉钉卡片"""
@@ -163,7 +172,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
     def get_consent_grant(user_id):
         """从数据库获取用户的 consent grant（cg_ 前缀）"""
-        # 用户首次使用时走绑定流程（auth/bind/request + auth/bind/verify）
+        # 用户首次使用时走绑定流程（request_user_bind + verify_user_bind）
         # 拿到 consent_grant_id 后持久化，后续请求复用
         pass
 
@@ -210,13 +219,18 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
   <Tab title="代码示例">
     ```python
+    import asyncio
     import requests
     import json
     import os
 
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    CLAWDOT_BASE_URL = "http://eleme-gateway.hicaspian.com/api/v1"
+    # Gateway 原生 MCP 端点（Streamable HTTP）
+    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
 
     def call_kimi_with_function_calling(user_message, consent_grant_id):
         """使用 Kimi API 和 Function Calling"""
@@ -347,35 +361,24 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
 
         return result
 
-    # 工具名 → REST 端点（全部 POST），与下单链路一一对应
-    ENDPOINTS = {
-        "search_shops": "/shops/search",
-        "get_shop_menu": "/shops/menu",
-        "quote_cart": "/cart/quote",
-        "select_address": "/addresses/select",
-        "preview_order": "/orders/preview",
-        "create_order": "/orders/create",
-    }
-
     def call_clawdot_function(function_name, args, consent_grant_id):
-        """调用 Clawdot Gateway API"""
+        """通过 MCP 客户端调用 Clawdot Gateway 工具
 
-        headers = {
-            "Authorization": f"Bearer {CLAWDOT_API_KEY}",
-            "X-Consent-Grant-Id": consent_grant_id,
-            "Content-Type": "application/json"
-        }
+        Kimi 返回的 function_name 与 Gateway 工具名一一对应，直接作为 call_tool 的工具名。
+        用户授权 consent_grant_id 作为工具参数注入，不走请求头。
+        """
 
-        path = ENDPOINTS.get(function_name)
-        if path is None:
-            raise ValueError(f"未知工具: {function_name}")
+        async def _invoke():
+            headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}  # Agent 身份
+            async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    return await session.call_tool(function_name, {
+                        "consent_grant_id": consent_grant_id,
+                        **args,
+                    })
 
-        response = requests.post(
-            f"{CLAWDOT_BASE_URL}{path}",
-            json=args,
-            headers=headers
-        )
-        return response.json()
+        return asyncio.run(_invoke())
 
     # 使用示例
     user_message = "我想在中关村点一份外卖"
@@ -477,139 +480,42 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     - Claude 会自动调用相应的 Gateway 技能
   </Tab>
 
-  <Tab title="MCP 服务器实现">
-    Gateway 已原生提供 MCP 端点（`/mcp/v1`），通常**直接连接即可**（见上一标签页的配置）。
-    仅当你需要把 Gateway 的 REST API 适配进自己的 MCP 进程时，才参考以下简化示例。
-    每个工具都接受 `consent_grant_id` 参数（用户授权，`cg_` 前缀），在调用 REST 时
-    映射为 `X-Consent-Grant-Id` 请求头：
+  <Tab title="MCP 客户端调用">
+    Gateway 已原生提供 MCP 端点（`/mcp/v1`），Claude Desktop **直接连接即可**（见上一
+    标签页的配置），无需自己再搭一层本地代理。如果你想在脚本里手动验证连接、或在自建
+    Agent 中复用同一套工具，可用任意 MCP 客户端直连。Agent 身份走连接层
+    `Authorization` 头；用户授权 `consent_grant_id`（`cg_` 前缀）作为每个业务工具的参数：
 
-    ```typescript
-    import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-    import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-    import {
-      CallToolRequestSchema,
-      ListToolsRequestSchema,
-      Tool
-    } from "@modelcontextprotocol/sdk/types.js";
-    import axios from "axios";
+    ```python
+    import asyncio
 
-    const apiKey = process.env.CLAWDOT_API_KEY;
-    const gatewayUrl = process.env.CLAWDOT_GATEWAY_URL;
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
 
-    class ClawdotMCP {
-      private server: Server;
+    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    API_KEY = "clw_your_api_key_here"            # Agent 身份，连接层请求头
+    CONSENT_GRANT_ID = "cg_..."                  # 用户授权，工具参数
 
-      constructor() {
-        this.server = new Server(
-          {
-            name: "clawdot-skills",
-            version: "1.0.0"
-          },
-          {
-            capabilities: {
-              tools: {}
-            }
-          }
-        );
+    async def main():
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
 
-        this.setupHandlers();
-      }
+                # 连上即可自动发现全部 18 个工具
+                tools = await session.list_tools()
+                print([t.name for t in tools.tools])
 
-      private setupHandlers() {
-        this.server.setRequestHandler(
-          ListToolsRequestSchema,
-          async () => ({
-            tools: [
-              {
-                name: "search_shops",
-                description: "搜索 / 浏览本地商家",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    consent_grant_id: { type: "string" },
-                    keyword: { type: "string" },
-                    address_id: { type: "string" },
-                    lat: { type: "number" },
-                    lng: { type: "number" }
-                  },
-                  required: ["consent_grant_id"]
-                }
-              },
-              {
-                name: "get_shop_menu",
-                description: "获取商家菜单（含可下单的 item_id / sku_id）",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    consent_grant_id: { type: "string" },
-                    shop_id: { type: "string" },
-                    cart_id: { type: "string" }
-                  },
-                  required: ["consent_grant_id", "shop_id", "cart_id"]
-                }
-              },
-              {
-                name: "create_order",
-                description: "用 preview_id + confirmation_token 正式下单",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    consent_grant_id: { type: "string" },
-                    preview_id: { type: "string" },
-                    confirmation_token: { type: "string" }
-                  },
-                  required: ["consent_grant_id", "preview_id", "confirmation_token"]
-                }
-              }
-            ]
-          })
-        );
+                # 用户授权作为工具参数传入，不走请求头
+                shops = await session.call_tool("search_shops", {
+                    "consent_grant_id": CONSENT_GRANT_ID,
+                    "keyword": "咖啡",
+                    "lat": 39.9836,   # GCJ-02 坐标；或改用 address_id
+                    "lng": 116.3164,
+                })
+                print(shops)   # 含 shops[]：shop_id、cart_id、next_offset?
 
-        this.server.setRequestHandler(
-          CallToolRequestSchema,
-          async (request) => {
-            const { name, arguments: args } = request.params;
-
-            switch (name) {
-              case "search_shops":
-                return await this.callGateway("/shops/search", args);
-              case "get_shop_menu":
-                return await this.callGateway("/shops/menu", args);
-              case "create_order":
-                return await this.callGateway("/orders/create", args);
-              default:
-                return { isError: true, content: [{ type: "text", text: "Unknown tool" }] };
-            }
-          }
-        );
-      }
-
-      // 把工具参数转发给对应 REST 端点：consent_grant_id 走 X-Consent-Grant-Id 头，
-      // 其余字段作为 JSON body。
-      private async callGateway(path: string, args: any) {
-        const { consent_grant_id, ...body } = args;
-        const response = await axios.post(
-          `${gatewayUrl}/api/v1${path}`,
-          body,
-          {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "X-Consent-Grant-Id": consent_grant_id,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
-      }
-
-      async start() {
-        const transport = new StdioServerTransport();
-        await this.server.connect(transport);
-      }
-    }
-
-    const mcp = new ClawdotMCP();
-    mcp.start();
+    asyncio.run(main())
     ```
   </Tab>
 
@@ -654,40 +560,43 @@ Cursor 集成方式与 Claude Desktop 基本相同，主要区别是使用场景
 
 ## 自建 Agent
 
-如果你的 Agent 平台未在上述列表中，可以使用 **REST API** 自行集成。
+如果你的 Agent 平台未在上述列表中，只要它支持 **MCP（Model Context Protocol）** 或通用工具调用，就能按 Gateway 的工具契约自行接入——和 Claude Desktop / Cursor 走的是同一条 MCP 通道，无需为外卖能力单独搭一套接口。
 
-### 使用 REST API 集成
+### 接入要点
 
-参考 [接入指南 - REST API](/skills/integration-guide#rest-api) 章节。
+1. **连接**：用任意 MCP 客户端，通过 Streamable HTTP 连到 `http://eleme-gateway.hicaspian.com/mcp/v1`。
+2. **Agent 身份**：在连接层请求头携带 `Authorization: Bearer clw_...`（在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建 Agent 时生成）。
+3. **用户授权**：每个业务工具调用都带 `consent_grant_id` 参数（`cg_` 前缀）；首次使用先走 `request_user_bind` / `verify_user_bind` 拿到它。
+4. **按链路调用工具**：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。所有跨步 ID 由网关签发、原样回传。
 
-**快速示例：**
+<Info>
+Gateway 已原生暴露 MCP 端点，绝大多数客户端**直接连接即可**，无需自行封装 HTTP。完整工具清单、参数与返回字段见 [MCP 概览](/mcp/overview)。
+</Info>
 
-```javascript
-const axios = require('axios');
+**快速示例（MCP 客户端调用工具）：**
 
-const CLAWDOT_API_KEY = process.env.CLAWDOT_API_KEY;
-const CONSENT_GRANT_ID = process.env.CONSENT_GRANT_ID; // 用户授权，cg_ 前缀
+```python
+# 任意 MCP 客户端均可，这里以官方 SDK 为例
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-async function searchShops(keyword, lat, lng) {
-  const response = await axios.post(
-    'http://eleme-gateway.hicaspian.com/api/v1/shops/search',
-    { keyword, lat, lng },   // GCJ-02 坐标；或改用 address_id
-    {
-      headers: {
-        'Authorization': `Bearer ${CLAWDOT_API_KEY}`,
-        'X-Consent-Grant-Id': CONSENT_GRANT_ID,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+API_KEY = "clw_your_api_key_here"            # Agent 身份，连接层请求头
+CONSENT_GRANT_ID = "cg_..."                  # 用户授权，工具参数
 
-  return response.data;
-}
-
-// 使用
-searchShops('生椰拿铁', 39.9836, 116.3164).then(data => {
-  console.log('搜索结果:', data.shops);
-});
+async def search_shops(keyword):
+    headers = {"Authorization": f"Bearer {API_KEY}"}
+    async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            # 用户授权作为工具参数传入，不走请求头
+            result = await session.call_tool("search_shops", {
+                "consent_grant_id": CONSENT_GRANT_ID,
+                "keyword": keyword,
+                "lat": 39.9836,   # GCJ-02 坐标；或改用 address_id
+                "lng": 116.3164,
+            })
+            return result   # 含 shops[]：shop_id、cart_id、next_offset?
 ```
 
 ---
@@ -718,14 +627,14 @@ searchShops('生椰拿铁', 39.9836, 116.3164).then(data => {
 
 ## 平台对比
 
-| 平台 | 集成方式 | 难度 | 企业级 | 开发者友好 | 社区活跃度 |
+| 平台 | 接入方式 | 难度 | 企业级 | 开发者友好 | 社区活跃度 |
 |------|---------|------|--------|-----------|----------|
-| 钉钉 | REST API / WebHook | 中 | ✓ | 高 | 高 |
-| Kimi | Function Calling | 低 | ✓ | 高 | 中 |
-| QCloud | REST API | 中 | ✓ | 中 | 中 |
-| Claude Desktop | MCP | 低 | - | 高 | 高 |
-| Cursor | MCP | 低 | - | 高 | 中 |
-| 自建 Agent | REST API | 中 | ✓ | 高 | - |
+| 钉钉 | 服务端编排 + MCP 工具调用 | 中 | ✓ | 高 | 高 |
+| Kimi | Function Calling + MCP 工具调用 | 低 | ✓ | 高 | 中 |
+| QCloud | 服务端编排 + MCP 工具调用 | 中 | ✓ | 中 | 中 |
+| Claude Desktop | MCP（原生） | 低 | - | 高 | 高 |
+| Cursor | MCP（原生） | 低 | - | 高 | 中 |
+| 自建 Agent | MCP / 工具调用 | 中 | ✓ | 高 | - |
 
 ---
 
@@ -735,9 +644,8 @@ searchShops('生椰拿铁', 39.9836, 116.3164).then(data => {
 <summary>我的 Agent 平台不在列表中怎么办？</summary>
 
 你可以：
-1. 使用 REST API 自行集成（参考 [接入指南](/skills/integration-guide)）
+1. 只要平台支持 MCP 或工具调用，按上文「自建 Agent」连接 `http://eleme-gateway.hicaspian.com/mcp/v1` 自行接入（参考 [接入指南](/skills/integration-guide)）
 2. 联系我们 support@clawdot.com，申请添加新的平台集成
-3. 贡献 MCP 服务器实现（开源项目）
 
 </details>
 
@@ -760,16 +668,14 @@ searchShops('生椰拿铁', 39.9836, 116.3164).then(data => {
 </details>
 
 <details>
-<summary>MCP 和 REST API 有什么区别？</summary>
+<summary>为什么统一用 MCP 接入？</summary>
 
-**MCP**：
-- 标准化协议，自动工具发现
-- 适合与大模型深度集成
-- 配置简单，无需自行处理 HTTP
+Gateway 对外只暴露一套 **MCP 工具契约**，所有平台（含自建 Agent）都走同一条通道：
 
-**REST API**：
-- 通用 HTTP 接口，完全控制
-- 适合自建应用和企业系统
-- 学习成本稍高，灵活性更强
+- **标准化协议，自动工具发现**：客户端连上即可拿到全部 18 个工具及其参数、返回字段，无需逐个对接口
+- **与大模型深度集成**：工具名、参数语义对模型友好，适合直接交给 Agent 自主编排下单链路
+- **配置简单**：Streamable HTTP 直连 `/mcp/v1`，Agent 身份走 `Authorization` 头、用户授权走 `consent_grant_id` 参数，无需自行封装底层调用
+
+完整工具清单见 [MCP 概览](/mcp/overview)。
 
 </details>

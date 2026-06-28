@@ -1,6 +1,6 @@
 ---
 title: "verify_user_bind"
-description: "MCP tool: complete user authorization and exchange for consent_grant_id / scopes / expires_at (maps to REST POST /auth/bind/verify)"
+description: "MCP tool: complete user authorization and exchange for consent_grant_id / scopes / expires_at"
 ---
 
 ## verify_user_bind
@@ -92,7 +92,7 @@ The parameters required differ depending on `auth_type`.
 | `SMS_CODE_INVALID` | Verification code invalid or expired (`sms` mode) |
 | `ELEME_USER_NOT_FOUND` | No bindable Taobao Instant / Ele.me account for this phone number |
 | `BINDING_LIMIT_REACHED` | This Agent has reached its binding quota |
-| `PUBLIC_REFERENCE_INVALID` | Invalid tool arguments, or a required field missing for the given `auth_type`: `auth_type` not `sms`/`h5`, missing `bind_id`/`code` in `sms` mode, or missing `request_id` in `h5` mode (MCP tool arguments have no `Literal` / model validation; the same invalid input returns 422 on REST) |
+| `PUBLIC_REFERENCE_INVALID` | Invalid tool arguments, or a required field missing for the given `auth_type`: `auth_type` not `sms`/`h5`, missing `bind_id`/`code` in `sms` mode, or missing `request_id` in `h5` mode (MCP tool arguments have no `Literal` / model validation; invalid input maps to `PUBLIC_REFERENCE_INVALID`) |
 | `ELEME_ERROR` | Taobao Instant / Ele.me upstream API error |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.

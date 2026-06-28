@@ -1,32 +1,43 @@
 ---
 title: "下单流程"
-description: "从搜索商家到免密签约的完整端到端下单链路，每步对应一个 MCP 工具 / REST 端点"
+description: "从搜索商家到免密签约的完整端到端下单链路，每步对应一个 MCP 工具"
 ---
 
-完成一笔订单是一条**有状态的链路**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。本页串起整条链路；每个端点的完整字段表见对应的 [API 参考](/api-reference/shops/search)。
+完成一笔订单是一条**有状态的链路**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。本页用 MCP 工具串起整条链路；每个工具的完整字段表见对应的 [工具参考](/mcp/shops/search)。
 
 <Note>
-  本页示例以 **MCP 工具** 为主（工具参数除 `consent_grant_id` 外与 REST body 一致）。每个工具一一对应一个 REST 端点，二者参数相同；REST 写法见各步骤末尾的链接与下方「认证」小节。
+  本页示例均为 **MCP 工具调用**：工具名 + JSON 参数，除绑定类工具外每个业务工具都带 `consent_grant_id` 参数（用户授权，`cg_` 前缀）。Agent 身份则在连接层用 `Authorization: Bearer clw_...` 请求头携带，见下方「认证」小节。
 </Note>
 
 ## 概览
 
-```mermaid
-flowchart TD
-  A["search_shops<br/>POST /shops/search"] -->|"shop_id + cart_id"| B["get_shop_menu<br/>POST /shops/menu"]
-  B -->|"item_id / sku_id"| C["quote_cart<br/>POST /cart/quote"]
-  C -->|"quote_id"| E["preview_order<br/>POST /orders/preview"]
-  D["select_address<br/>POST /addresses/select"] -->|"address_id"| E
-  E -->|"preview_id + confirmation_token"| F["create_order<br/>POST /orders/create"]
-  F -->|"order_id"| G["get_sign_action<br/>POST /payment/sign-action"]
+下单链路按固定顺序调用 7 个 MCP 工具：先 `search_shops` 选店、`get_shop_menu` 选品，再 `quote_cart` 算价、`select_address` 备好收货地址，然后 `preview_order` 预览拿到下单令牌、`create_order` 正式下单，最后 `get_sign_action` 完成免密签约。跨步 ID 由网关签发、原样回传。
 
-  style A fill:#fde8e4,stroke:#E8593C
-  style B fill:#fde8e4,stroke:#E8593C
-  style C fill:#fde8e4,stroke:#E8593C
-  style D fill:#fde8e4,stroke:#E8593C
-  style E fill:#fde8e4,stroke:#E8593C
-  style F fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-  style G fill:#fde8e4,stroke:#E8593C
+```mermaid
+sequenceDiagram
+    actor U as 用户
+    participant A as Agent（调用方）
+    participant G as Clawdot 网关
+    Note over A,G: 业务工具均带 consent_grant_id 参数
+    A->>G: search_shops(keyword?)
+    G-->>A: shops[]：shop_id, cart_id, next_offset?
+    A->>G: get_shop_menu(shop_id, cart_id, keyword?/limit?/offset?)
+    G-->>A: items[]：item_id, sku_id, ingredient_options, has_more
+    A->>G: quote_cart(shop_id, cart_id, items)
+    G-->>A: quote_id, can_checkout, payable_price
+    A->>G: select_address(address_id 或 suggestion_token)
+    G-->>A: address_id, display_name, lat, lng
+    A->>G: preview_order(shop_id, cart_id, address_id, items, quote_id?, coupon_ids?)
+    G-->>A: preview_id, confirmation_token, price, available_coupons[]
+    opt 用户选券后重算
+        U->>A: 选择优惠券
+        A->>G: preview_order(…, coupon_ids=[选中])
+        G-->>A: 新 preview_id, confirmation_token, selected_coupons
+    end
+    A->>G: create_order(preview_id, confirmation_token, callback_url?)
+    G-->>A: order_id, status, payment_action
+    A->>G: get_sign_action(order_id)
+    G-->>A: 免密签约动作（H5 链接）
 ```
 
 链路的 ID 传递关系：
@@ -61,10 +72,10 @@ search_shops(
 
 不传 `keyword` 为**浏览模式**，返回附近至多 20 家店铺（含距离、评分、配送费、起送价等决策字段）；传 `keyword` 为**精确搜索**（约 5 家），可传店名、品类或具体商品名，命中的店铺带 `matched_items` 预览。
 
-每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，下游接口因此免传经纬度。
+每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，下游工具因此免传经纬度。
 
 <Note>
-  完整字段见 [搜索店铺](/api-reference/shops/search)。`matched_items` 仅供展示、不带 ID；下单必须用 `get_shop_menu` 返回的 `item_id` / `sku_id`。
+  完整字段见 [搜索店铺](/mcp/shops/search)。`matched_items` 仅供展示、不带 ID；下单必须用 `get_shop_menu` 返回的 `item_id` / `sku_id`。
 </Note>
 
 ### 查看店铺菜单
@@ -82,7 +93,7 @@ get_shop_menu(
 返回菜单项，每项含可下单的 `item_id` / `sku_id`，以及规格 / 属性 / 加料的可选项 `ingredient_option_ids`。菜单可能很大（100+ 项），用 `keyword` 或 `limit`/`offset` 渐进披露。同一 `cart_id` 上早前取到的 ID 仍可用于下单。
 
 <Note>
-  规格 / 属性 / 加料体系说明见 [商品规格说明](/gateway/item-specs)；完整字段见 [店铺菜单](/api-reference/shops/detail)。
+  规格 / 属性 / 加料体系说明见 [商品规格说明](/gateway/item-specs)；完整字段见 [店铺菜单](/mcp/shops/detail)。
 </Note>
 
 ### 准备收货地址
@@ -103,7 +114,7 @@ select_address(
 `select_address` 返回该地址的 `address_id`，传给 `quote_cart` / `preview_order`。已有地址时，`search_addresses` 返回 `saved_addresses`（以及传了 `lat`/`lng` 时的 `nearest_address_id`），可直接复用其 `address_id`。
 
 <Note>
-  地址三件套：[搜索地址](/api-reference/addresses/search) · [选择/登记地址](/api-reference/addresses/select) · [更新地址](/api-reference/addresses/update)。
+  地址三件套：[搜索地址](/mcp/addresses/search) · [选择/登记地址](/mcp/addresses/select) · [更新地址](/mcp/addresses/update)。
 </Note>
 
 ### 购物车算价
@@ -118,10 +129,10 @@ quote_cart(
 )
 ```
 
-对选好的商品算价，返回 `quote_id`（报价上下文）与价格明细。`quote_id` 可传给 `preview_order` 以校验报价上下文。
+对选好的商品算价，返回 `quote_id`（报价上下文）、`can_checkout` 与 `payable_price` 等价格明细。`quote_id` 可传给 `preview_order` 以校验报价上下文。
 
 <Note>
-  完整字段见 [购物车算价](/api-reference/cart/quote)。
+  完整字段见 [购物车算价](/mcp/cart/quote)。
 </Note>
 
 ### 预览订单
@@ -139,10 +150,10 @@ preview_order(
 )
 ```
 
-校验店铺 / 地址 / 商品并应用优惠券，返回最终价格（`price.payable_price` 等，单位分），以及下单用的 `preview_id` + `confirmation_token`（同一次预览产出，须配对使用，有效期约 10 分钟）。
+校验店铺 / 地址 / 商品并应用优惠券，返回最终价格（`price.payable_price` 等，单位分）、当前订单可用的 `available_coupons[]`，以及下单用的 `preview_id` + `confirmation_token`（同一次预览产出，须配对使用，有效期约 10 分钟）。账户级可用券另见 `list_coupons`；当前订单实际可用券以本步返回的 `available_coupons` 为准——用户选券后用其 `coupon_id` 重新 `preview_order(coupon_ids=[…])` 即可重算。
 
 <Note>
-  完整字段与 `coupon_ids` 三态说明见 [预览订单](/api-reference/orders/preview)。
+  完整字段与 `coupon_ids` 三态说明见 [预览订单](/mcp/orders/preview)。
 </Note>
 
 ### 创建订单
@@ -160,7 +171,7 @@ create_order(
 用同一次预览的 `preview_id` + `confirmation_token` 正式下单，返回平台订单 `order_id`、`status` 与（需支付时的）`payment_action`。
 
 <Note>
-  本接口以 `confirmation_token` 为幂等键；同一令牌只能下一单，再次下单需重新预览取新令牌。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调；不传则自行轮询 `get_order_status`（`GET /orders/{order_id}`）。完整字段、`status` 与回调 `ispay` 枚举见 [创建订单](/api-reference/orders/create)。
+  本工具以 `confirmation_token` 为幂等键；同一令牌只能下一单，再次下单需重新预览取新令牌。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时回调（见下方「查询订单与支付结果」）；不传则自行轮询 `get_order_status`。完整字段、`status` 与回调 `ispay` 枚举见 [创建订单](/mcp/orders/create)。
 </Note>
 
 ### 免密签约
@@ -172,29 +183,46 @@ get_sign_action(
 )
 ```
 
-为用户发起免密支付签约，返回一个 `action`：`action_type` 为 `open_h5` 时，把用户引导到 `action.action_url`（H5 签约页）完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status`（`GET /payment/sign-status`）轮询结果。免密签约是免密支付类订单的前置条件。
+为用户发起免密支付签约，返回一个 `action`：`action_type` 为 `open_h5` 时，把用户引导到 `action.action_url`（H5 签约页）完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status` 轮询签约结果。免密签约是免密支付类订单的前置条件。
 
 <Note>
-  完整字段见 [发起免密签约](/api-reference/payment/sign-action)。
+  完整字段见 [发起免密签约](/mcp/payment/sign-action)。
 </Note>
 
 </Steps>
 
-## 查询订单
+## 查询订单与支付结果
+
+下单后用 `get_order_status` 主动查询订单当前状态与详情：
 
 ```python
 get_order_status(consent_grant_id="cg_...", order_id="ord_...")
 ```
 
-对应 `GET /orders/{order_id}`，返回订单状态与详情。详见 [查询订单](/api-reference/orders/get)。
+如果 `create_order` 时传了 `callback_url`，网关还会在订单脱离未支付态时主动 POST 一次支付结果回调（`event=order_payment`），无需一直轮询。两条路径如下：
+
+```mermaid
+sequenceDiagram
+    participant A as Agent（调用方）
+    participant G as Clawdot 网关
+    A->>G: get_order_status(order_id)
+    G-->>A: status, status_text, paid_at?, delivery?
+    opt 创建订单时已传 callback_url
+        G-->>A: POST callback_url(event=order_payment){order_id, ispay, status}
+    end
+```
+
+回调体含 6 个键：`event`、`order_id`、`ispay`、`status`、`status_text`、`consent_grant_id`。其中 `ispay` 枚举：`success`（进入已支付流水）、`closed`（取消或关闭）、`timeout`（约 15 分钟轮询窗超时仍未支付）、`unknown`（授权被撤销/轮换或订单引用失效）。
+
+<Note>
+  完整字段见 [查询订单](/mcp/orders/get)；`status` 与回调 `ispay` 枚举见 [创建订单](/mcp/orders/create)。
+</Note>
 
 ## 认证
 
-每一步都需要双层认证：
+每个工具调用都需要双层认证：
 
-- **API Key**（标识 Agent）：通过 `Authorization: Bearer clw_...` 请求头传递，MCP 与 REST 都一样。
-- **用户授权 consent grant**（标识已授权用户，`cg_` 前缀）：
-  - **MCP：** 作为每个工具的 `consent_grant_id` 参数传入（不是请求头）。
-  - **REST：** 通过 `X-Consent-Grant-Id` 请求头传递。
+- **Agent 身份（API Key）**：连接 MCP 时通过 `Authorization: Bearer clw_...` 请求头携带，每个请求都要带。在控制台 [`http://console.hicaspian.com/agents`](http://console.hicaspian.com/agents) 创建 Agent 时生成。
+- **用户授权 consent grant**（标识已授权用户，`cg_` 前缀）：作为每个业务工具的 `consent_grant_id` 参数传入（不走请求头）。绑定类工具 `request_user_bind` / `verify_user_bind` 例外——它们是拿授权的入口，本身不传 `consent_grant_id`。
 
 详见 [认证机制](/gateway/authentication)。错误统一返回 `{"error": {"code", "message"}}`，见 [错误处理](/gateway/error-handling)。

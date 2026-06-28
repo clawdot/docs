@@ -103,72 +103,33 @@ graph TB
   style User fill:#f9c4bc,stroke:#D14430,stroke-width:2px
 ```
 
-## 双协议入口
+## MCP 接入
 
-同一个 Clawdot Gateway 实例同时暴露两种协议，满足不同的接入需求。两种协议共用同一套能力：**18 个 MCP 工具与 18 个 REST 端点一一对应**，参数也一致（MCP 工具多一个 `consent_grant_id` 参数，REST 则走 `X-Consent-Grant-Id` 请求头）。
+Clawdot Gateway 对外以 **MCP（Model Context Protocol）** 暴露能力——这是为 Claude 等 AI 模型设计的 AI 原生调用方式。Super Agent 用 MCP 客户端（Streamable HTTP）连接公开端点 `http://eleme-gateway.hicaspian.com/mcp/v1`，每个请求在 HTTP 头携带 `Authorization: Bearer clw_...` 标识 Agent，用户授权则作为每个业务工具的 `consent_grant_id` 参数传入：
 
-<Tabs>
-  <Tab title="REST API">
-    标准 HTTP 接口，适合任何编程语言和框架。Agent 通过 HTTP 请求与 Gateway 通信：
+```
+# 商家搜索 / 浏览
+search_shops(consent_grant_id, keyword, address_id, lat, lng)
 
-    ```bash
-    # 搜索商家
-    POST /api/v1/shops/search \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"keyword": "瑞幸", "address_id": "addr_..."}'
+# 店铺菜单
+get_shop_menu(consent_grant_id, shop_id, cart_id)
 
-    # 获取店铺菜单
-    POST /api/v1/shops/menu \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"shop_id": "shop_...", "cart_id": "cart_..."}'
+# 地址管理
+search_addresses(consent_grant_id, keyword, lat, lng)   # 返回 saved_addresses + suggestions[].token
+select_address(consent_grant_id, suggestion_token, contact_name, contact_phone)
 
-    # 预览订单
-    POST /api/v1/orders/preview \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"shop_id": "...", "cart_id": "...", "address_id": "...", "items": [...]}'
+# 算价与下单
+quote_cart(consent_grant_id, shop_id, cart_id, address_id, items)
+preview_order(consent_grant_id, shop_id, cart_id, address_id, items)
+create_order(consent_grant_id, preview_id, confirmation_token)
+get_order_status(consent_grant_id, order_id)
+```
 
-    # 创建订单
-    POST /api/v1/orders/create \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..." \
-      -d '{"preview_id": "prv_...", "confirmation_token": "cf_..."}'
+工具的参数与返回值都按 AI 的调用习惯做了优化。完整工具清单见 [MCP 概览](/mcp/overview)。
 
-    # 查询订单
-    GET /api/v1/orders/{order_id} \
-      -H "Authorization: Bearer clw_..." \
-      -H "X-Consent-Grant-Id: cg_..."
-    ```
-
-    认证走两层：`Authorization: Bearer clw_...` 标识 Agent，`X-Consent-Grant-Id: cg_...` 标识已授权用户。详见 [认证机制](/gateway/authentication)。
-  </Tab>
-
-  <Tab title="MCP Protocol">
-    Model Context Protocol 是 AI 原生的调用方式，专为 Claude 等 AI 模型设计。Super Agent 通过 MCP 公开端点 `/mcp/v1` 直接调用工具（`Authorization: Bearer clw_...` 走 HTTP 头，用户授权走每个工具的 `consent_grant_id` 参数）：
-
-    ```
-    # 商家搜索 / 浏览
-    search_shops(consent_grant_id, keyword, address_id, lat, lng)
-
-    # 店铺菜单
-    get_shop_menu(consent_grant_id, shop_id, cart_id)
-
-    # 地址管理
-    search_addresses(consent_grant_id, keyword, lat, lng)   # 返回 saved_addresses + suggestions[].token
-    select_address(consent_grant_id, suggestion_token, contact_name, contact_phone)
-
-    # 算价与下单
-    quote_cart(consent_grant_id, shop_id, cart_id, address_id, items)
-    preview_order(consent_grant_id, shop_id, cart_id, address_id, items)
-    create_order(consent_grant_id, preview_id, confirmation_token)
-    get_order_status(consent_grant_id, order_id)
-    ```
-
-    MCP 工具更符合 AI 的思维方式，参数和返回值都经过优化，用户体验更流畅。完整工具清单见 [MCP 概览](/mcp/overview)。
-  </Tab>
-</Tabs>
+<Note>
+  MCP 工具与底层是同一套网关服务层，对外只通过 MCP 接口提供。
+</Note>
 
 ## 工作流程细节
 
@@ -217,7 +178,7 @@ graph TB
   </Accordion>
 
   <Accordion title="订单追踪阶段" icon="truck">
-    下单后，Agent 可以调用 `get_order_status`（`GET /orders/{order_id}`）查询订单状态：
+    下单后，Agent 可以调用 `get_order_status` 查询订单状态：
     - 等待商家接单
     - 商家正在打单
     - 骑手已取餐

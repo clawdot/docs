@@ -1,38 +1,42 @@
 ---
 title: "Authentication"
-description: "API Key identifies the Agent; a consent grant identifies the authorized user"
+description: "An API Key identifies the Agent; consent_grant_id identifies the authorized user"
 ---
 
-Clawdot Gateway uses dual-layer authentication: an **API Key** identifies the Agent, and a **consent grant** identifies the authorized food-delivery user.
+Clawdot Gateway exposes its capabilities over MCP, with two authentication layers:
+
+- **Agent identity** — the connection-layer header `Authorization: Bearer clw_...` identifies the calling Agent. Required on every MCP request.
+- **User authorization** — the `consent_grant_id` parameter (`cg_` prefix) on business tools identifies "a food-delivery user has authorized this Agent." It is a **tool parameter**, not a header.
 
 ## Authentication chain
 
 ```mermaid
 flowchart LR
-  A["Request"] --> B["Verify API Key"]
+  A["MCP request"] --> B["Verify API Key<br/>(Bearer clw_...)"]
   B --> C{"API Key valid?"}
   C -- No --> E["401 AUTH_INVALID"]
   C -- Yes --> D["agent_id"]
-  D --> F{"Endpoint needs<br/>user authorization?"}
-  F -- No --> Z["Pass<br/>(binding endpoints)"]
+  D --> F{"Tool needs<br/>user authorization?"}
+  F -- No --> Z["Pass<br/>(binding tools)"]
   F -- Yes --> G["Verify consent_grant_id<br/>+ capability binding"]
   G -- Invalid/expired --> H["401 CONSENT_GRANT_INVALID"]
   G -- Capability not enabled --> I["403 CAP_NOT_BOUND"]
   G -- Valid --> J["(agent_id, authorized user)"]
 ```
 
-Different endpoints require different authentication levels:
+Different tools require different authentication levels:
 
-| Endpoint | API Key | Consent grant |
+| Tool | API Key | consent_grant_id param |
 |---|---|---|
-| `POST /api/v1/auth/bind/request` · `bind/verify` | Required | Not required (this is how you obtain a grant) |
-| `GET /api/v1/auth/status` | Required | Required |
-| `POST /api/v1/auth/unbind` · `auth/homepage-url` | Required | Required |
-| `/api/v1/addresses/*` · `/shops/*` · `/cart/*` | Required | Required |
-| `/api/v1/orders/*` · `/payment/*` | Required | Required |
+| `request_user_bind` · `verify_user_bind` | Required | Not required (this is how you obtain a grant) |
+| `get_user_auth_status` · `revoke_user_bind` · `get_homepage_url` | Required | Required |
+| `search_shops` · `get_shop_menu` · `get_shop_share_url` | Required | Required |
+| `search_addresses` · `select_address` · `update_address` | Required | Required |
+| `quote_cart` · `list_coupons` · `preview_order` · `create_order` · `get_order_status` | Required | Required |
+| `get_sign_action` · `get_sign_status` | Required | Required |
 
 <Note>
-  MCP tools do not use the `X-Consent-Grant-Id` header — pass `consent_grant_id` as a parameter in each tool call instead.
+  The binding tools (`request_user_bind` / `verify_user_bind`) are how you obtain a grant, so they take no `consent_grant_id`. Once authorization succeeds, every other business tool call must include the `consent_grant_id` parameter.
 </Note>
 
 ## API Key
@@ -41,7 +45,7 @@ Different endpoints require different authentication levels:
   <Accordion title="Format and transport" icon="key">
     A `clw_` prefix followed by random characters, e.g. `clw_a1b2c3d4...`.
 
-    Passed via the `Authorization: Bearer clw_...` header; required on every `/api/v1/*` and MCP request. Generated when you create an Agent in the Portal.
+    Passed via the connection-layer header `Authorization: Bearer clw_...`, required on every MCP request. Generated when you create an Agent in the console at `http://console.hicaspian.com/agents`.
   </Accordion>
 
   <Accordion title="Security" icon="shield">
@@ -49,23 +53,63 @@ Different endpoints require different authentication levels:
   </Accordion>
 </AccordionGroup>
 
-## Consent grant
+## User authorization (consent_grant_id)
 
-Represents "a food-delivery user has authorized a specific Agent to use a specific capability."
+Represents "a food-delivery user has authorized a specific Agent to use a specific capability." Once authorization succeeds, a `consent_grant_id` is minted, and from then on **every business tool call passes it as a parameter**.
+
+### Binding flow
+
+Run the binding flow to obtain a `consent_grant_id`; SMS code and H5 modes are both supported:
+
+1. `request_user_bind` to start binding (SMS sends a code; H5 returns an authorization link — Agent identity only, no `consent_grant_id`)
+2. `verify_user_bind` to confirm — mints the `consent_grant_id` on success
+
+See [Start binding](/mcp/user/bind-request) and [Verify binding](/mcp/user/bind-verify).
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant A as Agent (caller)
+    participant G as Clawdot Gateway
+    Note over A,G: API Key identifies the Agent at the connection layer; binding tools take no consent_grant_id
+    alt SMS verification code
+        A->>G: request_user_bind(phone, auth_type=sms)
+        G-->>A: bind_id, expires_in, masked_phone
+        G-->>U: send SMS code
+        U->>A: enter code
+        A->>G: verify_user_bind(bind_id, code)
+        G-->>A: bound=true, consent_grant_id, scopes, expires_at
+    else H5 authorization
+        A->>G: request_user_bind(phone, auth_type=h5, callback_url?, extra?)
+        G-->>A: request_id, h5_url, expires_in=300, callback_registered
+        A->>U: show h5_url
+        U->>U: open h5_url and authorize
+        loop poll until done
+            A->>G: verify_user_bind(auth_type=h5, request_id)
+            G-->>A: bound / pending (consent_grant_id on success)
+        end
+        opt callback_url provided
+            G-->>A: POST callback_url(event=user_bind){bound, consent_grant_id, scopes}
+        end
+    end
+    Note over A: every business tool call afterwards carries consent_grant_id
+```
 
 <AccordionGroup>
-  <Accordion title="How to obtain" icon="mobile">
-    Obtained through the binding flow (SMS code or H5 mode):
-
-    1. `POST /api/v1/auth/bind/request` to start authorization (SMS sends a code; H5 returns an authorization link)
-    2. `POST /api/v1/auth/bind/verify` to confirm — returns `consent_grant_id` on success
-
-    See [Start binding](/api-reference/user/bind-request) and [Verify binding](/api-reference/user/bind-verify).
-  </Accordion>
-
   <Accordion title="How to pass" icon="arrow-right">
-    - **REST API:** via the `X-Consent-Grant-Id: <consent_grant_id>` header (except binding endpoints). The `consent_grant_id` goes in the header only — never in the JSON body.
-    - **MCP:** as the `consent_grant_id` parameter on each tool call.
+    Pass `consent_grant_id` as a parameter on each business tool, for example:
+
+    ```json
+    {
+      "name": "search_shops",
+      "arguments": {
+        "consent_grant_id": "cg_...",
+        "keyword": "coffee"
+      }
+    }
+    ```
+
+    The binding tools `request_user_bind` / `verify_user_bind` are the exception — they take no `consent_grant_id`.
   </Accordion>
 
   <Accordion title="Scope and expiry" icon="clock">
@@ -75,7 +119,7 @@ Represents "a food-delivery user has authorized a specific Agent to use a specif
     - `scopes` — granted capability scope, e.g. `["taobao_flash.delivery"]`
     - `expires_at` — expiry time (ISO 8601)
 
-    After expiry, or after `revoke_user_bind` (`POST /api/v1/auth/unbind`), the `consent_grant_id` stops working on all endpoints immediately; re-run the binding flow to get a new one. The user's saved data (addresses, etc.) is retained and becomes available again after re-authorization.
+    After expiry, or after `revoke_user_bind`, the `consent_grant_id` stops working immediately; re-run the binding flow to get a new one. The user's saved data (addresses, etc.) is retained and becomes available again after re-authorization.
   </Accordion>
 </AccordionGroup>
 

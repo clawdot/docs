@@ -1,6 +1,6 @@
 ---
 title: "request_user_bind"
-description: "MCP tool request_user_bind — start a user consent binding (sms sends a code / h5 returns an auth link), maps to REST POST /auth/bind/request"
+description: "MCP tool request_user_bind — start a user consent binding (sms sends a code / h5 returns an auth link)"
 ---
 
 ## request_user_bind
@@ -46,7 +46,7 @@ The return shape depends on `auth_type`.
 {
   "auth_type": "h5",
   "request_id": "h5b_4f2a...",
-  "h5_url": "https://s.clawdot.ai/abc123",
+  "h5_url": "https://auth.example.com/abc123",
   "expires_in": 300,
   "masked_phone": "138****8000",
   "callback_registered": false,
@@ -70,7 +70,7 @@ The return shape depends on `auth_type`.
 |------|-------------|
 | `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API Key |
 | `CAP_NOT_BOUND` | The Agent is not provisioned for the delivery capability |
-| `PUBLIC_REFERENCE_INVALID` | `auth_type` not sms/h5, `callback_url` passed in `sms` mode, invalid `callback_url` (non-http(s) or private host), or `extra` not a JSON object / over 2KB. MCP tool arguments have no model validation, so an invalid parameter type (e.g. `auth_type` not in the enum) also maps to this code (the same invalid input returns 422 on REST) |
+| `PUBLIC_REFERENCE_INVALID` | `auth_type` not sms/h5, `callback_url` passed in `sms` mode, invalid `callback_url` (non-http(s) or private host), or `extra` not a JSON object / over 2KB. MCP tool arguments have no Literal/model validation, so invalid input maps to `PUBLIC_REFERENCE_INVALID` (e.g. `auth_type` not in the enum) |
 | `SMS_COOLDOWN` | Verification code is in a 60-second cooldown (`sms` mode only) |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.

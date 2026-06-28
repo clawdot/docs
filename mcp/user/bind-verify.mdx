@@ -1,6 +1,6 @@
 ---
 title: "verify_user_bind"
-description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / scopes / expires_at（对应 REST POST /auth/bind/verify）"
+description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / scopes / expires_at"
 ---
 
 ## verify_user_bind
@@ -92,7 +92,7 @@ description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / 
 | `SMS_CODE_INVALID` | `sms` 模式验证码无效或已过期 |
 | `ELEME_USER_NOT_FOUND` | 该手机号无可绑定的淘宝闪购 / 饿了么账号 |
 | `BINDING_LIMIT_REACHED` | 当前 Agent 已达可绑定用户数上限 |
-| `PUBLIC_REFERENCE_INVALID` | 工具参数不合法或按 `auth_type` 缺必填字段：`auth_type` 非 `sms`/`h5`、`sms` 模式缺 `bind_id`/`code`、`h5` 模式缺 `request_id`（MCP 工具参数无 `Literal` / 模型校验；同样的非法输入在 REST 端返回 422）|
+| `PUBLIC_REFERENCE_INVALID` | 工具参数不合法或按 `auth_type` 缺必填字段：`auth_type` 非 `sms`/`h5`、`sms` 模式缺 `bind_id`/`code`、`h5` 模式缺 `request_id`（MCP 工具参数无 `Literal` / 模型校验，非法输入归到 `PUBLIC_REFERENCE_INVALID`）|
 | `ELEME_ERROR` | 淘宝闪购 / 饿了么上游 API 错误 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。

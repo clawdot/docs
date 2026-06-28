@@ -9,7 +9,7 @@ Food delivery ordering is the first deployed scenario for Super Agent and the mo
 
 ## Capability Matrix
 
-Super Agent's core capabilities in food delivery scenarios (each capability maps one-to-one to an MCP tool / REST endpoint — 18 tools and 18 endpoints in total):
+Super Agent's core capabilities in food delivery scenarios (each capability corresponds to one MCP tool — 18 tools in total):
 
 | Capability | Description | MCP Tool |
 |------|------|--------|
@@ -264,5 +264,5 @@ graph LR
 - [MCP Tools Overview](/en/mcp/overview) — the 18-tool contract
 
 <Note>
-  Authentication is two-layered: `Authorization: Bearer clw_...` identifies the Agent; the user authorization (a `cg_`-prefixed consent grant) is passed as the `consent_grant_id` argument in MCP tools, and via the `X-Consent-Grant-Id` header in REST. The public MCP endpoint is `/mcp/v1`. Creating an Agent and issuing API Keys is done in the [Portal](http://console.hicaspian.com/agents).
+  Authentication is two-layered: `Authorization: Bearer clw_...` identifies the Agent; the user authorization (a `cg_`-prefixed consent grant) is passed as the `consent_grant_id` argument in MCP tools. The public MCP endpoint is `/mcp/v1`. Creating an Agent and issuing API Keys is done in the [Portal](http://console.hicaspian.com/agents).
 </Note>

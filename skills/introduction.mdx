@@ -90,8 +90,8 @@ Skills 的设计遵循三层分离的原则：
 
 Skills 采用 **双层认证**：**API Key** 标识 Agent 身份，**用户授权（consent grant）** 标识已授权的外卖用户。Agent 持有自己的 API Key，再为每个用户走绑定流程拿到一个 `consent_grant_id`（`cg_` 前缀），二者配合即可代表该用户操作。每个授权独立、可随时撤销，天然形成安全隔离，无需复杂的权限管理系统。
 
-- **API Key（Agent 身份）：** 通过 `Authorization: Bearer clw_...` 请求头传递，MCP 与 REST 都一样；在 Portal 创建 Agent 时生成。
-- **用户授权（consent grant）：** REST 通过 `X-Consent-Grant-Id` 请求头传递；MCP 作为每个工具的 `consent_grant_id` 参数传入（不走请求头）。
+- **API Key（Agent 身份）：** 在连接层通过 `Authorization: Bearer clw_...` 请求头传递；在[控制台](http://console.hicaspian.com/agents)创建 Agent 时生成。
+- **用户授权（consent grant）：** 作为每个 MCP 工具的 `consent_grant_id` 参数传入（`cg_` 前缀，不走请求头）。
 
 适用于：个人助手、桌面端 Agent（Claude Desktop、Cursor 等）、各类 Agent 平台集成。完整说明见 [认证机制](/gateway/authentication)。
 
@@ -104,13 +104,13 @@ Skills 的平台适配层让同一个 Skill 可以运行在多种 Agent 环境�
 | **Claude Code** | Python 脚本 + SKILL.md 指令 | 桌面端开发者、个人 Agent |
 | **OpenClaw** | Tool SDK + camelCase 参数 | 开放平台集成 |
 | **Codex** | Python 脚本 + AGENTS.md | OpenAI Codex Agent |
-| **自建 Agent** | REST API 直接调用 | 钉钉、Kimi、QCloud 等任意平台 |
+| **自建 Agent** | 直接连 MCP 工具契约 | 钉钉、Kimi、QCloud 等任意平台 |
 
 ## 已开放的 Skills
 
 <CardGroup cols={2}>
   <Card title="接入指南" href="/skills/integration-guide" icon="code">
-    选择适合你的接入方式（MCP / REST / Function Calling），快速接入。
+    按 MCP 工具契约接入，快速连上 18 个工具。
   </Card>
 
   <Card title="构建 Agent" href="/skills/building-agents" icon="hammer">
