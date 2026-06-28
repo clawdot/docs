@@ -36,7 +36,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 </Warning>
 
 <Note>
-  **Ingredients are per-SKU.** Ingredients are bound to a specific SKU — which ingredients are available, and their internal IDs, can differ per SKU (e.g. cup size). The top-level `items[].ingredient_options` belongs to the **default SKU**; for any other SKU, use the `option_id`s under that SKU's `items[].sku_options[].ingredient_options`. If you reuse a default-SKU `option_id` on a non-default SKU, the gateway maps it to that SKU's matching ingredient by (group name + option name); an ingredient that doesn't exist on the chosen SKU is rejected at `quote_cart` / `preview_order` (not at `create_order`).
+  **Ingredients are per-SKU.** Ingredients are bound to a specific SKU — which ingredients are available, and their internal IDs, can differ per SKU (e.g. cup size). For multi-SKU items, **every SKU (including the default) carries its own `items[].sku_options[].ingredient_options`** — read the chosen SKU's `option_id`s from there. The top-level `items[].ingredient_options` is the default SKU's set (same `option_id`s, kept for backward compatibility); a **single-SKU item** (no `sku_options`) also carries its ingredients there. If you use one SKU's `option_id` on another SKU, the gateway maps it by (group name + option name); an ingredient that doesn't exist on the chosen SKU is rejected at `quote_cart` / `preview_order` (not at `create_order`).
 </Note>
 
 | Field | Type | Description |
@@ -63,8 +63,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].sku_options[].name` | string | SKU name (e.g. "Large") |
 | `items[].sku_options[].price` | integer | Price for this SKU (cents) |
 | `items[].sku_options[].available` | boolean | Whether this SKU is selectable |
-| `items[].sku_options[].ingredient_options` | array | This SKU's **own** ingredient/option choices (same fields as `items[].ingredient_options`); **returned for non-default SKUs only**. Ingredients vary by SKU (e.g. different cup sizes allow different "temperature"); use these `option_id`s when ordering this SKU. |
-| `items[].ingredient_options` | array | Ingredient / option choices (e.g. temperature, sugar) for the **default SKU**; for other SKUs see `items[].sku_options[].ingredient_options` |
+| `items[].sku_options[].ingredient_options` | array | This SKU's ingredient/option choices (same fields as `items[].ingredient_options`). **Returned for every SKU** (including the default — its set shares the SAME `option_id`s as the top-level `items[].ingredient_options`). Ingredients vary by SKU (e.g. different cup sizes allow different "temperature"); use these `option_id`s when ordering this SKU. |
+| `items[].ingredient_options` | array | Ingredient / option choices (e.g. temperature, sugar) = the **default SKU**'s set (same `option_id`s as that SKU's `sku_options[].ingredient_options`); also where a **single-SKU item** (no `sku_options`) carries its ingredients. For multi-SKU items, prefer reading from `sku_options[].ingredient_options` |
 | `items[].ingredient_options[].option_id` | string | Option ID (`opt_`), passed back as-is to the order `items[].ingredient_option_ids` |
 | `items[].ingredient_options[].group_name` | string | Option group name (e.g. "Sugar") |
 | `items[].ingredient_options[].name` | string | Option name (e.g. "Standard") |

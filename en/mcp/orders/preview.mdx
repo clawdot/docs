@@ -24,7 +24,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | `items[].item_id` | string | Yes | — | Item ID (from `get_shop_menu`) |
 | `items[].sku_id` | string | No | `null` | SKU ID |
 | `items[].quantity` | integer | Yes | — | Quantity, ≥ 1 |
-| `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options; for a non-default SKU use that SKU's `sku_options[].ingredient_options`) |
+| `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options; for a multi-SKU item use the chosen SKU's `sku_options[].ingredient_options`) |
 | `items[].remark` | string | No | `""` | Per-item note |
 | `coupon_ids` | string[] \| null | No | `null` | Coupon selection, three states below |
 | `order_remark` | string | No | `""` | Order note (for the rider) |

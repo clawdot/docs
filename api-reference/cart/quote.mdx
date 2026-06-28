@@ -47,7 +47,7 @@ description: "POST /cart/quote — 对已选商品的购物车算价，返回价
 | `items[].item_id` | string | 是 | — | 商品 ID（来自 `/shops/menu`）|
 | `items[].sku_id` | string | 否 | `null` | SKU ID（来自菜单项的可选 SKU）|
 | `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
-| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项；非默认规格用该规格 `sku_options[].ingredient_options` 的 option_id）|
+| `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项；多规格商品用所选规格 `sku_options[].ingredient_options` 的 option_id）|
 | `items[].remark` | string | 否 | `""` | 单品备注 |
 
 <Warning>

@@ -36,7 +36,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 </Warning>
 
 <Note>
-  **配料按规格区分。** 配料与具体规格（SKU）绑定——不同杯型可选的配料及其内部标识可能不同。顶层 `items[].ingredient_options` 对应**默认规格**；选其他规格时请使用该规格 `items[].sku_options[].ingredient_options` 里的 `option_id`。若沿用默认规格的 `option_id` 下非默认规格，网关会按「组名 + 选项名」自动映射到该规格的对应配料；该规格不存在的配料会在 `quote_cart` / `preview_order` 阶段报错（而非到 `create_order` 才失败）。
+  **配料按规格区分。** 配料与具体规格（SKU）绑定——不同杯型可选的配料及其内部标识可能不同。多规格商品**每个规格（含默认）都在 `items[].sku_options[].ingredient_options` 带自己的配料**，下单统一从这里取该规格的 `option_id`；顶层 `items[].ingredient_options` 是默认规格那份（同一组 `option_id`、向后兼容），**单规格商品**（无 `sku_options`）的配料也在顶层。若把某规格的 `option_id` 用到另一个规格，网关会按「组名 + 选项名」自动映射；该规格不存在的配料会在 `quote_cart` / `preview_order` 阶段报错（而非到 `create_order` 才失败）。
 </Note>
 
 | 字段 | 类型 | 说明 |
@@ -63,8 +63,8 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].sku_options[].name` | string | 规格名（如「大杯」）|
 | `items[].sku_options[].price` | integer | 该规格价（分）|
 | `items[].sku_options[].available` | boolean | 该规格是否可选 |
-| `items[].sku_options[].ingredient_options` | array | 该规格**专属**的配料/做法选项（字段同 `items[].ingredient_options`）；**仅非默认规格返回**。配料随规格而变（如不同杯型可选「温度」不同），下单选该规格时用此处的 `option_id`。|
-| `items[].ingredient_options` | array | 配料 / 做法选项（如温度、糖度），对应**默认规格**；非默认规格见 `items[].sku_options[].ingredient_options` |
+| `items[].sku_options[].ingredient_options` | array | 该规格的配料/做法选项（字段同 `items[].ingredient_options`）。**每个规格都返回**（含默认规格——默认规格这份与顶层 `items[].ingredient_options` 是同一组 `option_id`）。配料随规格而变（如不同杯型可选「温度」不同），下单选该规格时用此处的 `option_id`。|
+| `items[].ingredient_options` | array | 配料 / 做法选项（如温度、糖度）= **默认规格**那份（与默认规格的 `sku_options[].ingredient_options` 同一组 `option_id`）；**单规格商品**（无 `sku_options`）的配料也在此。多规格商品建议统一从 `sku_options[].ingredient_options` 读 |
 | `items[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），原样回传到下单的 `items[].ingredient_option_ids` |
 | `items[].ingredient_options[].group_name` | string | 选项组名（如「糖度」）|
 | `items[].ingredient_options[].name` | string | 选项名（如「标准糖」）|
