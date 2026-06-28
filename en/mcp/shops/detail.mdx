@@ -35,6 +35,10 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
   All amount fields (`price` / `original_price` / `price_delta`) are in **cents (integer)**, not yuan. e.g. `price: 1600` means ¥16.00.
 </Warning>
 
+<Note>
+  **Ingredients are per-SKU.** Ingredients are bound to a specific SKU — which ingredients are available, and their internal IDs, can differ per SKU (e.g. cup size). The top-level `items[].ingredient_options` belongs to the **default SKU**; for any other SKU, use the `option_id`s under that SKU's `items[].sku_options[].ingredient_options`. If you reuse a default-SKU `option_id` on a non-default SKU, the gateway maps it to that SKU's matching ingredient by (group name + option name); an ingredient that doesn't exist on the chosen SKU is rejected at `quote_cart` / `preview_order` (not at `create_order`).
+</Note>
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `shop.shop_id` | string | Shop ID (echoes the request `shop_id`) |
@@ -59,7 +63,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].sku_options[].name` | string | SKU name (e.g. "Large") |
 | `items[].sku_options[].price` | integer | Price for this SKU (cents) |
 | `items[].sku_options[].available` | boolean | Whether this SKU is selectable |
-| `items[].ingredient_options` | array | Ingredient / option choices (e.g. temperature, sugar) |
+| `items[].sku_options[].ingredient_options` | array | This SKU's **own** ingredient/option choices (same fields as `items[].ingredient_options`); **returned for non-default SKUs only**. Ingredients vary by SKU (e.g. different cup sizes allow different "temperature"); use these `option_id`s when ordering this SKU. |
+| `items[].ingredient_options` | array | Ingredient / option choices (e.g. temperature, sugar) for the **default SKU**; for other SKUs see `items[].sku_options[].ingredient_options` |
 | `items[].ingredient_options[].option_id` | string | Option ID (`opt_`), passed back as-is to the order `items[].ingredient_option_ids` |
 | `items[].ingredient_options[].group_name` | string | Option group name (e.g. "Sugar") |
 | `items[].ingredient_options[].name` | string | Option name (e.g. "Standard") |
