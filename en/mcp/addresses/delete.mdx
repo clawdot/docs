@@ -1,0 +1,59 @@
+---
+title: "delete_address"
+description: "MCP tool delete_address — delete a saved address"
+---
+
+## delete_address
+
+Deletes one of the user's saved addresses. Once deleted, the `address_id` is immediately invalid and no longer appears in the saved list from `search_addresses`.
+
+<Note>
+  **Address flow**: `search_addresses` to find a place → suggestion `token` → `select_address` to save the address → `address_id` → `update_address` to edit → **`delete_address`** to remove a saved address.
+</Note>
+
+<Note>
+  **Only deletes the consenting user's own address; others are unaffected.** `address_id` is scoped to the consenting user, so a delete only removes this user's saved record. The upstream delivery address book is shared by phone number (one phone == one Eleme account); the gateway reclaims the upstream address only when **no record still references it**, so deleting never removes an upstream address that is still used elsewhere on the same account.
+</Note>
+
+<Note>
+  **Does not affect placed orders.** An order records its delivery address at checkout time, so deleting a saved address only affects *future* orders that would reuse this `address_id`, not orders already submitted.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `address_id` | string | Yes | — | ID of the saved address to delete; use the `address_id` returned by `select_address` / `search_addresses` as-is |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `address_id` | string | The deleted gateway address ID (`addr_` prefix); echoes the input |
+| `deleted` | boolean | Always `true` on success (when the address is missing / not owned by the user, an error is returned instead of this object) |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid, expired, not owned by the consenting user, or already deleted |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "delete_address",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "address_id": "<from select_address / search_addresses>"
+  }
+}
+```

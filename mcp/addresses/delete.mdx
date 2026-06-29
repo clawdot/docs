@@ -1,0 +1,59 @@
+---
+title: "delete_address"
+description: "MCP 工具 delete_address — 删除一个已保存地址"
+---
+
+## delete_address
+
+删除用户某个已保存地址。删除后该 `address_id` 立即失效，不再出现在 `search_addresses` 的已保存列表中。
+
+<Note>
+  **地址链路**：`search_addresses` 搜地点得到建议的 `token` → `select_address` 保存地址得到 `address_id` → `update_address` 编辑 → **`delete_address`** 删除已保存地址。
+</Note>
+
+<Note>
+  **只删当前授权用户自己的地址，不影响他人**。`address_id` 按授权用户隔离，删除只会移除当前用户名下的这条保存记录。上游配送地址簿按手机号共享（一个手机号 = 一个饿了么账户），网关仅在该地址**不再被任何记录引用**时才回收上游地址，因此删除不会破坏同账户其它用途仍在使用的配送地址。
+</Note>
+
+<Note>
+  **不影响已下订单**。订单在下单时已记录配送地址，删除已保存地址只影响「之后再用这个 `address_id` 下单」，不影响已经提交的订单。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `address_id` | string | 是 | — | 要删除的已保存地址 ID，原样使用 `select_address` / `search_addresses` 返回的 `address_id` |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `address_id` | string | 被删除的网关地址 ID（`addr_` 前缀），即入参原值 |
+| `deleted` | boolean | 恒为 `true`，表示删除成功（地址不存在 / 不属于当前用户时不返回此结构，而是报错）|
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `PUBLIC_REFERENCE_INVALID` | `address_id` 无效、过期、不属于当前授权用户，或已被删除 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "delete_address",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "address_id": "<来自 select_address / search_addresses>"
+  }
+}
+```

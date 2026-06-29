@@ -117,7 +117,8 @@
                                 "pages": [
                                     "mcp/addresses/search",
                                     "mcp/addresses/select",
-                                    "mcp/addresses/update"
+                                    "mcp/addresses/update",
+                                    "mcp/addresses/delete"
                                 ]
                             },
                             {
@@ -236,7 +237,8 @@
                                 "pages": [
                                     "en/mcp/addresses/search",
                                     "en/mcp/addresses/select",
-                                    "en/mcp/addresses/update"
+                                    "en/mcp/addresses/update",
+                                    "en/mcp/addresses/delete"
                                 ]
                             },
                             {
