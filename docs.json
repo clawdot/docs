@@ -69,9 +69,8 @@
                                 ]
                             },
                             {
-                                "group": "接入指南",
+                                "group": "平台",
                                 "pages": [
-                                    "skills/building-agents",
                                     "skills/supported-platforms"
                                 ]
                             }
@@ -87,9 +86,15 @@
                                 ]
                             },
                             {
-                                "group": "指南",
+                                "group": "接入",
                                 "pages": [
                                     "skills/integration-guide",
+                                    "skills/building-agents"
+                                ]
+                            },
+                            {
+                                "group": "指南",
+                                "pages": [
                                     "gateway/authentication",
                                     "gateway/order-flow"
                                 ]
@@ -189,9 +194,8 @@
                                 ]
                             },
                             {
-                                "group": "Integration Guide",
+                                "group": "Platforms",
                                 "pages": [
-                                    "en/skills/building-agents",
                                     "en/skills/supported-platforms"
                                 ]
                             }
@@ -207,9 +211,15 @@
                                 ]
                             },
                             {
-                                "group": "Guides",
+                                "group": "Integration",
                                 "pages": [
                                     "en/skills/integration-guide",
+                                    "en/skills/building-agents"
+                                ]
+                            },
+                            {
+                                "group": "Guides",
+                                "pages": [
                                     "en/gateway/authentication",
                                     "en/gateway/order-flow"
                                 ]
