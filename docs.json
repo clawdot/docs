@@ -71,7 +71,6 @@
                             {
                                 "group": "接入指南",
                                 "pages": [
-                                    "skills/integration-guide",
                                     "skills/building-agents",
                                     "skills/supported-platforms"
                                 ]
@@ -90,6 +89,7 @@
                             {
                                 "group": "指南",
                                 "pages": [
+                                    "skills/integration-guide",
                                     "gateway/authentication",
                                     "gateway/order-flow"
                                 ]
@@ -191,7 +191,6 @@
                             {
                                 "group": "Integration Guide",
                                 "pages": [
-                                    "en/skills/integration-guide",
                                     "en/skills/building-agents",
                                     "en/skills/supported-platforms"
                                 ]
@@ -210,6 +209,7 @@
                             {
                                 "group": "Guides",
                                 "pages": [
+                                    "en/skills/integration-guide",
                                     "en/gateway/authentication",
                                     "en/gateway/order-flow"
                                 ]

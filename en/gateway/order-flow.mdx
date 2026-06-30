@@ -1,6 +1,6 @@
 ---
 title: "Order Flow"
-description: "The complete end-to-end ordering chain from searching shops to passwordless signing — each step maps to one MCP tool"
+description: "The complete end-to-end chain from preparing a delivery address and picking a shop to previewing and placing the order — each step maps to one MCP tool"
 ---
 
 Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together using MCP tools; the full field table for each tool lives in the corresponding [tool reference](/en/mcp/shops/search).
@@ -11,7 +11,11 @@ Completing an order is a **stateful chain**: every ID returned by one step must 
 
 ## Overview
 
-The order flow calls 7 MCP tools in a fixed order: `search_shops` to pick a shop, `get_shop_menu` to pick items, then `quote_cart` to price, `select_address` to set the delivery address, then `preview_order` to get the ordering tokens, `create_order` to place the order, and finally `get_sign_action` for passwordless signing. Cross-step IDs are issued by the gateway and passed back verbatim.
+The order flow threads these MCP tools in a fixed order: **prepare the delivery address first** (`search_addresses` → `select_address`), then `search_shops` to pick a shop, `get_shop_menu` to pick items, then `quote_cart` to price, `preview_order` to get the ordering tokens, and `create_order` to place the order. Fixing the address first means you search shops that deliver there, and every downstream tool has the delivery coordinates. Cross-step IDs are issued by the gateway and passed back verbatim.
+
+<Note>
+  **Passwordless signing is a one-time, account-level prerequisite** (see "Passwordless payment signing" below) — it is not part of any single order's chain and is not tied to a specific order. Don't treat it as the last step of ordering.
+</Note>
 
 ```mermaid
 sequenceDiagram
@@ -19,14 +23,16 @@ sequenceDiagram
     participant A as Agent (caller)
     participant G as Clawdot Gateway
     Note over A,G: every business tool call carries consent_grant_id
-    A->>G: search_shops(keyword?)
+    A->>G: search_addresses(keyword, lat?, lng?)
+    G-->>A: saved_addresses[], suggestions[].token
+    A->>G: select_address(suggestion_token or address_id, contact info)
+    G-->>A: address_id, display_name, lat, lng
+    A->>G: search_shops(address_id, keyword?)
     G-->>A: shops[]: shop_id, cart_id, next_offset?
     A->>G: get_shop_menu(shop_id, cart_id, keyword?/limit?/offset?)
     G-->>A: items[]: item_id, sku_id, ingredient_options, has_more
-    A->>G: quote_cart(shop_id, cart_id, items)
+    A->>G: quote_cart(shop_id, cart_id, address_id, items)
     G-->>A: quote_id, can_checkout, payable_price
-    A->>G: select_address(address_id or suggestion_token)
-    G-->>A: address_id, display_name, lat, lng
     A->>G: preview_order(shop_id, cart_id, address_id, items, quote_id?, coupon_ids?)
     G-->>A: preview_id, confirmation_token, price, available_coupons[]
     opt re-price after user picks coupons
@@ -36,21 +42,19 @@ sequenceDiagram
     end
     A->>G: create_order(preview_id, confirmation_token, callback_url?)
     G-->>A: order_id, status, payment_action
-    A->>G: get_sign_action(order_id)
-    G-->>A: passwordless signing action (H5 link)
 ```
 
 How IDs flow through the chain:
 
 | Step | Produces | Consumed by |
 |---|---|---|
+| `search_addresses` | `suggestions[].token` / `saved_addresses[].address_id` | `select_address` |
+| `select_address` | `address_id` | `search_shops` / `quote_cart` / `preview_order` |
 | `search_shops` | `shop_id` + `cart_id` | `get_shop_menu` / `quote_cart` / `preview_order` |
 | `get_shop_menu` | `item_id` / `sku_id` / `ingredient_option_ids` | the `items` of `quote_cart` / `preview_order` |
 | `quote_cart` | `quote_id` | `preview_order` (optional; if passed, validates the quote context) |
-| `select_address` | `address_id` | `quote_cart` / `preview_order` |
 | `preview_order` | `preview_id` + `confirmation_token` | `create_order` |
 | `create_order` | `order_id` + `payment_action` | `get_order_status` |
-| `get_sign_action` | a signing `action` (H5 link) | user completes passwordless signing in the browser |
 
 <Warning>
   All amount fields are in **cents (integers)**, not yuan. For example, `payable_price: 1500` means ¥15.00.
@@ -60,22 +64,43 @@ How IDs flow through the chain:
 
 <Steps>
 
+### Prepare the delivery address
+
+```python
+search_addresses(consent_grant_id="cg_...", keyword="光谷世界城", lat=30.5, lng=114.4)
+# → suggestions[].token (single-use, for select_address) + saved_addresses
+
+select_address(
+    consent_grant_id="cg_...",
+    contact_name="张三",
+    contact_phone="13800138000",
+    suggestion_token="...",     # from one of search_addresses' suggestions
+    address_detail="3 号楼 101",
+)
+```
+
+Settle "where to deliver" first. `search_addresses` searches POIs by keyword (and, when `lat`/`lng` are given, annotates `distance_meters` and `nearest_address_id`); `select_address` materializes a `suggestion_token` into a delivery address and returns its `address_id`. For an existing address, reuse a `saved_addresses[].address_id` from `search_addresses` directly and skip `select_address`. This `address_id` is used both to search shops next and to quote / preview later.
+
+<Note>
+  When creating a new address from a `suggestion_token`, `contact_name` / `contact_phone` / `address_detail` are required. Address trio: [Search Addresses](/en/mcp/addresses/search) · [Select / register address](/en/mcp/addresses/select) · [Update address](/en/mcp/addresses/update).
+</Note>
+
 ### Search / browse shops
 
 ```python
 search_shops(
     consent_grant_id="cg_...",
-    keyword="生椰拿铁",   # omit to browse nearby shops (≤20)
-    address_id="addr_...",  # or pass lat/lng (GCJ-02) directly
+    address_id="addr_...",  # the address from the previous step; sets the search/delivery location. Or pass lat/lng (GCJ-02)
+    keyword="生椰拿铁",       # omit to browse shops near that address (≤20)
 )
 ```
 
-Without `keyword` it is **browse mode**, returning up to 20 nearby shops (with decision fields like distance, rating, delivery fee, minimum order). With `keyword` it is **precise search** (~5 shops), accepting a shop name, a category, or a concrete item name; matched shops carry `matched_items` previews.
+Searches shops that can deliver to the address. Without `keyword` it is **browse mode**, returning up to 20 nearby shops (with decision fields like distance, rating, delivery fee, minimum order). With `keyword` it is **precise search** (~5 shops), accepting a shop name, a category, or a concrete item name; matched shops carry `matched_items` previews.
 
 Every result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop and this delivery location, and is the entry point for the downstream `get_shop_menu` / `quote_cart` / `preview_order`. Pass it **verbatim** — downstream calls then need no lat/lng.
 
 <Note>
-  Full fields: [Search Shops](/en/mcp/shops/search). `matched_items` are display-only and carry no IDs; to order you must use the `item_id` / `sku_id` returned by `get_shop_menu`.
+  Full fields: [Search Shops](/en/mcp/shops/search). `matched_items` are display-only and carry no IDs; to order you must use the `item_id` / `sku_id` returned by `get_shop_menu`. Give at least one of `address_id` or `lat`/`lng`, otherwise it returns `COORDS_REQUIRED`.
 </Note>
 
 ### View the shop menu
@@ -94,27 +119,6 @@ Returns menu items, each carrying an orderable `item_id` / `sku_id` plus the `in
 
 <Note>
   For the specs / attributes / ingredients model, see [Item Specifications](/en/gateway/item-specs); full fields: [Shop Menu](/en/mcp/shops/detail).
-</Note>
-
-### Prepare the delivery address
-
-```python
-search_addresses(consent_grant_id="cg_...", keyword="光谷世界城", lat=30.5, lng=114.4)
-# → suggestions[].token (single-use, for select_address) + saved_addresses
-
-select_address(
-    consent_grant_id="cg_...",
-    contact_name="张三",
-    contact_phone="13800138000",
-    suggestion_token="...",     # from one of search_addresses' suggestions
-    address_detail="3 号楼 101",
-)
-```
-
-`select_address` returns the `address_id` for that address, passed to `quote_cart` / `preview_order`. For an existing address, `search_addresses` returns `saved_addresses` (plus `nearest_address_id` when `lat`/`lng` are given), whose `address_id` you can reuse directly.
-
-<Note>
-  Address trio: [Search Addresses](/en/mcp/addresses/search) · [Select / register address](/en/mcp/addresses/select) · [Update address](/en/mcp/addresses/update).
 </Note>
 
 ### Quote the cart
@@ -174,7 +178,11 @@ Places the order with the `preview_id` + `confirmation_token` from the same prev
   This tool is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and calls back once it leaves the unpaid state (see "Query an order and payment result" below); otherwise poll `get_order_status` yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
 </Note>
 
-### Passwordless signing
+</Steps>
+
+## Passwordless payment signing (account-level, one-time)
+
+Passwordless signing lets the user authorize **passwordless payment**: sign once, and subsequent passwordless-payment orders charge automatically. It is an **account-level, one-time prerequisite** — **not tied to any single order, and not done per order** — which is why it sits apart from the ordering chain above. Before you need passwordless payment, check whether the user has signed with `get_sign_status`; if not, initiate signing:
 
 ```python
 get_sign_action(
@@ -183,13 +191,11 @@ get_sign_action(
 )
 ```
 
-Initiates passwordless-payment signing for the user and returns an `action`: when `action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to `return_url`; when it is `none`, the user is already signed. Then poll the result with `get_sign_status`. Passwordless signing is a prerequisite for passwordless-payment orders.
+Returns an `action`: when `action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to `return_url`; when it is `none`, the user is already signed. Then poll the result with `get_sign_status`.
 
 <Note>
-  Full fields: [Initiate Passwordless Signing](/en/mcp/payment/sign-action).
+  Full fields: [Initiate Passwordless Signing](/en/mcp/payment/sign-action) · [Check Signing Status](/en/mcp/payment/sign-status).
 </Note>
-
-</Steps>
 
 ## Query an order and payment result
 

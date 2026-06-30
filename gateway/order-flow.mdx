@@ -1,6 +1,6 @@
 ---
 title: "下单流程"
-description: "从搜索商家到免密签约的完整端到端下单链路，每步对应一个 MCP 工具"
+description: "从备好收货地址、搜店选品到预览下单的完整端到端链路，每步对应一个 MCP 工具"
 ---
 
 完成一笔订单是一条**有状态的链路**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。本页用 MCP 工具串起整条链路；每个工具的完整字段表见对应的 [工具参考](/mcp/shops/search)。
@@ -11,7 +11,11 @@ description: "从搜索商家到免密签约的完整端到端下单链路，每
 
 ## 概览
 
-下单链路按固定顺序调用 7 个 MCP 工具：先 `search_shops` 选店、`get_shop_menu` 选品，再 `quote_cart` 算价、`select_address` 备好收货地址，然后 `preview_order` 预览拿到下单令牌、`create_order` 正式下单，最后 `get_sign_action` 完成免密签约。跨步 ID 由网关签发、原样回传。
+下单链路按固定顺序串起这些 MCP 工具：**先备好收货地址**（`search_addresses` → `select_address`），再 `search_shops` 选店、`get_shop_menu` 选品，然后 `quote_cart` 算价、`preview_order` 预览拿到下单令牌、`create_order` 正式下单。先定地址、再按地址搜可送达的店，下游工具因此都拿得到配送坐标。跨步 ID 由网关签发、原样回传。
+
+<Note>
+  **免密支付签约是账户级的一次性前置**（见下文「免密支付签约」），不属于每一单的链路、也不绑定某笔订单——不要把它当成下单的最后一步。
+</Note>
 
 ```mermaid
 sequenceDiagram
@@ -19,14 +23,16 @@ sequenceDiagram
     participant A as Agent（调用方）
     participant G as Clawdot 网关
     Note over A,G: 业务工具均带 consent_grant_id 参数
-    A->>G: search_shops(keyword?)
+    A->>G: search_addresses(keyword, lat?, lng?)
+    G-->>A: saved_addresses[], suggestions[].token
+    A->>G: select_address(suggestion_token 或 address_id, 收货人信息)
+    G-->>A: address_id, display_name, lat, lng
+    A->>G: search_shops(address_id, keyword?)
     G-->>A: shops[]：shop_id, cart_id, next_offset?
     A->>G: get_shop_menu(shop_id, cart_id, keyword?/limit?/offset?)
     G-->>A: items[]：item_id, sku_id, ingredient_options, has_more
-    A->>G: quote_cart(shop_id, cart_id, items)
+    A->>G: quote_cart(shop_id, cart_id, address_id, items)
     G-->>A: quote_id, can_checkout, payable_price
-    A->>G: select_address(address_id 或 suggestion_token)
-    G-->>A: address_id, display_name, lat, lng
     A->>G: preview_order(shop_id, cart_id, address_id, items, quote_id?, coupon_ids?)
     G-->>A: preview_id, confirmation_token, price, available_coupons[]
     opt 用户选券后重算
@@ -36,21 +42,19 @@ sequenceDiagram
     end
     A->>G: create_order(preview_id, confirmation_token, callback_url?)
     G-->>A: order_id, status, payment_action
-    A->>G: get_sign_action(order_id)
-    G-->>A: 免密签约动作（H5 链接）
 ```
 
 链路的 ID 传递关系：
 
 | 这一步 | 产出 | 被谁消费 |
 |---|---|---|
+| `search_addresses` | `suggestions[].token` / `saved_addresses[].address_id` | `select_address` |
+| `select_address` | `address_id` | `search_shops` / `quote_cart` / `preview_order` |
 | `search_shops` | `shop_id` + `cart_id` | `get_shop_menu` / `quote_cart` / `preview_order` |
 | `get_shop_menu` | `item_id` / `sku_id` / `ingredient_option_ids` | `quote_cart` / `preview_order` 的 `items` |
 | `quote_cart` | `quote_id` | `preview_order`（可选，传入则校验报价上下文）|
-| `select_address` | `address_id` | `quote_cart` / `preview_order` |
 | `preview_order` | `preview_id` + `confirmation_token` | `create_order` |
 | `create_order` | `order_id` + `payment_action` | `get_order_status` |
-| `get_sign_action` | 签约 `action`（H5 链接）| 用户在浏览器完成免密签约 |
 
 <Warning>
   所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
@@ -60,22 +64,43 @@ sequenceDiagram
 
 <Steps>
 
+### 备好收货地址
+
+```python
+search_addresses(consent_grant_id="cg_...", keyword="光谷世界城", lat=30.5, lng=114.4)
+# → suggestions[].token（一次性，用于 select_address）+ saved_addresses
+
+select_address(
+    consent_grant_id="cg_...",
+    contact_name="张三",
+    contact_phone="13800138000",
+    suggestion_token="...",     # 来自 search_addresses 的某条 suggestion
+    address_detail="3 号楼 101",
+)
+```
+
+先定下"送到哪里"。`search_addresses` 按关键词搜 POI（传 `lat`/`lng` 时还会标注 `distance_meters` 与 `nearest_address_id`）；`select_address` 把一条 `suggestion_token` 落库为收货地址、返回 `address_id`。已有地址时，`search_addresses` 返回的 `saved_addresses[].address_id` 可直接复用，跳过 `select_address`。这个 `address_id` 既用于下一步搜店，也用于后续算价 / 预览。
+
+<Note>
+  用 `suggestion_token` 新建地址时，`contact_name` / `contact_phone` / `address_detail` 为必填。地址三件套：[搜索地址](/mcp/addresses/search) · [选择/登记地址](/mcp/addresses/select) · [更新地址](/mcp/addresses/update)。
+</Note>
+
 ### 搜索 / 浏览商家
 
 ```python
 search_shops(
     consent_grant_id="cg_...",
-    keyword="生椰拿铁",   # 省略则浏览附近店铺（≤20）
-    address_id="addr_...",  # 或直接传 lat/lng（GCJ-02）
+    address_id="addr_...",  # 上一步的收货地址，决定搜索/配送位置；或直接传 lat/lng（GCJ-02）
+    keyword="生椰拿铁",       # 省略则浏览该地址附近店铺（≤20）
 )
 ```
 
-不传 `keyword` 为**浏览模式**，返回附近至多 20 家店铺（含距离、评分、配送费、起送价等决策字段）；传 `keyword` 为**精确搜索**（约 5 家），可传店名、品类或具体商品名，命中的店铺带 `matched_items` 预览。
+按收货地址搜可送达的店铺。不传 `keyword` 为**浏览模式**，返回附近至多 20 家店铺（含距离、评分、配送费、起送价等决策字段）；传 `keyword` 为**精确搜索**（约 5 家），可传店名、品类或具体商品名，命中的店铺带 `matched_items` 预览。
 
 每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，下游工具因此免传经纬度。
 
 <Note>
-  完整字段见 [搜索店铺](/mcp/shops/search)。`matched_items` 仅供展示、不带 ID；下单必须用 `get_shop_menu` 返回的 `item_id` / `sku_id`。
+  完整字段见 [搜索店铺](/mcp/shops/search)。`matched_items` 仅供展示、不带 ID；下单必须用 `get_shop_menu` 返回的 `item_id` / `sku_id`。`address_id` 与 `lat`/`lng` 二者至少给一个，否则报 `COORDS_REQUIRED`。
 </Note>
 
 ### 查看店铺菜单
@@ -94,27 +119,6 @@ get_shop_menu(
 
 <Note>
   规格 / 属性 / 加料体系说明见 [商品规格说明](/gateway/item-specs)；完整字段见 [店铺菜单](/mcp/shops/detail)。
-</Note>
-
-### 准备收货地址
-
-```python
-search_addresses(consent_grant_id="cg_...", keyword="光谷世界城", lat=30.5, lng=114.4)
-# → suggestions[].token（一次性，用于 select_address）+ saved_addresses
-
-select_address(
-    consent_grant_id="cg_...",
-    contact_name="张三",
-    contact_phone="13800138000",
-    suggestion_token="...",     # 来自 search_addresses 的某条 suggestion
-    address_detail="3 号楼 101",
-)
-```
-
-`select_address` 返回该地址的 `address_id`，传给 `quote_cart` / `preview_order`。已有地址时，`search_addresses` 返回 `saved_addresses`（以及传了 `lat`/`lng` 时的 `nearest_address_id`），可直接复用其 `address_id`。
-
-<Note>
-  地址三件套：[搜索地址](/mcp/addresses/search) · [选择/登记地址](/mcp/addresses/select) · [更新地址](/mcp/addresses/update)。
 </Note>
 
 ### 购物车算价
@@ -174,7 +178,11 @@ create_order(
   本工具以 `confirmation_token` 为幂等键；同一令牌只能下一单，再次下单需重新预览取新令牌。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时回调（见下方「查询订单与支付结果」）；不传则自行轮询 `get_order_status`。完整字段、`status` 与回调 `ispay` 枚举见 [创建订单](/mcp/orders/create)。
 </Note>
 
-### 免密签约
+</Steps>
+
+## 免密支付签约（账户级，一次性）
+
+免密签约让用户授权**免密支付**：签约一次，后续免密支付类订单即可自动扣款。它是**账户级、一次性的前置设置**，**不绑定某一笔订单、也不是每单都要做**——所以独立于上面的下单链路。建议在需要免密支付前先用 `get_sign_status` 查是否已签约，未签约再发起：
 
 ```python
 get_sign_action(
@@ -183,13 +191,11 @@ get_sign_action(
 )
 ```
 
-为用户发起免密支付签约，返回一个 `action`：`action_type` 为 `open_h5` 时，把用户引导到 `action.action_url`（H5 签约页）完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status` 轮询签约结果。免密签约是免密支付类订单的前置条件。
+返回一个 `action`：`action_type` 为 `open_h5` 时，把用户引导到 `action.action_url`（H5 签约页）完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status` 轮询签约结果。
 
 <Note>
-  完整字段见 [发起免密签约](/mcp/payment/sign-action)。
+  完整字段见 [发起免密签约](/mcp/payment/sign-action) · [查询签约状态](/mcp/payment/sign-status)。
 </Note>
-
-</Steps>
 
 ## 查询订单与支付结果
 
