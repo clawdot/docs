@@ -105,7 +105,7 @@ graph TB
 
 ## MCP 接入
 
-Clawdot Gateway 对外以 **MCP（Model Context Protocol）** 暴露能力——这是为 Claude 等 AI 模型设计的 AI 原生调用方式。Super Agent 用 MCP 客户端（Streamable HTTP）连接公开端点 `http://eleme-gateway.hicaspian.com/mcp/v1`，每个请求在 HTTP 头携带 `Authorization: Bearer clw_...` 标识 Agent，用户授权则作为每个业务工具的 `consent_grant_id` 参数传入：
+Clawdot Gateway 对外以 **MCP（Model Context Protocol）** 暴露能力——这是为 Claude 等 AI 模型设计的 AI 原生调用方式。Super Agent 用 MCP 客户端（Streamable HTTP）连接公开端点 `https://eleme-gateway.hicaspian.com/mcp/v1`，每个请求在 HTTP 头携带 `Authorization: Bearer clw_...` 标识 Agent，用户授权则作为每个业务工具的 `consent_grant_id` 参数传入：
 
 ```
 # 商家搜索 / 浏览
@@ -133,11 +133,20 @@ get_order_status(consent_grant_id, order_id)
 
 ## 工作流程细节
 
-完整下单链路是一条**有状态的链路**，每步返回的 ID 必须原样回传给下一步：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。完整字段表见 [下单流程](/gateway/order-flow)。
+完整下单链路是一条**有状态的链路**，每步返回的 ID 必须原样回传给下一步：`search_addresses` → `select_address` → `search_shops` → `get_shop_menu` → `quote_cart` → `preview_order` → `create_order`。先定地址、再按地址搜可送达的店，下游工具因此都拿得到配送坐标。完整字段表见 [下单流程](/gateway/order-flow)。
 
 <AccordionGroup>
+  <Accordion title="地址管理阶段" icon="location-dot">
+    先定下"送到哪里"，下游搜店与算价 / 预览都以这个地址为准。首次使用时：
+    1. 调用 `search_addresses` 搜索用户说的地址，返回 `suggestions[].token`
+    2. 用户从候选列表中选择
+    3. 调用 `select_address`（传 `suggestion_token` + 联系人）登记为收货地址，返回 `address_id`
+
+    后续使用：`search_addresses` 同时返回 `saved_addresses[]`（传了 `lat`/`lng` 时还带 `nearest_address_id`），可直接复用其 `address_id`，减少交互步骤。
+  </Accordion>
+
   <Accordion title="搜索阶段" icon="magnifying-glass">
-    Agent 调用 `search_shops` 搜索或浏览商家。不传 `keyword` 为浏览模式（返回附近至多 20 家店铺，含距离、评分、配送费等决策字段）；传 `keyword` 为精确搜索（约 5 家，可传店名、品类或具体商品名）。每个结果都附带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，是后续步骤的入口。
+    Agent 调用 `search_shops`（传上一步的 `address_id`）按收货地址搜可送达的商家。不传 `keyword` 为浏览模式（返回附近至多 20 家店铺，含距离、评分、配送费等决策字段）；传 `keyword` 为精确搜索（约 5 家，可传店名、品类或具体商品名）。每个结果都附带 `shop_id` 与 `cart_id`，`cart_id` 已封装店铺与配送坐标，是后续步骤的入口。
   </Accordion>
 
   <Accordion title="菜单浏览阶段" icon="list">
@@ -148,15 +157,6 @@ get_order_status(consent_grant_id, order_id)
     - **默认选项** —— 包含了商家推荐的规格组合
 
     菜单可能很大（100+ 项），可用 `keyword` 或 `limit`/`offset` 渐进披露。
-  </Accordion>
-
-  <Accordion title="地址管理阶段" icon="location-dot">
-    首次使用时：
-    1. 调用 `search_addresses` 搜索用户说的地址，返回 `suggestions[].token`
-    2. 用户从候选列表中选择
-    3. 调用 `select_address`（传 `suggestion_token` + 联系人）登记为收货地址，返回 `address_id`
-
-    后续使用：`search_addresses` 同时返回 `saved_addresses[]`（传了 `lat`/`lng` 时还带 `nearest_address_id`），可直接复用其 `address_id`，减少交互步骤。
   </Accordion>
 
   <Accordion title="算价 + 预览 + 下单阶段" icon="clipboard-check">
@@ -189,10 +189,10 @@ get_order_status(consent_grant_id, order_id)
   </Accordion>
 
   <Accordion title="免密签约阶段" icon="credit-card">
-    免密支付类订单需先签约：调用 `get_sign_action`（传 `return_url`）获取签约 `action`。`action_type` 为 `open_h5` 时把用户引导到 `action.action_url` 完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status` 轮询结果。
+    免密签约是**账户级、一次性的前置**：签约一次后，后续免密支付类订单即可自动扣款——它**不绑定某一笔订单、也不是每单都要做**，所以独立于上面的下单链路（不要把它当成下单的最后一步）。建议先用 `get_sign_status` 查是否已签约，未签约再调用 `get_sign_action`（传 `return_url`，不带 `order_id`）获取签约 `action`。`action_type` 为 `open_h5` 时把用户引导到 `action.action_url` 完成签约，完成后浏览器跳回 `return_url`；为 `none` 时表示已签约。随后用 `get_sign_status` 轮询结果。
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  在 [Portal](http://console.hicaspian.com/agents) 创建 Agent 获取 API Key；用户授权（consent grant）走绑定流程（SMS 验证码或 H5）获取。完整链路与字段见 [下单流程](/gateway/order-flow) 与 [认证机制](/gateway/authentication)。
+  在 [Portal](https://console.hicaspian.com/agents) 创建 Agent 获取 API Key；用户授权（consent grant）走绑定流程（SMS 验证码或 H5）获取。完整链路与字段见 [下单流程](/gateway/order-flow) 与 [认证机制](/gateway/authentication)。
 </Note>

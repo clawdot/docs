@@ -48,7 +48,7 @@ The Gateway exposes **18 MCP tools** over Streamable HTTP, covering the full loc
 
 <Steps>
   <Step title="Create an Agent in the console">
-    Visit [Clawdot Console](http://console.hicaspian.com/agents), create an Agent and enable the delivery capability for it. Agents and API Keys are both managed in the console.
+    Visit [Clawdot Console](https://console.hicaspian.com/agents), create an Agent and enable the delivery capability for it. Agents and API Keys are both managed in the console.
   </Step>
 
   <Step title="Copy API Key">
@@ -56,14 +56,14 @@ The Gateway exposes **18 MCP tools** over Streamable HTTP, covering the full loc
   </Step>
 
   <Step title="Configure the API Key in your MCP client">
-    The gateway serves MCP over **Streamable HTTP** (FastMCP), with the endpoint `http://eleme-gateway.hicaspian.com/mcp/v1`. Put the API Key into your MCP client's connection headers:
+    The gateway serves MCP over **Streamable HTTP** (FastMCP), with the endpoint `https://eleme-gateway.hicaspian.com/mcp/v1`. Put the API Key into your MCP client's connection headers:
 
     ```json
     {
       "mcpServers": {
-        "clawdot": {
-          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
-          "transport": "streamable-http",
+        "clawdot-eleme": {
+          "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
+          "type": "http",
           "headers": {
             "Authorization": "Bearer clw_your_api_key"
           }
@@ -129,53 +129,26 @@ The `expires_at` returned on success is the consent expiry (ISO 8601). **Re-auth
 
 ## Step 3: Core Business Flow
 
-Implement the complete chain from search, browse, quote, preview, to order and sign. The whole chain is **stateful**: each step's returned ID must be passed verbatim to the next — never fabricate one or mix IDs across chains.
+Implement the complete chain from preparing the delivery address, finding shops and picking items, quoting, previewing, to placing the order. The whole chain is **stateful**: each step's returned ID must be passed verbatim to the next — never fabricate one or mix IDs across chains. **Prepare the delivery address first, then search deliverable shops by that address**, so downstream tools all get the delivery coordinates.
 
 ```
-search_shops → get_shop_menu → quote_cart → select_address
-            → preview_order → create_order → get_sign_action
+search_addresses → select_address → search_shops → get_shop_menu
+            → quote_cart → preview_order → create_order
 ```
 
 <Warning>
 All amount fields are in **cents (integer)**, not yuan. For example `payable_price: 1500` means ¥15.00.
 </Warning>
 
+<Info>
+**Password-free payment signing is an account-level, one-time prerequisite** (see "Password-Free Payment Signing" below); it is not part of any single order's chain and is not bound to a specific order — do not treat it as a step in the order chain.
+</Info>
+
 Every business tool call below carries the `consent_grant_id` argument (from Step 2).
 
-### Phase 1: Search Shops
+### Phase 1: Prepare Delivery Address
 
-```json
-// tool: search_shops — search / browse nearby shops
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "keyword": "iced latte",
-  "address_id": "addr_..."
-}
-// → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", "rating": ..., "min_order_amount": ... } ], "next_offset": ... }
-```
-
-Without `keyword` it is **browse mode** (up to 20 nearby shops) with distance, rating, delivery fee, min-order and other decision fields; with `keyword` (shop name / category / item name) it is precise search (~5 shops). Browse mode accepts `offset` for paging: pass `offset: 0` first, keep paging with the returned `next_offset` until `shops` is empty.
-
-Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**. Full fields in [Search Shops](/en/mcp/shops/search).
-
-### Phase 2: View Menu Details
-
-```json
-// tool: get_shop_menu — get a shop's menu
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "shop_id": "<from search>",
-  "cart_id": "<from search>",
-  "keyword": "latte"
-}
-// → { "categories": [...], "items": [ { "item_id": "...", "sku_id": "...", "ingredient_options": [...] } ], "has_more": false }
-```
-
-Menus can be very large (100+ items); use `keyword` or `limit` / `offset` for progressive disclosure and check `has_more` for more. To order, you MUST use the `item_id` / `sku_id` returned by `get_shop_menu` (plus `ingredient_option_ids` for specs / add-ons). Full fields in [Shop Menu](/en/mcp/shops/detail); the spec / attribute / add-on system is in [Item Specs](/en/gateway/item-specs).
-
-### Phase 3: Prepare Delivery Address
-
-The address flow = search POIs for a single-use `token` → register for an `address_id`. First search addresses:
+First pin down "where to deliver". The address flow = search POIs for a single-use `token` → register for an `address_id`. First search addresses:
 
 ```json
 // tool: search_addresses — search address POIs, get suggestions (with single-use token)
@@ -202,7 +175,38 @@ The address flow = search POIs for a single-use `token` → register for an `add
 // → { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
 ```
 
-You can also call `select_address` directly with an existing address's `address_id`. See [Search Addresses](/en/mcp/addresses/search) and [Select/Register Address](/en/mcp/addresses/select); edit door number / label with [`update_address`](/en/mcp/addresses/update) (the `address_id` stays the same).
+You can also call `select_address` directly with an existing address's `address_id`. This `address_id` is used both to search shops next and for the later quote / preview. See [Search Addresses](/en/mcp/addresses/search) and [Select/Register Address](/en/mcp/addresses/select); edit door number / label with [`update_address`](/en/mcp/addresses/update) (the `address_id` stays the same).
+
+### Phase 2: Search Shops
+
+```json
+// tool: search_shops — search / browse deliverable shops by delivery address
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "address_id": "<from the address step above>",
+  "keyword": "iced latte"
+}
+// → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", "rating": ..., "min_order_amount": ... } ], "next_offset": ... }
+```
+
+Use the `address_id` from the previous step to search deliverable shops. Without `keyword` it is **browse mode** (up to 20 shops near that address) with distance, rating, delivery fee, min-order and other decision fields; with `keyword` (shop name / category / item name) it is precise search (~5 shops). Browse mode accepts `offset` for paging: pass `offset: 0` first, keep paging with the returned `next_offset` until `shops` is empty.
+
+Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**, so downstream tools need not pass coordinates. Full fields in [Search Shops](/en/mcp/shops/search).
+
+### Phase 3: View Menu Details
+
+```json
+// tool: get_shop_menu — get a shop's menu
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<from search>",
+  "cart_id": "<from search>",
+  "keyword": "latte"
+}
+// → { "categories": [...], "items": [ { "item_id": "...", "sku_id": "...", "ingredient_options": [...] } ], "has_more": false }
+```
+
+Menus can be very large (100+ items); use `keyword` or `limit` / `offset` for progressive disclosure and check `has_more` for more. To order, you MUST use the `item_id` / `sku_id` returned by `get_shop_menu` (plus `ingredient_option_ids` for specs / add-ons). Full fields in [Shop Menu](/en/mcp/shops/detail); the spec / attribute / add-on system is in [Item Specs](/en/gateway/item-specs).
 
 ### Phase 4: Quote Cart
 
@@ -283,35 +287,36 @@ Place the order with the `preview_id` + `confirmation_token` from the same previ
 
 This tool uses `confirmation_token` as the **idempotency key**: a token can place only one order; re-ordering requires a fresh preview for a new token. Returns `order_id`, `status`, and (when payment is needed) `payment_action`. You may pass `callback_url`; the gateway polls order status and POSTs a callback once it leaves the unpaid state (`event=order_payment`, body carries `order_id`, `ispay`, `status`, etc.) — otherwise poll `get_order_status` yourself. Full fields in [Create Order](/en/mcp/orders/create).
 
-### Phase 7: Password-Free Sign
+---
 
-The first order requires the user to complete password-free payment signing. Get the signing action:
+## Step 4: Password-Free Payment Signing (Account-Level, One-Time)
+
+Password-free signing lets the user authorize **password-free payment**: sign once, and later password-free orders are charged automatically. It is an **account-level, one-time prerequisite** that is **not bound to any single order and is not done per order** — so it stands apart from the order chain above. Before you need password-free payment, check with `get_sign_status` whether already signed, and only initiate when not:
 
 ```json
-// tool: get_sign_action — get the password-free signing action (H5 link)
+// tool: get_sign_action — initiate password-free signing (get the H5 signing action)
 {
   "consent_grant_id": "cg_your_consent_grant",
-  "order_id": "ord_..."
+  "return_url": "https://your.app/sign/callback"
 }
 // → signing action: when action_type=open_h5 it carries action_url (H5 sign page); none means already signed
 ```
 
-When `action_type=open_h5`, direct the user to `action_url` (the H5 sign page) to sign; `none` means already signed. Then poll the signing result with `get_sign_status`:
+When `action_type=open_h5`, direct the user to `action_url` (the H5 sign page) to sign; once done the browser returns to `return_url`. `none` means already signed. Then poll the signing result with `get_sign_status`:
 
 ```json
 // tool: get_sign_status — query the signing status
 {
-  "consent_grant_id": "cg_your_consent_grant",
-  "order_id": "ord_..."
+  "consent_grant_id": "cg_your_consent_grant"
 }
 // → { "signed": ..., "status": "...", ... }
 ```
 
-Full chain and fields in [Order Flow](/en/gateway/order-flow).
+Full fields in [Initiate Password-Free Signing](/en/mcp/payment/sign-action) and [Query Signing Status](/en/mcp/payment/sign-status); the order chain and payment sequence are in [Order Flow](/en/gateway/order-flow).
 
 ---
 
-## Step 4: Handle Edge Cases
+## Step 5: Handle Edge Cases
 
 Robust Agents gracefully handle edge cases and provide friendly error messages. Gateway errors return a uniform `{"error": {"code", "message"}}` structure (every MCP tool returns this shape on failure).
 
@@ -430,16 +435,15 @@ Chaining the tool calls from each step above gives one complete order:
 
 ```
 request_user_bind / verify_user_bind  → consent_grant_id
-search_shops (get shop_id + cart_id)
+search_addresses → select_address (get address_id)
+search_shops (by address_id, get shop_id + cart_id)
 get_shop_menu (get item_id / sku_id)
 quote_cart (get quote_id)
-select_address (get address_id)
 preview_order (get preview_id + confirmation_token)
-create_order (get order_id)
-get_sign_action (password-free sign) → get_order_status (query status)
+create_order (get order_id) → get_order_status (query status)
 ```
 
-All cross-step IDs (`shop_id` / `cart_id` / `address_id` / `preview_id` / `confirmation_token` …) are issued by the gateway and must be passed **verbatim** — never fabricate them or mix across chains. `confirmation_token` is the order idempotency key, and the `consent_grant_id` minted during binding is the user-consent argument carried by every subsequent business tool call.
+Prepare the delivery address first, then search deliverable shops by that address, so downstream tools all get the delivery coordinates. All cross-step IDs (`address_id` / `shop_id` / `cart_id` / `preview_id` / `confirmation_token` …) are issued by the gateway and must be passed **verbatim** — never fabricate them or mix across chains. `confirmation_token` is the order idempotency key, and the `consent_grant_id` minted during binding is the user-consent argument carried by every subsequent business tool call. **Password-free payment signing (`get_sign_action`) is an account-level, one-time prerequisite, independent of this order chain** (see Step 4).
 
 ---
 

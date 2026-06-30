@@ -9,18 +9,18 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 
 网关以 **Streamable HTTP**（FastMCP）对外提供 MCP 服务：
 
-- **Endpoint**：`http://eleme-gateway.hicaspian.com/mcp/v1`
+- **Endpoint**：`https://eleme-gateway.hicaspian.com/mcp/v1`
 - **传输**：Streamable HTTP
 - **连接层认证**：每个 MCP 请求都带请求头 `Authorization: Bearer clw_your_api_key`
 
-在 [Clawdot 控制台](http://console.hicaspian.com/agents) 创建 Agent、开通外卖能力，即可拿到 API Key（`clw_` 前缀）。把它配进你的 MCP 客户端：
+在 [Clawdot 控制台](https://console.hicaspian.com/agents) 创建 Agent、开通外卖能力，即可拿到 API Key（`clw_` 前缀）。把它配进你的 MCP 客户端：
 
 ```json
 {
   "mcpServers": {
-    "clawdot": {
-      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
-      "transport": "streamable-http",
+    "clawdot-eleme": {
+      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
+      "type": "http",
       "headers": {
         "Authorization": "Bearer clw_your_api_key"
       }
@@ -67,19 +67,46 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 <Note>也支持 H5 模式：`request_user_bind(auth_type="h5")` 返回 `h5_url`，用户打开完成授权，再 `verify_user_bind(auth_type="h5", request_id)` 轮询直到拿到 `consent_grant_id`。见 [发起绑定](/mcp/user/bind-request)。</Note>
 </Step>
 
+<Step title="确定收货地址">
+先定下"送到哪里"，拿到 `address_id` 后再按地址搜可送达的店铺。
+
+```json
+// 工具：search_addresses —— 搜地址，拿建议（每条含 token）
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "上海市黄浦区人民广场"
+}
+// → { "suggestions": [ { "token": "...", ... } ] }
+```
+
+```json
+// 工具：select_address —— 选定/保存地址，拿 address_id
+// 用建议新建地址时，收货人信息为必填
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "suggestion_token": "<上一步 suggestions[].token>",
+  "contact_name": "张三",
+  "contact_phone": "13800000000",
+  "address_detail": "3 号楼 101"
+}
+// → { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
+```
+
+也可直接用已有地址的 `address_id`。这个 `address_id` 既用于下一步搜店，也用于后续算价 / 预览。
+</Step>
+
 <Step title="搜索店铺">
 ```json
 // 工具：search_shops
 {
   "consent_grant_id": "cg_your_consent_grant",
-  "keyword": "瑞幸咖啡",
-  "lat": 31.23,
-  "lng": 121.47
+  "address_id": "<来自选址>",
+  "keyword": "瑞幸咖啡"
 }
 // → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ], "next_offset": ... }
 ```
 
-每个店铺带 `shop_id` 和 `cart_id`（`cart_id` 已封装店铺与配送坐标，后续步骤原样回传）。不传 `keyword` 即按附近浏览（≤20 家）。
+按收货地址搜可送达的店铺（`address_id` 与 `lat`/`lng` 二者至少给一个）。每个店铺带 `shop_id` 和 `cart_id`（`cart_id` 已封装店铺与配送坐标，后续步骤原样回传）。不传 `keyword` 即按附近浏览（≤20 家）。
 
 </Step>
 
@@ -105,38 +132,13 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
   "consent_grant_id": "cg_your_consent_grant",
   "shop_id": "<来自搜索>",
   "cart_id": "<来自搜索>",
+  "address_id": "<来自选址>",
   "items": [{"item_id": "<来自菜单>", "sku_id": "<来自菜单>", "quantity": 1}]
 }
 // → { "quote_id": "...", "can_checkout": true, "payable_price": 1500 }
 ```
 
 <Warning>所有金额字段单位为**分（整数）**，`1500` 表示 ¥15.00。</Warning>
-</Step>
-
-<Step title="确定收货地址">
-```json
-// 工具：search_addresses —— 搜地址，拿建议（每条含 token）
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "keyword": "上海市黄浦区人民广场"
-}
-// → { "suggestions": [ { "token": "...", ... } ] }
-```
-
-```json
-// 工具：select_address —— 选定/保存地址，拿 address_id
-// 用建议新建地址时，收货人信息为必填
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "suggestion_token": "<上一步 suggestions[].token>",
-  "contact_name": "张三",
-  "contact_phone": "13800000000",
-  "address_detail": "3 号楼 101"
-}
-// → { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
-```
-
-也可直接用已有地址的 `address_id` 调 `select_address`。
 </Step>
 
 <Step title="预览订单">
@@ -174,17 +176,8 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 
 </Step>
 
-<Step title="支付签约 + 查询订单">
-首次下单需用户完成免密支付签约（返回 H5 链接交给用户完成）；之后可随时查订单状态。
-
-```json
-// 工具：get_sign_action —— 获取免密签约动作（H5 链接）
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "order_id": "ord_..."
-}
-// → 免密签约动作（H5 链接）
-```
+<Step title="查询订单">
+下单后可随时查询订单当前状态与详情。
 
 ```json
 // 工具：get_order_status —— 查询订单状态
@@ -195,13 +188,16 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 // → { "status": "...", "status_text": "...", ... }
 ```
 
-签约进度可用 `get_sign_status` 查询。
 </Step>
 </Steps>
 
+<Note>
+  **免密支付签约（账户级，一次性）**：免密支付需用户先完成一次签约，签约后续免密订单即自动扣款。它是**账户级、一次性的前置设置**，不绑定某一笔订单、也不是每单都做——独立于上面的下单链路。用 `get_sign_action(consent_grant_id, return_url)`（**入参不含 `order_id`**）拿到 H5 签约链接交给用户完成，再用 `get_sign_status` 查询签约进度。详见 [发起免密签约](/mcp/payment/sign-action)。
+</Note>
+
 ## 完整链路一览
 
-`search_shops`（得 shop_id + cart_id）→ `get_shop_menu`（得 item_id / sku_id）→ `quote_cart`（得 quote_id）→ `select_address`（得 address_id）→ `preview_order`（得 preview_id + confirmation_token）→ `create_order`（得 order_id）→ `get_sign_action`（免密签约）
+`select_address`（得 address_id）→ `search_shops`（用 address_id，得 shop_id + cart_id）→ `get_shop_menu`（得 item_id / sku_id）→ `quote_cart`（得 quote_id）→ `preview_order`（得 preview_id + confirmation_token）→ `create_order`（得 order_id）→ `get_order_status`
 
 所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。
 

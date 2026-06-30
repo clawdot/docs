@@ -9,18 +9,18 @@ Clawdot Gateway exposes food-delivery capabilities to AI Agents as **MCP tools**
 
 The gateway serves MCP over **Streamable HTTP** (FastMCP):
 
-- **Endpoint**: `http://eleme-gateway.hicaspian.com/mcp/v1`
+- **Endpoint**: `https://eleme-gateway.hicaspian.com/mcp/v1`
 - **Transport**: Streamable HTTP
 - **Connection-layer auth**: every MCP request carries the header `Authorization: Bearer clw_your_api_key`
 
-Create an Agent and enable the delivery capability in the [Clawdot Console](http://console.hicaspian.com/agents) to obtain your API Key (`clw_` prefix). Configure it in your MCP client:
+Create an Agent and enable the delivery capability in the [Clawdot Console](https://console.hicaspian.com/agents) to obtain your API Key (`clw_` prefix). Configure it in your MCP client:
 
 ```json
 {
   "mcpServers": {
-    "clawdot": {
-      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
-      "transport": "streamable-http",
+    "clawdot-eleme": {
+      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
+      "type": "http",
       "headers": {
         "Authorization": "Bearer clw_your_api_key"
       }
@@ -67,19 +67,46 @@ Once you have `consent_grant_id`, every business tool call below carries it.
 <Note>H5 mode is also supported: `request_user_bind(auth_type="h5")` returns `h5_url`; the user opens it to authorize, then you call `verify_user_bind(auth_type="h5", request_id)` and poll until you get `consent_grant_id`. See [Request Binding](/en/mcp/user/bind-request).</Note>
 </Step>
 
+<Step title="Choose a delivery address">
+Pin down "where to deliver" first; obtain `address_id`, then search shops that can deliver to it.
+
+```json
+// Tool: search_addresses — search addresses; get suggestions (each with a token)
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "keyword": "People's Square, Huangpu, Shanghai"
+}
+// -> { "suggestions": [ { "token": "...", ... } ] }
+```
+
+```json
+// Tool: select_address — select/save the address; get address_id
+// Contact info is required when creating a new address from a suggestion
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "suggestion_token": "<a suggestion's token from above>",
+  "contact_name": "John Doe",
+  "contact_phone": "13800000000",
+  "address_detail": "Bldg 3, Room 101"
+}
+// -> { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
+```
+
+You can also use an existing address's `address_id` directly. This `address_id` is used both to search shops next and for later quoting / previewing.
+</Step>
+
 <Step title="Search shops">
 ```json
 // Tool: search_shops
 {
   "consent_grant_id": "cg_your_consent_grant",
-  "keyword": "Luckin Coffee",
-  "lat": 31.23,
-  "lng": 121.47
+  "address_id": "<from select>",
+  "keyword": "Luckin Coffee"
 }
 // -> { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", ... } ], "next_offset": ... }
 ```
 
-Each shop carries a `shop_id` and a `cart_id` (the `cart_id` encapsulates the shop and delivery coordinates; pass it back as-is in later steps). Omit `keyword` to browse nearby (up to 20 shops).
+Search shops that can deliver to the chosen address (provide at least one of `address_id` or `lat`/`lng`). Each shop carries a `shop_id` and a `cart_id` (the `cart_id` encapsulates the shop and delivery coordinates; pass it back as-is in later steps). Omit `keyword` to browse nearby (up to 20 shops).
 
 </Step>
 
@@ -105,38 +132,13 @@ Supports `keyword` / `limit` / `offset` for progressive loading. Note the `item_
   "consent_grant_id": "cg_your_consent_grant",
   "shop_id": "<from search>",
   "cart_id": "<from search>",
+  "address_id": "<from select>",
   "items": [{"item_id": "<from menu>", "sku_id": "<from menu>", "quantity": 1}]
 }
 // -> { "quote_id": "...", "can_checkout": true, "payable_price": 1500 }
 ```
 
 <Warning>All amount fields are in **cents (integers)**; `1500` means ¥15.00.</Warning>
-</Step>
-
-<Step title="Choose a delivery address">
-```json
-// Tool: search_addresses — search addresses; get suggestions (each with a token)
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "keyword": "People's Square, Huangpu, Shanghai"
-}
-// -> { "suggestions": [ { "token": "...", ... } ] }
-```
-
-```json
-// Tool: select_address — select/save the address; get address_id
-// Contact info is required when creating a new address from a suggestion
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "suggestion_token": "<a suggestion's token from above>",
-  "contact_name": "John Doe",
-  "contact_phone": "13800000000",
-  "address_detail": "Bldg 3, Room 101"
-}
-// -> { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
-```
-
-You can also call `select_address` directly with an existing `address_id`.
 </Step>
 
 <Step title="Preview the order">
@@ -174,17 +176,8 @@ You may pass an optional `callback_url`: the payment result is pushed as a callb
 
 </Step>
 
-<Step title="Sign for payment + check the order">
-A first order requires the user to complete no-password payment signing (returns an H5 link for the user); afterwards you can check order status anytime.
-
-```json
-// Tool: get_sign_action — get the no-password signing action (H5 link)
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "order_id": "ord_..."
-}
-// -> no-password signing action (H5 link)
-```
+<Step title="Check the order">
+After placing the order, you can check its current status and details anytime.
 
 ```json
 // Tool: get_order_status — check the order status
@@ -195,13 +188,16 @@ A first order requires the user to complete no-password payment signing (returns
 // -> { "status": "...", "status_text": "...", ... }
 ```
 
-Signing progress can be checked with `get_sign_status`.
 </Step>
 </Steps>
 
+<Note>
+  **No-password payment signing (account-level, one-time)**: no-password payment requires the user to sign once; afterwards subsequent no-password orders are charged automatically. It is an **account-level, one-time prerequisite** — not bound to any single order and not done per order — so it is independent of the order chain above. Use `get_sign_action(consent_grant_id, return_url)` (**takes no `order_id`**) to get the H5 signing link for the user to complete, then check signing progress with `get_sign_status`. See [Initiate No-Password Signing](/en/mcp/payment/sign-action).
+</Note>
+
 ## The full chain at a glance
 
-`search_shops` (-> shop_id + cart_id) -> `get_shop_menu` (-> item_id / sku_id) -> `quote_cart` (-> quote_id) -> `select_address` (-> address_id) -> `preview_order` (-> preview_id + confirmation_token) -> `create_order` (-> order_id) -> `get_sign_action` (no-password signing)
+`select_address` (-> address_id) -> `search_shops` (with address_id, -> shop_id + cart_id) -> `get_shop_menu` (-> item_id / sku_id) -> `quote_cart` (-> quote_id) -> `preview_order` (-> preview_id + confirmation_token) -> `create_order` (-> order_id) -> `get_order_status`
 
 Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is issued by the gateway and **passed back as-is** — never construct them yourself or mix them across chains.
 

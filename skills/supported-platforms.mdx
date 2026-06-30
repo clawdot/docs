@@ -52,7 +52,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
        - 创建企业应用
 
     2. **创建 Agent**
-       在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建专用于钉钉的 Agent，记录 API Key（`clw_` 前缀）
+       在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建专用于钉钉的 Agent，记录 API Key（`clw_` 前缀）
 
     3. **配置 WebHook**
        在钉钉应用设置中，配置 Clawdot Skills API 作为消息处理端点
@@ -83,7 +83,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
     # Gateway 原生 MCP 端点（Streamable HTTP）
-    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
 
     def sign_message(timestamp, secret):
         """钉钉消息签名验证"""
@@ -205,7 +205,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
        - 创建应用并获取 API Key
 
     2. **创建 Clawdot Agent**
-       在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建 Agent，记录 API Key（`clw_` 前缀）
+       在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建 Agent，记录 API Key（`clw_` 前缀）
 
     3. **定义 Function Schema**
        在 Kimi 应用中注册 Clawdot Gateway 的 API 为 Function Calling 工具
@@ -230,7 +230,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
     # Gateway 原生 MCP 端点（Streamable HTTP）
-    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
 
     def call_kimi_with_function_calling(user_message, consent_grant_id):
         """使用 Kimi API 和 Function Calling"""
@@ -415,7 +415,7 @@ Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验�
        - 配置基础信息和权限
 
     3. **创建 Clawdot Agent**
-       在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建专用 Agent
+       在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建专用 Agent
 
     4. **配置集成**
        在腾讯云 Agent 中配置 Clawdot Skills 平台的 API 端点
@@ -450,10 +450,10 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     - 按照指示完成安装和登录
 
     **2. 创建 Clawdot Agent**
-    在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建 Agent 并获取 API Key（`clw_` 前缀）
+    在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建 Agent 并获取 API Key（`clw_` 前缀）
 
     **3. 配置 MCP 服务器**
-    Gateway 原生提供 Streamable HTTP MCP 端点（`http://eleme-gateway.hicaspian.com/mcp/v1`），
+    Gateway 原生提供 Streamable HTTP MCP 端点（`https://eleme-gateway.hicaspian.com/mcp/v1`），
     Agent 身份通过 `Authorization: Bearer clw_...` 请求头在连接层传递。编辑
     `~/.claude-desktop/config.json`：
 
@@ -461,7 +461,7 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     {
       "mcpServers": {
         "clawdot-skills": {
-          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+          "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
           "headers": {
             "Authorization": "Bearer clw_your_api_key_here"
           }
@@ -492,7 +492,7 @@ Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model
     from mcp import ClientSession
     from mcp.client.streamable_http import streamablehttp_client
 
-    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
     API_KEY = "clw_your_api_key_here"            # Agent 身份，连接层请求头
     CONSENT_GRANT_ID = "cg_..."                  # 用户授权，工具参数
 
@@ -540,8 +540,8 @@ Cursor 是面向开发者的 AI 代码编辑器，支持 MCP 集成。
 ```json
 {
   "mcpServers": {
-    "clawdot": {
-      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+    "clawdot-eleme": {
+      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_key"
       }
@@ -564,8 +564,8 @@ Cursor 集成方式与 Claude Desktop 基本相同，主要区别是使用场景
 
 ### 接入要点
 
-1. **连接**：用任意 MCP 客户端，通过 Streamable HTTP 连到 `http://eleme-gateway.hicaspian.com/mcp/v1`。
-2. **Agent 身份**：在连接层请求头携带 `Authorization: Bearer clw_...`（在 [Clawdot Portal](http://console.hicaspian.com/agents) 创建 Agent 时生成）。
+1. **连接**：用任意 MCP 客户端，通过 Streamable HTTP 连到 `https://eleme-gateway.hicaspian.com/mcp/v1`。
+2. **Agent 身份**：在连接层请求头携带 `Authorization: Bearer clw_...`（在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建 Agent 时生成）。
 3. **用户授权**：每个业务工具调用都带 `consent_grant_id` 参数（`cg_` 前缀）；首次使用先走 `request_user_bind` / `verify_user_bind` 拿到它。
 4. **按链路调用工具**：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。所有跨步 ID 由网关签发、原样回传。
 
@@ -580,7 +580,7 @@ Gateway 已原生暴露 MCP 端点，绝大多数客户端**直接连接即可**
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
 API_KEY = "clw_your_api_key_here"            # Agent 身份，连接层请求头
 CONSENT_GRANT_ID = "cg_..."                  # 用户授权，工具参数
 
@@ -644,7 +644,7 @@ async def search_shops(keyword):
 <summary>我的 Agent 平台不在列表中怎么办？</summary>
 
 你可以：
-1. 只要平台支持 MCP 或工具调用，按上文「自建 Agent」连接 `http://eleme-gateway.hicaspian.com/mcp/v1` 自行接入（参考 [接入指南](/skills/integration-guide)）
+1. 只要平台支持 MCP 或工具调用，按上文「自建 Agent」连接 `https://eleme-gateway.hicaspian.com/mcp/v1` 自行接入（参考 [接入指南](/skills/integration-guide)）
 2. 联系我们 support@clawdot.com，申请添加新的平台集成
 
 </details>

@@ -82,7 +82,7 @@ Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认�
 
 - **前缀**：`clw_` 开头，后接随机字符，例如 `clw_a1b2c3d4...`
 - **存储**：服务端只存哈希、不保留明文，每次请求按哈希比对
-- **颁发**：在 [Portal](http://console.hicaspian.com/agents) 创建 Agent 时生成，**仅显示一次**，遗失需重新生成
+- **颁发**：在 [Portal](https://console.hicaspian.com/agents) 创建 Agent 时生成，**仅显示一次**，遗失需重新生成
 - **使用**：在连接层 HTTP Header 中作为 `Authorization: Bearer {API_KEY}` 传入，标识调用方 Agent
 
 ### 用户授权 consent grant（用户识别）
@@ -256,7 +256,7 @@ Skills 平台在数据访问层强制执行严格的隔离策略：
 <details>
 <summary>API Key 泄露了怎么办？</summary>
 
-立即在 [Portal](http://console.hicaspian.com/agents) 禁用该 API Key，系统将自动停止所有使用该 Key 的请求；随后生成新的 API Key 并更新应用配置。数据库中只存 API Key 的哈希，攻击者无法直接利用泄露的哈希值。
+立即在 [Portal](https://console.hicaspian.com/agents) 禁用该 API Key，系统将自动停止所有使用该 Key 的请求；随后生成新的 API Key 并更新应用配置。数据库中只存 API Key 的哈希，攻击者无法直接利用泄露的哈希值。
 
 </details>
 

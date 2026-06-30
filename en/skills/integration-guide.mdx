@@ -32,7 +32,7 @@ MCP (Model Context Protocol) is the standard protocol released by Anthropic, ena
 
 ### Step 1: Get API Key
 
-Create your Agent in the [Clawdot Console](http://console.hicaspian.com/agents):
+Create your Agent in the [Clawdot Console](https://console.hicaspian.com/agents):
 
 1. Sign in to the console and open **Agent Management**
 2. Click **Create New Agent**, enter a name and description
@@ -45,16 +45,16 @@ The API Key is only displayed once at creation. If lost, regenerate it in the co
 
 ### Step 2: Configure MCP Server
 
-The Gateway's public MCP endpoint is `http://eleme-gateway.hicaspian.com/mcp/v1` (Streamable HTTP). Agent identity is passed at the **connection layer** via the `Authorization: Bearer clw_...` header.
+The Gateway's public MCP endpoint is `https://eleme-gateway.hicaspian.com/mcp/v1` (Streamable HTTP). Agent identity is passed at the **connection layer** via the `Authorization: Bearer clw_...` header.
 
 Configure it in any client that supports remote Streamable HTTP MCP:
 
 ```json
 {
   "mcpServers": {
-    "clawdot-gateway": {
+    "clawdot-eleme": {
       "type": "http",
-      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_api_key_here"
       }
@@ -67,7 +67,7 @@ Configure it in any client that supports remote Streamable HTTP MCP:
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `url` | Public MCP endpoint (Streamable HTTP) | `http://eleme-gateway.hicaspian.com/mcp/v1` |
+| `url` | Public MCP endpoint (Streamable HTTP) | `https://eleme-gateway.hicaspian.com/mcp/v1` |
 | `Authorization` | Agent identity, `Bearer ` + your API Key | `Bearer clw_abc123def456...` |
 
 <Warning>
@@ -140,7 +140,7 @@ If your platform does not yet support remote MCP, you can register the tools as 
 
 ### Step 1: Get API Key
 
-Same as above (create an Agent in the [Console](http://console.hicaspian.com/agents)).
+Same as above (create an Agent in the [Console](https://console.hicaspian.com/agents)).
 
 ### Step 2: User Authorization
 
@@ -270,7 +270,7 @@ import json
 def call_gateway_tool(mcp_client, tool_name, tool_args, consent_grant_id):
     """Call one tool through a connected Gateway MCP client.
     mcp_client is already connected to
-    http://eleme-gateway.hicaspian.com/mcp/v1 (Streamable HTTP)
+    https://eleme-gateway.hicaspian.com/mcp/v1 (Streamable HTTP)
     with Authorization: Bearer clw_..."""
     # Business tools carry the consent_grant_id parameter;
     # binding tools request_user_bind / verify_user_bind are exempt
@@ -344,7 +344,7 @@ Tool names, parameters, and response shapes are identical to MCP — the wrapper
 <details>
 <summary>MCP fails to load</summary>
 
-- Confirm the endpoint is `http://eleme-gateway.hicaspian.com/mcp/v1`
+- Confirm the endpoint is `https://eleme-gateway.hicaspian.com/mcp/v1`
 - Confirm the `Authorization` header is `Bearer clw_...` with the correct API Key
 - Check the client supports remote Streamable HTTP MCP
 - Restart the MCP client

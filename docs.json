@@ -69,10 +69,8 @@
                                 ]
                             },
                             {
-                                "group": "接入指南",
+                                "group": "平台",
                                 "pages": [
-                                    "skills/integration-guide",
-                                    "skills/building-agents",
                                     "skills/supported-platforms"
                                 ]
                             }
@@ -85,6 +83,13 @@
                                 "group": "概览",
                                 "pages": [
                                     "mcp/overview"
+                                ]
+                            },
+                            {
+                                "group": "接入",
+                                "pages": [
+                                    "skills/integration-guide",
+                                    "skills/building-agents"
                                 ]
                             },
                             {
@@ -189,10 +194,8 @@
                                 ]
                             },
                             {
-                                "group": "Integration Guide",
+                                "group": "Platforms",
                                 "pages": [
-                                    "en/skills/integration-guide",
-                                    "en/skills/building-agents",
                                     "en/skills/supported-platforms"
                                 ]
                             }
@@ -205,6 +208,13 @@
                                 "group": "Overview",
                                 "pages": [
                                     "en/mcp/overview"
+                                ]
+                            },
+                            {
+                                "group": "Integration",
+                                "pages": [
+                                    "en/skills/integration-guide",
+                                    "en/skills/building-agents"
                                 ]
                             },
                             {
@@ -278,7 +288,7 @@
         "primary": {
             "type": "button",
             "label": "申请接入",
-            "href": "http://console.hicaspian.com/agents"
+            "href": "https://console.hicaspian.com/agents"
         }
     },
     "contextual": {

@@ -52,7 +52,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
        - Create enterprise application
 
     2. **Create Agent**
-       Create a dedicated Agent in [Clawdot Portal](http://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
+       Create a dedicated Agent in [Clawdot Portal](https://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
 
     3. **Configure WebHook**
        In DingTalk app settings, configure Clawdot Skills API as message processing endpoint
@@ -83,7 +83,7 @@ DingTalk Agent is the most common AI assistant form in enterprise scenarios, can
     DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
     # Gateway's native MCP endpoint (Streamable HTTP)
-    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
 
     def sign_message(timestamp, secret):
         """DingTalk message signature verification"""
@@ -206,7 +206,7 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
        - Create application and get API Key
 
     2. **Create Clawdot Agent**
-       Create an Agent in [Clawdot Portal](http://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
+       Create an Agent in [Clawdot Portal](https://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
 
     3. **Define Function Schema**
        Register Clawdot Gateway API as Function Calling tool in Kimi app
@@ -231,7 +231,7 @@ Moonshot's Kimi is a leading domestic large language model supporting Agent deve
     KIMI_API_KEY = os.getenv("KIMI_API_KEY")
     CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
     # Gateway's native MCP endpoint (Streamable HTTP)
-    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
 
     def call_kimi_with_function_calling(user_message, consent_grant_id):
         """Use Kimi API with Function Calling"""
@@ -417,7 +417,7 @@ Tencent Cloud provides enterprise-grade AI Agent service supporting cloud-native
        - Configure basic info and permissions
 
     3. **Create Clawdot Agent**
-       Create a dedicated Agent in [Clawdot Portal](http://console.hicaspian.com/agents)
+       Create a dedicated Agent in [Clawdot Portal](https://console.hicaspian.com/agents)
 
     4. **Configure Integration**
        Configure Clawdot Skills Platform API endpoint in Tencent Cloud Agent
@@ -452,11 +452,11 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     - Follow instructions to complete installation and login
 
     **2. Create Clawdot Agent**
-    Create an Agent in [Clawdot Portal](http://console.hicaspian.com/agents) and get the API Key (`clw_` prefix)
+    Create an Agent in [Clawdot Portal](https://console.hicaspian.com/agents) and get the API Key (`clw_` prefix)
 
     **3. Configure MCP Server**
     The Gateway exposes a native Streamable HTTP MCP endpoint
-    (`http://eleme-gateway.hicaspian.com/mcp/v1`); Agent identity is passed on the connection
+    (`https://eleme-gateway.hicaspian.com/mcp/v1`); Agent identity is passed on the connection
     via the `Authorization: Bearer clw_...` header. Edit
     `~/.claude-desktop/config.json`:
 
@@ -464,7 +464,7 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     {
       "mcpServers": {
         "clawdot-skills": {
-          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+          "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
           "headers": {
             "Authorization": "Bearer clw_your_api_key_here"
           }
@@ -498,7 +498,7 @@ Claude Desktop is Anthropic's official client with native support for MCP (Model
     from mcp import ClientSession
     from mcp.client.streamable_http import streamablehttp_client
 
-    GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
     API_KEY = "clw_your_api_key_here"            # Agent identity, connection header
     CONSENT_GRANT_ID = "cg_..."                  # User consent grant, tool argument
 
@@ -546,8 +546,8 @@ Configuration is similar to Claude Desktop — connect directly to the Gateway's
 ```json
 {
   "mcpServers": {
-    "clawdot": {
-      "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+    "clawdot-eleme": {
+      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
       "headers": {
         "Authorization": "Bearer clw_your_key"
       }
@@ -570,8 +570,8 @@ If your Agent platform is not in the list above, you can still integrate as long
 
 ### Integration essentials
 
-1. **Connect**: use any MCP client over Streamable HTTP to `http://eleme-gateway.hicaspian.com/mcp/v1`.
-2. **Agent identity**: send `Authorization: Bearer clw_...` on the connection (generated when you create an Agent in [Clawdot Portal](http://console.hicaspian.com/agents)).
+1. **Connect**: use any MCP client over Streamable HTTP to `https://eleme-gateway.hicaspian.com/mcp/v1`.
+2. **Agent identity**: send `Authorization: Bearer clw_...` on the connection (generated when you create an Agent in [Clawdot Portal](https://console.hicaspian.com/agents)).
 3. **User consent**: every business tool call carries a `consent_grant_id` argument (`cg_` prefix); obtain it on first use via `request_user_bind` / `verify_user_bind`.
 4. **Call tools along the chain**: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. All cross-step IDs are issued by the Gateway and passed back verbatim.
 
@@ -586,7 +586,7 @@ The Gateway exposes a native MCP endpoint, so most clients can **connect directl
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-GATEWAY_MCP_URL = "http://eleme-gateway.hicaspian.com/mcp/v1"
+GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
 API_KEY = "clw_your_api_key_here"            # Agent identity, connection header
 CONSENT_GRANT_ID = "cg_..."                  # User consent grant, tool argument
 
@@ -650,7 +650,7 @@ The following platforms are in development or testing, coming soon:
 <summary>What if my Agent platform is not in the list?</summary>
 
 You can:
-1. As long as the platform speaks MCP or tool calling, follow "Custom Agent" above and connect to `http://eleme-gateway.hicaspian.com/mcp/v1` yourself (see the [Integration Guide](/en/skills/integration-guide))
+1. As long as the platform speaks MCP or tool calling, follow "Custom Agent" above and connect to `https://eleme-gateway.hicaspian.com/mcp/v1` yourself (see the [Integration Guide](/en/skills/integration-guide))
 2. Contact us at support@clawdot.com to request a new platform integration
 
 </details>
