@@ -31,7 +31,6 @@
                             {
                                 "group": "Clawdot 虾点",
                                 "pages": [
-                                    "index",
                                     "overview/architecture",
                                     "quickstart",
                                     "overview/roadmap"
@@ -156,7 +155,6 @@
                             {
                                 "group": "Clawdot",
                                 "pages": [
-                                    "en/index",
                                     "en/overview/architecture",
                                     "en/quickstart",
                                     "en/overview/roadmap"
