@@ -105,7 +105,7 @@ graph TB
 
 ## MCP 接入
 
-Clawdot Gateway 对外以 **MCP（Model Context Protocol）** 暴露能力——这是为 Claude 等 AI 模型设计的 AI 原生调用方式。Super Agent 用 MCP 客户端（Streamable HTTP）连接公开端点 `http://eleme-gateway.hicaspian.com/mcp/v1`，每个请求在 HTTP 头携带 `Authorization: Bearer clw_...` 标识 Agent，用户授权则作为每个业务工具的 `consent_grant_id` 参数传入：
+Clawdot Gateway 对外以 **MCP（Model Context Protocol）** 暴露能力——这是为 Claude 等 AI 模型设计的 AI 原生调用方式。Super Agent 用 MCP 客户端（Streamable HTTP）连接公开端点 `https://eleme-gateway.hicaspian.com/mcp/v1`，每个请求在 HTTP 头携带 `Authorization: Bearer clw_...` 标识 Agent，用户授权则作为每个业务工具的 `consent_grant_id` 参数传入：
 
 ```
 # 商家搜索 / 浏览

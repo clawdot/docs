@@ -56,13 +56,13 @@ Gateway 通过 Streamable HTTP 暴露 **18 个 MCP 工具**，覆盖从绑定授
   </Step>
 
   <Step title="把 API Key 配进 MCP 客户端">
-    网关以 **Streamable HTTP**（FastMCP）对外提供 MCP 服务，Endpoint 为 `http://eleme-gateway.hicaspian.com/mcp/v1`。把 API Key 配进你的 MCP 客户端连接头：
+    网关以 **Streamable HTTP**（FastMCP）对外提供 MCP 服务，Endpoint 为 `https://eleme-gateway.hicaspian.com/mcp/v1`。把 API Key 配进你的 MCP 客户端连接头：
 
     ```json
     {
       "mcpServers": {
         "clawdot-eleme": {
-          "url": "http://eleme-gateway.hicaspian.com/mcp/v1",
+          "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
           "type": "http",
           "headers": {
             "Authorization": "Bearer clw_your_api_key"
@@ -129,53 +129,26 @@ API Key 标识 **Agent**，在**连接层**通过 `Authorization: Bearer clw_...
 
 ## Step 3：核心业务流程
 
-实现从搜索、浏览、算价、预览到下单、签约的完整链路。整条链路是**有状态的**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。
+实现从备好收货地址、搜店选品、算价、预览到下单的完整链路。整条链路是**有状态的**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。**先备好收货地址、再按地址搜可送达的店**，下游工具因此都拿得到配送坐标。
 
 ```
-search_shops → get_shop_menu → quote_cart → select_address
-            → preview_order → create_order → get_sign_action
+search_addresses → select_address → search_shops → get_shop_menu
+            → quote_cart → preview_order → create_order
 ```
 
 <Warning>
 所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
 </Warning>
 
+<Info>
+**免密支付签约是账户级的一次性前置**（见下文「免密支付签约」），不属于每一单的链路、也不绑定某笔订单——不要把它当成下单链路里的一步。
+</Info>
+
 下面每个业务工具调用都带 `consent_grant_id` 参数（来自 Step 2）。
 
-### Phase 1：搜索商家
+### Phase 1：准备收货地址
 
-```json
-// 工具：search_shops —— 搜索 / 浏览附近商家
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "keyword": "生椰拿铁",
-  "address_id": "addr_..."
-}
-// → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", "rating": ..., "min_order_amount": ... } ], "next_offset": ... }
-```
-
-不传 `keyword` 即按附近**浏览模式**（最多 20 家），带距离、评分、配送费、起送价等决策字段；传 `keyword`（店名 / 品类 / 商品名）则精确搜索（约 5 家）。浏览模式可传 `offset` 翻页：首次传 `offset: 0`，用返回的 `next_offset` 继续翻，直到 `shops` 为空。
-
-每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可。完整字段见 [搜索店铺](/mcp/shops/search)。
-
-### Phase 2：查看菜单详情
-
-```json
-// 工具：get_shop_menu —— 获取商家菜单
-{
-  "consent_grant_id": "cg_your_consent_grant",
-  "shop_id": "<来自搜索>",
-  "cart_id": "<来自搜索>",
-  "keyword": "拿铁"
-}
-// → { "categories": [...], "items": [ { "item_id": "...", "sku_id": "...", "ingredient_options": [...] } ], "has_more": false }
-```
-
-菜单可能很大（100+ 项），可用 `keyword` 或 `limit` / `offset` 渐进披露，按 `has_more` 判断是否还有更多。下单必须使用 `get_shop_menu` 返回的 `item_id` / `sku_id`（以及规格 / 加料的 `ingredient_option_ids`）。完整字段见 [店铺菜单](/mcp/shops/detail)；规格 / 属性 / 加料体系见 [商品规格说明](/gateway/item-specs)。
-
-### Phase 3：准备收货地址
-
-地址流程 = 搜 POI 拿一次性 `token` → 登记拿 `address_id`。先搜地址：
+先定下"送到哪里"。地址流程 = 搜 POI 拿一次性 `token` → 登记拿 `address_id`。先搜地址：
 
 ```json
 // 工具：search_addresses —— 搜地址 POI，拿建议（含一次性 token）
@@ -202,7 +175,38 @@ search_shops → get_shop_menu → quote_cart → select_address
 // → { "address_id": "...", "display_name": "...", "lat": ..., "lng": ... }
 ```
 
-也可直接用已有地址的 `address_id` 调 `select_address`。详见 [搜索地址](/mcp/addresses/search) 与 [选择/登记地址](/mcp/addresses/select)；编辑门牌 / 标签用 [`update_address`](/mcp/addresses/update)（`address_id` 不变）。
+也可直接用已有地址的 `address_id` 调 `select_address`。这个 `address_id` 既用于下一步搜店，也用于后续算价 / 预览。详见 [搜索地址](/mcp/addresses/search) 与 [选择/登记地址](/mcp/addresses/select)；编辑门牌 / 标签用 [`update_address`](/mcp/addresses/update)（`address_id` 不变）。
+
+### Phase 2：搜索商家
+
+```json
+// 工具：search_shops —— 按收货地址搜索 / 浏览可送达商家
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "address_id": "<来自上一步选址>",
+  "keyword": "生椰拿铁"
+}
+// → { "shops": [ { "shop_id": "...", "cart_id": "...", "name": "...", "rating": ..., "min_order_amount": ... } ], "next_offset": ... }
+```
+
+用上一步的 `address_id` 搜可送达的店铺。不传 `keyword` 即按该地址附近**浏览模式**（最多 20 家），带距离、评分、配送费、起送价等决策字段；传 `keyword`（店名 / 品类 / 商品名）则精确搜索（约 5 家）。浏览模式可传 `offset` 翻页：首次传 `offset: 0`，用返回的 `next_offset` 继续翻，直到 `shops` 为空。
+
+每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，下游工具因此免传经纬度。完整字段见 [搜索店铺](/mcp/shops/search)。
+
+### Phase 3：查看菜单详情
+
+```json
+// 工具：get_shop_menu —— 获取商家菜单
+{
+  "consent_grant_id": "cg_your_consent_grant",
+  "shop_id": "<来自搜索>",
+  "cart_id": "<来自搜索>",
+  "keyword": "拿铁"
+}
+// → { "categories": [...], "items": [ { "item_id": "...", "sku_id": "...", "ingredient_options": [...] } ], "has_more": false }
+```
+
+菜单可能很大（100+ 项），可用 `keyword` 或 `limit` / `offset` 渐进披露，按 `has_more` 判断是否还有更多。下单必须使用 `get_shop_menu` 返回的 `item_id` / `sku_id`（以及规格 / 加料的 `ingredient_option_ids`）。完整字段见 [店铺菜单](/mcp/shops/detail)；规格 / 属性 / 加料体系见 [商品规格说明](/gateway/item-specs)。
 
 ### Phase 4：购物车算价
 
@@ -283,35 +287,36 @@ search_shops → get_shop_menu → quote_cart → select_address
 
 本工具以 `confirmation_token` 为**幂等键**：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调（`event=order_payment`，体含 `order_id`、`ispay`、`status` 等）；不传则自行用 `get_order_status` 轮询。完整字段见 [创建订单](/mcp/orders/create)。
 
-### Phase 7：免密签约
+---
 
-首次下单需用户完成免密支付签约。获取签约动作：
+## Step 4：免密支付签约（账户级，一次性）
+
+免密签约让用户授权**免密支付**：签约一次，后续免密支付类订单即可自动扣款。它是**账户级、一次性的前置设置**，**不绑定某一笔订单、也不是每单都要做**——所以独立于上面的下单链路。建议在需要免密支付前先用 `get_sign_status` 查是否已签约，未签约再发起：
 
 ```json
-// 工具：get_sign_action —— 获取免密签约动作（H5 链接）
+// 工具：get_sign_action —— 发起免密签约（拿 H5 签约动作）
 {
   "consent_grant_id": "cg_your_consent_grant",
-  "order_id": "ord_..."
+  "return_url": "https://your.app/sign/callback"
 }
 // → 免密签约动作：action_type=open_h5 时含 action_url（H5 签约页）；none 表示已签约
 ```
 
-`action_type=open_h5` 时把用户引导到 `action_url`（H5 签约页）完成签约；`none` 表示已签约。随后用 `get_sign_status` 轮询签约结果：
+`action_type=open_h5` 时把用户引导到 `action_url`（H5 签约页）完成签约，完成后浏览器跳回 `return_url`；`none` 表示已签约。随后用 `get_sign_status` 轮询签约结果：
 
 ```json
 // 工具：get_sign_status —— 查询签约状态
 {
-  "consent_grant_id": "cg_your_consent_grant",
-  "order_id": "ord_..."
+  "consent_grant_id": "cg_your_consent_grant"
 }
 // → { "signed": ..., "status": "...", ... }
 ```
 
-完整链路与字段见 [下单流程](/gateway/order-flow)。
+完整字段见 [发起免密签约](/mcp/payment/sign-action) 与 [查询签约状态](/mcp/payment/sign-status)；下单链路与支付时序见 [下单流程](/gateway/order-flow)。
 
 ---
 
-## Step 4：处理边界情况
+## Step 5：处理边界情况
 
 健壮的 Agent 应该优雅地处理各种边界情况，提供友好的错误提示。Gateway 的错误统一返回 `{"error": {"code", "message"}}` 结构（每个 MCP 工具失败时都是这个形状）。
 
@@ -430,16 +435,15 @@ def handle_tool_result(result: dict):
 
 ```
 request_user_bind / verify_user_bind  → consent_grant_id
-search_shops（得 shop_id + cart_id）
+search_addresses → select_address（得 address_id）
+search_shops（按 address_id，得 shop_id + cart_id）
 get_shop_menu（得 item_id / sku_id）
 quote_cart（得 quote_id）
-select_address（得 address_id）
 preview_order（得 preview_id + confirmation_token）
-create_order（得 order_id）
-get_sign_action（免密签约）→ get_order_status（查状态）
+create_order（得 order_id）→ get_order_status（查状态）
 ```
 
-所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` / `confirmation_token` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。`confirmation_token` 是下单幂等键，绑定阶段铸造的 `consent_grant_id` 是后续每个业务工具调用都要带的用户授权参数。
+先备好收货地址、再按地址搜可送达的店，下游工具因此都拿得到配送坐标。所有跨步骤的 ID（`address_id` / `shop_id` / `cart_id` / `preview_id` / `confirmation_token` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。`confirmation_token` 是下单幂等键，绑定阶段铸造的 `consent_grant_id` 是后续每个业务工具调用都要带的用户授权参数。**免密支付签约（`get_sign_action`）是账户级、一次性的前置，独立于这条下单链路**（见 Step 4）。
 
 ---
 

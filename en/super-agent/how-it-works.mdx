@@ -105,7 +105,7 @@ graph TB
 
 ## MCP Access
 
-Clawdot Gateway exposes its capabilities over **MCP (Model Context Protocol)** — the AI-native calling method designed for AI models like Claude. Super Agent connects with an MCP client (Streamable HTTP) to the public endpoint `http://eleme-gateway.hicaspian.com/mcp/v1`. Each request carries `Authorization: Bearer clw_...` in the HTTP header to identify the Agent, while user authorization is passed as the `consent_grant_id` argument on each business tool:
+Clawdot Gateway exposes its capabilities over **MCP (Model Context Protocol)** — the AI-native calling method designed for AI models like Claude. Super Agent connects with an MCP client (Streamable HTTP) to the public endpoint `https://eleme-gateway.hicaspian.com/mcp/v1`. Each request carries `Authorization: Bearer clw_...` in the HTTP header to identify the Agent, while user authorization is passed as the `consent_grant_id` argument on each business tool:
 
 ```
 # Merchant search / browse
