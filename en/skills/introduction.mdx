@@ -1,6 +1,6 @@
 ---
 title: "Skills Platform"
-description: "Standardized local-life skill packs for AI Agents, built on Clawdot"
+description: "Installable Agent skill packs built on top of the gateway—ready to use"
 icon: "sparkles"
 ---
 
@@ -9,54 +9,38 @@ import Mermaid from '/components/Mermaid';
 
 ## What are Skills?
 
-Clawdot aggregates downstream delivery platforms (Ele.me, Meituan, etc.), local-life platforms (Amap, etc.), and merchants' own Agent service capabilities. On top of these, Clawdot defines a **standardized service SOP and interface protocol**—a unified flow for menu lookup, order fulfillment, address management, order tracking, and more.
+**A Skill is an installable skill pack built on top of the gateway.** Install it into your Agent (Claude Code / OpenClaw / Codex) and the Agent immediately gains the corresponding local-life capability—for example, "ordering takeout." You don't have to stitch the call chain together from scratch; the pack already wraps a complete set of actions plus an interaction "soul."
 
-**Skills** are the **Agent-facing skill packs** packaged on top of this standard. Each Skill is an independent, installable capability unit; once an Agent installs it, the Agent gains the corresponding local-life service capability.
+Underneath, it still runs on the same gateway: the gateway aggregates downstream platforms (Ele.me, etc.) and local-life services, and exposes a standardized set of capabilities for menu lookup, order fulfillment, address management, and order tracking. A Skill simply packages those capabilities into a ready-to-use form for one concrete scenario.
 
 <Mermaid
   chart={`
     graph TB
       subgraph Platforms["Downstream Platforms"]
         P1["Ele.me"]
-        P2["Meituan"]
-        P3["Amap"]
-        P4["Merchant Agent"]
+        P2["Local-life services"]
       end
 
-      subgraph Gateway["Clawdot Standard Layer"]
-        G1["Unified Protocol<br/>Menu · Order · Address · Tracking"]
-        G2["Standard SOP<br/>search→items→quote→address→preview→order"]
+      subgraph Gateway["open-gateway"]
+        G1["18 standardized tools<br/>search · menu · preview · order · status"]
       end
 
-      subgraph Skills["Skill Packs"]
-        S1["Takeout Skill"]
-        S2["Dine-in Skill"]
-        S3["More Skills..."]
+      subgraph Skills["Installable Skill Packs"]
+        S1["takeout assistant<br/>(wrapped actions + GUIDE soul)"]
       end
 
-      subgraph Agents["Front-end AI Agents"]
-        A1["Claude Desktop"]
-        A2["Kimi"]
-        A3["DingTalk Agent"]
-        A4["OpenClaw"]
-        A5["Other Agents"]
+      subgraph Agents["Your Agent"]
+        A1["Claude Code"]
+        A2["OpenClaw"]
+        A3["Codex"]
       end
 
       P1 --> G1
       P2 --> G1
-      P3 --> G1
-      P4 --> G1
-
-      G1 --> G2
-      G2 --> S1
-      G2 --> S2
-      G2 --> S3
-
+      G1 --> S1
       S1 --> A1
       S1 --> A2
       S1 --> A3
-      S2 --> A4
-      S3 --> A5
 
       style Platforms fill:#D1FAE5,stroke:#34D399,stroke-width:2px
       style Gateway fill:#fde8e4,stroke:#E8593C,stroke-width:2px
@@ -65,71 +49,66 @@ Clawdot aggregates downstream delivery platforms (Ele.me, Meituan, etc.), local-
   `}
 />
 
-## Design approach
+## How does a Skill differ from MCP?
 
-Skills follow a three-layer separation principle:
+The two target different integration styles and complement each other:
 
-**Layer 1: Platform capability aggregation.** Clawdot integrates the APIs of multiple delivery and local-life platforms and consolidates their capabilities. Merchants don't need to change anything—Clawdot's Proxy layer handles format conversion and protocol adaptation. Large chain brands can also build their own Agent that implements the standard protocol directly.
+| | **MCP (raw tools)** | **Skill (skill pack)** |
+|---|---|---|
+| What you get | 18 atomic tools | One wrapped capability (e.g. takeout) |
+| Orchestration | You write it: chain search → menu → preview → order yourself | Pre-wrapped: actions + GUIDE wire the flow for you |
+| Ramp-up | Flexible, but you define the interaction | Works out of the box—install and the capability is there |
+| Best for | Fine-grained control over the lower layer, building your own Agent logic | Letting an Agent simply know how to "order takeout" |
 
-**Layer 2: Standardized protocol and SOP.** On top of platform capabilities, Clawdot defines a unified interface spec and interaction flow. No matter whether the backend is Ele.me or Meituan, the Agent on top uses the same standard chain: `search_shops` (search) → `get_shop_menu` (menu) → `quote_cart` (quote) → `select_address` (address) → `preview_order` (preview) → `create_order` (order) → `get_sign_action` (passwordless signing). The complex customization system for item specs, attributes (attrs), and ingredients is also unified into standard data structures. All amount fields are in **cents (integers)**. See the full chain in [Order Flow](/en/gateway/order-flow).
-
-**Layer 3: Skill packaging.** Based on the standardized protocol and SOP, Clawdot packages each category of service into an independent Skill. Each Skill contains a complete interaction guide (GUIDE), action definitions (Actions), and a platform adaptation layer (Platforms), so the Agent works out of the box once installed.
+In short: **MCP gives you the parts, a Skill gives you the finished product.** If you want to orchestrate the 18 underlying tools yourself for finer control, see the [MCP Overview](/en/mcp/overview).
 
 ## Anatomy of a Skill
 
-Each Skill is a standardized pack containing the following parts:
+Each Skill is a standardized directory with the following main parts:
 
-| Component | Description | Example |
-|---------|------|------|
-| **skill.yaml** | Skill metadata: name, version, action list, environment dependencies | `name: takeout`, `actions: [search_shops, get_shop_menu, preview_order, create_order]` |
-| **GUIDE.md** | Interaction SOP: how the Agent should talk to the user and when to call which action | "Do it first, then speak. State the conclusion, not the process." |
-| **scripts/** | Execution scripts: the logic that actually calls the Gateway API | `takeout.py` — full implementation of search, item selection, ordering |
-| **platforms/** | Platform adaptation layer: SKILL.md configs for different Agent platforms | One each for Claude Code, OpenClaw, Codex |
-
-## Authentication model
-
-Skills use **two-layer authentication**: an **API Key** identifies the Agent, and a **user authorization (consent grant)** identifies the authorized delivery user. The Agent holds its own API Key, then runs a binding flow per user to obtain a `consent_grant_id` (`cg_` prefix); the two together let it act on that user's behalf. Each authorization is independent and revocable at any time, naturally creating security isolation with no need for a complex permission-management system.
-
-- **API Key (Agent identity):** passed at the connection layer via the `Authorization: Bearer clw_...` header; generated when you create an Agent in the [console](https://console.hicaspian.com/agents).
-- **User authorization (consent grant):** passed as each MCP tool's `consent_grant_id` parameter (`cg_` prefix, not a header).
-
-Suitable for: personal assistants, desktop Agents (Claude Desktop, Cursor, etc.), and various Agent-platform integrations. See [Authentication](/en/gateway/authentication) for full details.
-
-## Supported platforms
-
-The Skill platform adaptation layer lets the same Skill run across multiple Agent environments:
-
-| Platform | Integration | Use case |
-|------|---------|---------|
-| **Claude Code** | Python scripts + SKILL.md instructions | Desktop developers, personal Agents |
-| **OpenClaw** | Tool SDK + camelCase parameters | Open-platform integration |
-| **Codex** | Python scripts + AGENTS.md | OpenAI Codex Agent |
-| **Self-built Agent** | Connect directly to the MCP tool contract | DingTalk, Kimi, QCloud, any platform |
+| Component | Description |
+|---------|------|
+| **skill.yaml** | Skill metadata: name, version, auth model, environment dependencies (`requires`), action list (`actions`), supported platforms (`platforms`) |
+| **GUIDE.md** | The interaction guide, the "soul" of the skill—platform-agnostic rules for when the Agent calls which action, how it talks to the user, and how it handles success/failure |
+| **scripts/** | Execution scripts: the logic that actually calls the gateway (e.g. `takeout.py`, containing the open-gateway client and each action) |
+| **platforms/** | Platform adaptation layer: one each for Claude Code (SKILL.md), OpenClaw (SKILL.md), and Codex (AGENTS.md) |
 
 ## Open Skills
 
-<CardGroup cols={2}>
-  <Card title="Integration Guide" href="/en/skills/integration-guide" icon="code">
-    Connect via the MCP tool contract and reach all 18 tools quickly.
-  </Card>
+There is currently **1 open Skill: takeout (delivery assistant)**—a full takeout flow that helps the user search shops, pick items, place orders, and track them.
 
-  <Card title="Building Agents" href="/en/skills/building-agents" icon="hammer">
-    Build a complete local-life Agent from scratch: search, item selection, ordering, and tracking.
-  </Card>
-
-  <Card title="Supported Platforms" href="/en/skills/supported-platforms" icon="grid">
-    Integrated Agent platforms and their configuration methods.
+<CardGroup cols={1}>
+  <Card title="takeout delivery assistant" href="/en/skills/takeout" icon="utensils">
+    The only open Skill: once installed, the Agent can order takeout for the user—search, item selection, preview, ordering, and tracking, end to end.
   </Card>
 </CardGroup>
+
+## One-line install
+
+Skills are hosted on GitHub Releases; the install script downloads, verifies the sha256, and unpacks to the right location for your Agent platform. Using Claude Code as an example:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
+```
+
+After installing, drop a `.env` in the skill root with your `API_KEY` (the agent identity, `clw_` prefix, obtained when you create an Agent in the [console](https://console.hicaspian.com/agents)); `GATEWAY_URL` can stay at the default `https://eleme-gateway.hicaspian.com`. See [Installation & Platforms](/en/skills/supported-platforms) for the install and trigger details of each platform.
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Security Model" href="/en/skills/security-model" icon="shield-check">
-    Learn about one-to-one binding authorization, data isolation, and encryption.
+  <Card title="takeout delivery assistant" href="/en/skills/takeout" icon="utensils">
+    One-line positioning, auth, the 9 actions, the ordering model, and the interaction patterns.
   </Card>
 
-  <Card title="Order Flow" href="/en/gateway/order-flow" icon="utensils">
-    The complete end-to-end ordering chain: from search_shops to passwordless signing.
+  <Card title="Installation & Platforms" href="/en/skills/supported-platforms" icon="grid">
+    Install and trigger details for Claude Code / OpenClaw / Codex.
+  </Card>
+
+  <Card title="Security Model" href="/en/skills/security-model" icon="shield-check">
+    Two-layer authentication, per-user self-authorization, data isolation, and credential protection.
+  </Card>
+
+  <Card title="MCP Overview" href="/en/mcp/overview" icon="wrench">
+    Want to orchestrate the 18 raw tools yourself? Start here.
   </Card>
 </CardGroup>

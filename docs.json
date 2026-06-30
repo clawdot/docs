@@ -26,12 +26,22 @@
                 "default": true,
                 "tabs": [
                     {
+                        "tab": "主页",
+                        "groups": [
+                            {
+                                "group": "主页",
+                                "pages": [
+                                    "index"
+                                ]
+                            }
+                        ]
+                    },
+                    {
                         "tab": "Overview 概览",
                         "groups": [
                             {
                                 "group": "Clawdot 虾点",
                                 "pages": [
-                                    "index",
                                     "overview/architecture",
                                     "quickstart",
                                     "overview/roadmap"
@@ -69,8 +79,9 @@
                                 ]
                             },
                             {
-                                "group": "平台",
+                                "group": "takeout 外卖助手",
                                 "pages": [
+                                    "skills/takeout",
                                     "skills/supported-platforms"
                                 ]
                             }
@@ -151,12 +162,22 @@
                 "language": "en",
                 "tabs": [
                     {
+                        "tab": "Home",
+                        "groups": [
+                            {
+                                "group": "Home",
+                                "pages": [
+                                    "en/index"
+                                ]
+                            }
+                        ]
+                    },
+                    {
                         "tab": "Overview",
                         "groups": [
                             {
                                 "group": "Clawdot",
                                 "pages": [
-                                    "en/index",
                                     "en/overview/architecture",
                                     "en/quickstart",
                                     "en/overview/roadmap"
@@ -194,8 +215,9 @@
                                 ]
                             },
                             {
-                                "group": "Platforms",
+                                "group": "Takeout Assistant",
                                 "pages": [
+                                    "en/skills/takeout",
                                     "en/skills/supported-platforms"
                                 ]
                             }

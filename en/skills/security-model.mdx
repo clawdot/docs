@@ -59,8 +59,10 @@ The security foundation of the Skills Platform is **per-grant binding**: each us
 
 The Skills Platform uses an **API Key + user consent grant** two-layer authentication mechanism:
 
-1. **API Key** — Identifies the Agent, managed by the Agent application provider
-2. **User consent grant** — Identifies the authorized delivery user, obtained through the binding flow (SMS code / H5)
+1. **API Key** — Identifies the Agent (connection layer), managed by the Agent application provider
+2. **User consent grant** — Identifies one authorized delivery user; **one consent grant maps to one user and is valid for 90 days by default**, obtained through the binding flow (SMS code / H5)
+
+> **Each user must authorize in person, once.** The platform offers no Admin silent binding — there is no back-office credential that can skip authorization on a user's behalf (the legacy `ADMIN_SECRET` / trusted binding has been removed). A user authorization can only be started via `request_user_bind` (SMS by default / H5) and completed by the user themselves via `verify_user_bind`.
 
 <Mermaid
   chart={`
@@ -88,9 +90,11 @@ The Skills Platform uses an **API Key + user consent grant** two-layer authentic
 ### Consent Grant (User Identification)
 
 - **Prefix**: Starts with `cg_`
-- **Source**: Obtained after the user authorizes through the binding flow (SMS code / H5); `verify_user_bind` returns `consent_grant_id`, `scopes`, and `expires_at` (ISO 8601) on success
+- **One-to-one**: One consent grant maps to one user (binds an "Agent + user + capability" triple)
+- **Validity**: **90 days** by default; once it expires or rotates, the user must re-bind
+- **Source**: Obtained after the user **authorizes in person** through the binding flow (SMS code / H5); `verify_user_bind` returns `consent_grant_id`, `scopes`, and `expires_at` (ISO 8601) on success
 - **Storage**: The plaintext is returned only once; only a hash is stored — keep it safe
-- **Transport**: passed as the `consent_grant_id` argument on each tool (never in the body, never in a header)
+- **Transport**: passed as the `consent_grant_id` argument on each MCP tool (never in the body, never in a header)
 - **Invalidation**: Once `expires_at` is reached, or after being revoked via `revoke_user_bind`, it becomes invalid immediately; re-bind to obtain a new one
 
 ## Data Encryption

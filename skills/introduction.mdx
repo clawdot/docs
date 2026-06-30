@@ -1,6 +1,6 @@
 ---
 title: "Skills 技能开放"
-description: "Clawdot 面向 AI Agent 的标准化本地生活技能包"
+description: "建立在网关之上、可安装的 Agent 技能包——装上即用"
 icon: "sparkles"
 ---
 
@@ -9,54 +9,38 @@ import Mermaid from '/components/Mermaid';
 
 ## 什么是 Skills？
 
-Clawdot 整合了下游的外卖平台（饿了么、美团等）、生活服务平台（高德等），以及商户自有的 Agent 服务能力。在此基础上，Clawdot 定义了一套**标准化的服务 SOP 和接口协议**——统一的菜单查询、下单履约、地址管理、订单追踪等流程。
+**Skill 是建立在网关之上、可安装的技能包。** 把它装进你的 Agent（Claude Code / OpenClaw / Codex），Agent 就立刻具备了对应的本地生活能力——比如"点外卖"。你不需要从零拼接调用链，技能包里已经封装好了完整的动作和一套交互"灵魂"。
 
-**Skills** 就是基于这套标准，封装出来的**面向 AI Agent 的技能包**。每个 Skill 是一个独立的、可安装的能力单元，Agent 安装后即可具备对应的本地生活服务能力。
+底层走的仍是同一个网关：网关整合了下游平台（饿了么等）与本地生活服务，对外暴露一套标准化的菜单查询、下单履约、地址管理、订单追踪能力。Skill 就是把这套能力针对一个具体场景封装成"开箱即用"的形态。
 
 <Mermaid
   chart={`
     graph TB
       subgraph Platforms["下游平台服务"]
         P1["饿了么"]
-        P2["美团"]
-        P3["高德"]
-        P4["商户自有 Agent"]
+        P2["本地生活服务"]
       end
 
-      subgraph Gateway["Clawdot 标准化层"]
-        G1["统一协议<br/>菜单 · 下单 · 地址 · 追踪"]
-        G2["标准 SOP<br/>搜店→选品→算价→选址→预览→下单"]
+      subgraph Gateway["open-gateway 网关"]
+        G1["18 个标准化工具<br/>搜店 · 菜单 · 预览 · 下单 · 查单"]
       end
 
-      subgraph Skills["Skills 技能包"]
-        S1["外卖 Skill"]
-        S2["到店 Skill"]
-        S3["更多 Skill..."]
+      subgraph Skills["可安装技能包"]
+        S1["takeout 外卖助手<br/>（封装动作 + GUIDE 灵魂）"]
       end
 
-      subgraph Agents["前端 AI Agent"]
-        A1["Claude Desktop"]
-        A2["Kimi"]
-        A3["钉钉 Agent"]
-        A4["OpenClaw"]
-        A5["其他 Agent"]
+      subgraph Agents["你的 Agent"]
+        A1["Claude Code"]
+        A2["OpenClaw"]
+        A3["Codex"]
       end
 
       P1 --> G1
       P2 --> G1
-      P3 --> G1
-      P4 --> G1
-
-      G1 --> G2
-      G2 --> S1
-      G2 --> S2
-      G2 --> S3
-
+      G1 --> S1
       S1 --> A1
       S1 --> A2
       S1 --> A3
-      S2 --> A4
-      S3 --> A5
 
       style Platforms fill:#D1FAE5,stroke:#34D399,stroke-width:2px
       style Gateway fill:#fde8e4,stroke:#E8593C,stroke-width:2px
@@ -65,71 +49,66 @@ Clawdot 整合了下游的外卖平台（饿了么、美团等）、生活服务
   `}
 />
 
-## 架构思路
+## Skill 和 MCP 有什么区别？
 
-Skills 的设计遵循三层分离的原则：
+两者面向不同的接入方式，互为补充：
 
-**第一层：平台能力汇聚。** Clawdot 对接了多家外卖平台和本地生活服务的 API，将它们的能力统一归拢。商户不需要做任何改动——Clawdot 的 Proxy 层负责完成格式转换和协议适配。对于大型连锁品牌，也支持商户自建 Agent 直接实现标准协议。
+| | **MCP（裸工具）** | **Skill（技能包）** |
+|---|---|---|
+| 你拿到的 | 18 个原子工具 | 一个封装好的能力（如 takeout） |
+| 编排 | 自己写：搜店→菜单→预览→下单的链路由你拼 | 已封装：动作 + GUIDE 帮你串好流程 |
+| 上手 | 灵活，但要自己定义交互 | 开箱即用，装上即具备能力 |
+| 适合 | 想精细控制底层、自建 Agent 逻辑 | 想让 Agent 直接会"点外卖" |
 
-**第二层：标准化协议与 SOP。** 在平台能力之上，Clawdot 定义了统一的接口规范和交互流程。无论底层是饿了么还是美团，上层的 Agent 都使用同一套标准链路：`search_shops`（搜店）→ `get_shop_menu`（菜单）→ `quote_cart`（算价）→ `select_address`（选址）→ `preview_order`（预览）→ `create_order`（下单）→ `get_sign_action`（免密签约）。商品的规格（specs）、属性（attrs）、加料（ingredients）等复杂定制体系，也被统一为标准数据结构。所有金额字段单位为**分（整数）**。完整链路见 [下单流程](/gateway/order-flow)。
-
-**第三层：Skill 技能封装。** 基于标准化的协议和 SOP，Clawdot 将每类服务封装为独立的 Skill。每个 Skill 包含完整的交互引导（GUIDE）、动作定义（Actions）、平台适配层（Platforms），Agent 安装后开箱即用。
+简单说：**MCP 给你零件，Skill 给你成品。** 如果你想自己编排底层的 18 个工具、做更精细的控制，看 [MCP 概览](/mcp/overview)。
 
 ## Skill 的组成
 
-每个 Skill 是一个标准化的包，包含以下几个部分：
+每个 Skill 是一个标准化的目录，主要包含以下几部分：
 
-| 组成部分 | 说明 | 示例 |
-|---------|------|------|
-| **skill.yaml** | 技能元信息：名称、版本、动作列表、环境依赖 | `name: takeout`、`actions: [search_shops, get_shop_menu, preview_order, create_order]` |
-| **GUIDE.md** | 交互 SOP：Agent 应该如何与用户对话、何时调用哪个动作 | "先做完，再说话。说结论，不说过程。" |
-| **scripts/** | 执行脚本：实际调用 Gateway API 的逻辑代码 | `takeout.py` — 搜店、选品、下单的完整实现 |
-| **platforms/** | 平台适配层：针对不同 Agent 平台的 SKILL.md 配置 | Claude Code、OpenClaw、Codex 各一份 |
+| 组成部分 | 说明 |
+|---------|------|
+| **skill.yaml** | 技能元信息：名称、版本、鉴权模型、环境依赖（`requires`）、动作列表（`actions`）、支持平台（`platforms`） |
+| **GUIDE.md** | 交互指南，技能的"灵魂"——平台无关地规定 Agent 何时调用哪个动作、如何对用户说话、成功/失败如何处置 |
+| **scripts/** | 执行脚本：实际调用网关的逻辑代码（如 `takeout.py`，内含 open-gateway 客户端与各个 action） |
+| **platforms/** | 平台适配层：针对 Claude Code（SKILL.md）、OpenClaw（SKILL.md）、Codex（AGENTS.md）各一份 |
 
-## 认证模型
+## 已开放的技能
 
-Skills 采用 **双层认证**：**API Key** 标识 Agent 身份，**用户授权（consent grant）** 标识已授权的外卖用户。Agent 持有自己的 API Key，再为每个用户走绑定流程拿到一个 `consent_grant_id`（`cg_` 前缀），二者配合即可代表该用户操作。每个授权独立、可随时撤销，天然形成安全隔离，无需复杂的权限管理系统。
+目前已开放 **1 个技能：takeout（外卖助手）**——帮用户搜店、选菜、下单、查单的全流程外卖能力。
 
-- **API Key（Agent 身份）：** 在连接层通过 `Authorization: Bearer clw_...` 请求头传递；在[控制台](https://console.hicaspian.com/agents)创建 Agent 时生成。
-- **用户授权（consent grant）：** 作为每个 MCP 工具的 `consent_grant_id` 参数传入（`cg_` 前缀，不走请求头）。
-
-适用于：个人助手、桌面端 Agent（Claude Desktop、Cursor 等）、各类 Agent 平台集成。完整说明见 [认证机制](/gateway/authentication)。
-
-## 支持的平台
-
-Skills 的平台适配层让同一个 Skill 可以运行在多种 Agent 环境中：
-
-| 平台 | 调用方式 | 适用场景 |
-|------|---------|---------|
-| **Claude Code** | Python 脚本 + SKILL.md 指令 | 桌面端开发者、个人 Agent |
-| **OpenClaw** | Tool SDK + camelCase 参数 | 开放平台集成 |
-| **Codex** | Python 脚本 + AGENTS.md | OpenAI Codex Agent |
-| **自建 Agent** | 直接连 MCP 工具契约 | 钉钉、Kimi、QCloud 等任意平台 |
-
-## 已开放的 Skills
-
-<CardGroup cols={2}>
-  <Card title="接入指南" href="/skills/integration-guide" icon="code">
-    按 MCP 工具契约接入，快速连上 18 个工具。
-  </Card>
-
-  <Card title="构建 Agent" href="/skills/building-agents" icon="hammer">
-    从零搭建一个完整的本地生活 Agent：搜店、选品、下单、查单全流程。
-  </Card>
-
-  <Card title="支持的平台" href="/skills/supported-platforms" icon="grid">
-    已接入的 Agent 平台与各自的配置方式。
+<CardGroup cols={1}>
+  <Card title="takeout 外卖助手" href="/skills/takeout" icon="utensils">
+    唯一已开放的技能：装上后 Agent 即可帮用户点外卖——搜店、选菜、预览、下单、查单全流程。
   </Card>
 </CardGroup>
+
+## 一行安装
+
+技能托管在 GitHub Release，安装脚本会下载、校验 sha256、解压到 Agent 平台对应的位置。以 Claude Code 为例：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
+```
+
+装完在 skill 根目录放一个 `.env`，填入你的 `API_KEY`（agent 身份，`clw_` 前缀，在[控制台](https://console.hicaspian.com/agents)创建 Agent 时拿到）；`GATEWAY_URL` 用默认的 `https://eleme-gateway.hicaspian.com` 即可。三个平台各自的安装与触发方式见[安装与平台](/skills/supported-platforms)。
 
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="安全模型" href="/skills/security-model" icon="shield-check">
-    了解双层认证、数据隔离和加密机制。
+  <Card title="takeout 外卖助手" href="/skills/takeout" icon="utensils">
+    一句话定位、鉴权、9 个 action、下单模型与交互范式。
   </Card>
 
-  <Card title="下单流程" href="/gateway/order-flow" icon="utensils">
-    完整的端到端下单链路：从 search_shops 到免密签约。
+  <Card title="安装与平台" href="/skills/supported-platforms" icon="grid">
+    Claude Code / OpenClaw / Codex 三个平台各自的安装与触发方式。
+  </Card>
+
+  <Card title="安全模型" href="/skills/security-model" icon="shield-check">
+    双层认证、每用户本人授权、数据隔离与凭证保护。
+  </Card>
+
+  <Card title="MCP 概览" href="/mcp/overview" icon="wrench">
+    想自己编排底层的 18 个裸工具？从这里开始。
   </Card>
 </CardGroup>

@@ -59,8 +59,10 @@ Skills 平台的安全基石是**按授权绑定**：每一个用户授权（con
 
 Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认证机制：
 
-1. **API Key** — 标识 Agent 身份，由 Agent 应用方保管
-2. **用户授权（consent grant）** — 标识已授权的外卖用户，通过绑定流程（SMS 验证码 / H5）获得
+1. **API Key** — 标识 Agent 身份（连接层），由 Agent 应用方保管
+2. **用户授权（consent grant）** — 标识一个已授权的外卖用户，**一个 consent grant 对应一个用户、默认 90 天有效**，通过绑定流程（SMS 验证码 / H5）获得
+
+> **每个用户必须本人授权一次。** 平台不提供 Admin 静默绑定 —— 不存在任何后台凭据可以替用户跳过授权（旧版 `ADMIN_SECRET` / 受信绑定已移除）。用户只能通过 `request_user_bind`（SMS 默认 / H5）发起、再由本人 `verify_user_bind` 完成授权。
 
 <Mermaid
   chart={`
@@ -88,9 +90,11 @@ Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认�
 ### 用户授权 consent grant（用户识别）
 
 - **前缀**：`cg_` 开头
-- **来源**：用户通过绑定流程（SMS 验证码 / H5）授权后获得；`verify_user_bind` 成功返回 `consent_grant_id`、`scopes`、`expires_at`（ISO 8601）
+- **一对一**：一个 consent grant 对应一个用户（绑「Agent + 用户 + 能力」三元关系）
+- **有效期**：默认 **90 天**；到期或轮换后需用户重新绑定
+- **来源**：用户通过绑定流程（SMS 验证码 / H5）**本人授权**后获得；`verify_user_bind` 成功返回 `consent_grant_id`、`scopes`、`expires_at`（ISO 8601）
 - **存储**：明文仅本次返回一次，落库仅存哈希，请妥善保存
-- **传递**：作为每个工具的 `consent_grant_id` 参数传入（不放进 body，也不走请求头）
+- **传递**：作为每个 MCP 工具的 `consent_grant_id` 参数传入（不放进 body，也不走请求头）
 - **失效**：到达 `expires_at` 过期，或被 `revoke_user_bind` 撤销后即时失效，需重新绑定获取新的
 
 ## 数据加密
