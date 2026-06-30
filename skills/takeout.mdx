@@ -1,0 +1,135 @@
+---
+title: "Takeout 外卖助手"
+description: "装在 Claude Code / OpenClaw / Codex 上即用的外卖技能：搜店、选菜、下单、查单全流程"
+icon: "utensils"
+---
+
+import { Card, CardGroup } from '/components/Card';
+import { Info, Warning, Check } from '/components/Callout';
+
+## 这是什么
+
+**Takeout 外卖助手** 帮用户把一顿外卖点完：搜附近店铺、看菜单选菜、预览下单、追踪订单——全流程一站搞定。
+
+它是一个**建立在网关之上、可安装的技能包**，装在你的 Agent（Claude Code / OpenClaw / Codex）上。装好后，Agent 通过调用技能脚本暴露的 **action** 来完成点单，**不直接接触网关接口**——交互流程、措辞规范、纠错引导都已封装在技能里，开箱即用。
+
+<Info>
+想自己用裸接口编排底层能力？技能背后是网关的 18 个 MCP 工具。需要细粒度控制时看 [MCP 概览](/mcp/overview)；本页讲的是"装上即用"的封装。
+</Info>
+
+## 安装
+
+技能仓为三个 Agent 平台各提供一条安装命令，把 `<platform>` 换成对应平台即可：
+
+```bash
+# Claude Code
+curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
+
+# OpenClaw
+curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout openclaw
+
+# Codex（在项目根目录执行）
+curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout codex
+```
+
+安装脚本会从最新 Release 下载、校验 sha256、解压到正确位置（指定版本可在末尾加 `v1.0.0`）。
+
+装完后，在技能根目录放一个 `.env`：
+
+```bash
+API_KEY=clw_your_api_key                          # 必填：Agent 身份
+GATEWAY_URL=https://eleme-gateway.hicaspian.com   # 网关地址（默认即此，脚本自动追加 /api/v1）
+CONSENT_GRANT_ID=                                  # 留空；用户绑定后自动回写（cg_）
+# 可选：REDIS_URL（多用户跨进程共享授权）、DEFAULT_LAT / DEFAULT_LNG（个人冷启动兜底定位）
+```
+
+其中 `API_KEY` 必填，`GATEWAY_URL` 用默认值即可。到[控制台](https://console.hicaspian.com/agents)创建 Agent、开通外卖能力，拿到 `clw_` 开头的 API Key。
+
+## 鉴权
+
+技能采用**双层身份**，但你**只需注入一个值**：`API_KEY`。
+
+- **`API_KEY`（Agent 身份，`clw_` 前缀）：** 唯一必需注入项，写进 `.env`。缺失时脚本返回 `RECOVERY[API_KEY_MISSING]`，引导去控制台拿 key。
+- **`consent_grant`（用户授权，`cg_` 前缀）：** 代表**一个已授权用户**，有效期 **90 天**。开局留空，由用户**本人走一次绑定**生成。
+
+绑定走两步（SMS 默认，也支持 H5 链接）：
+
+<Check>
+`request_code`（第 1 步，发短信 / 返回授权链接）→ `verify_code`（第 2 步，验码 / 轮询）→ 成功后脚本**自动把 `cg_` 回写 `.env` 的 `CONSENT_GRANT_ID`**。
+</Check>
+
+- **单用户：** 绑定一次后，业务调用**无需 `--phone`**。
+- **多用户：** 一个 `API_KEY` 可服务多个用户，各自绑定一次；业务调用带 `--phone <11位手机号>` 指定是谁（按手机号缓存授权，可选 `REDIS_URL` 跨进程共享）。
+
+<Warning>
+**无 admin 静默绑定。** 每个用户必须本人授权一次——没有任何后台密钥能替用户跳过这一步。
+</Warning>
+
+## 9 个 action
+
+Agent 通过脚本调用 action：`python3 scripts/takeout.py [--phone <手机号>] --action <action>`。
+
+| action | 用途 | 关键参数 |
+|--------|------|----------|
+| `addresses` | 查询 / 搜索 / 新建收货地址 | `--address-keyword? --city? --select-token? --contact-name? --contact-phone? --address-detail? --address-tag?` |
+| `search` | 搜索附近店铺 | `--shop-keyword? --lat? --lng?` |
+| `recommend` | **搜店 + 并行取 top N 家菜单一步到位** | `--shop-keyword? --lat? --lng? --top-n?`（默认 3，最多 5）|
+| `menu` | 菜单钻取（概览 → 分类 → 商品详情） | `--shop-id --category? --item-id? --shop-keyword?` |
+| `preview` | 预览订单 → `preview_id` + `confirmation_token` | `--shop-id --address-id --items（JSON 数组） --note?` |
+| `order` | 确认下单 → `order_id` + `payment_link`（付款链接） | `--preview-id --confirmation-token` |
+| `order_status` | 查询订单配送状态 | `--order-id` |
+| `request_code` | 绑定第 1 步（默认发短信；`--auth-type h5` 返回授权链接） | `--phone --auth-type?(sms/h5)` |
+| `verify_code` | 绑定第 2 步（SMS 验码 / H5 轮询），成功缓存授权 | sms：`--phone --bind-id --code`；h5：`--phone --auth-type h5 --request-id` |
+
+## 下单 item 模型
+
+`preview` 的 `--items` 是一个 JSON 数组，每个元素描述一个商品：
+
+```json
+[
+  {
+    "item_id": "item_xxx",
+    "quantity": 1,
+    "sku_id": "sku_xxx",
+    "ingredient_option_ids": ["opt_xxx"],
+    "remark": "少冰"
+  }
+]
+```
+
+- **`item_id`、`quantity`** 必填；**`sku_id`、`ingredient_option_ids`、`remark`** 可选。
+- `sku_id` 取自商品的 `sku_options[].sku_id`（不传用默认规格）；`ingredient_option_ids` 取自 `ingredient_options[].option_id`。
+- 所有 id 都来自**当前店的 `menu` 输出**——禁止跨店复用，禁止把中文菜名当 id。
+- 金额字段单位均为**分**。
+
+## 交互范式
+
+技能的"灵魂"是一套统一的交互约定，让 Agent 知道每一步是成功还是失败、该怎么对用户说话。
+
+**成功 / 失败信号：**
+
+- **成功** = 脚本 stdout 返回 JSON。
+- **失败** = stderr 输出中文错误 + `RECOVERY[CODE]: <下一步>`，非零退出码。Agent 按 RECOVERY 提示挑下一个 action——例如 `USER_NOT_BOUND_NEEDS_SMS` → 走 `request_code` / `verify_code` 绑定；引用过期（如 `REFERENCE_STALE`）→ 重新 `search` → `menu` 拿新 id。
+
+**执行铁律：**
+
+1. **默认能服务**——技能已加载就当可点单推进，别凭空拒答。
+2. **不谎报成功**——成功结论以 stdout 实际返回为准。
+3. **地址先确认**——选定收货地址、跟用户确认后再推进下单。
+4. **追问带选项**——需要用户决策时给出 2~3 个选项，别开放式发问。
+
+**对用户说人话：**
+
+用用户视角讲"你做了什么、我帮你找了什么、下一步是什么"。**禁止对用户暴露内部术语、字段名、内部 id**（`preview_id`、`confirmation_token` 等只在 Agent 内部流转）。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="MCP 概览" href="/mcp/overview" icon="boxes-stacked">
+    想自己编排底层 18 个工具、做细粒度控制？看裸 MCP 工具契约。
+  </Card>
+
+  <Card title="安装与平台" href="/skills/supported-platforms" icon="grid">
+    Claude Code / OpenClaw / Codex 各平台的安装与触发细节。
+  </Card>
+</CardGroup>

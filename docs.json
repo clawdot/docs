@@ -79,8 +79,9 @@
                                 ]
                             },
                             {
-                                "group": "平台",
+                                "group": "takeout 外卖助手",
                                 "pages": [
+                                    "skills/takeout",
                                     "skills/supported-platforms"
                                 ]
                             }
@@ -214,8 +215,9 @@
                                 ]
                             },
                             {
-                                "group": "Platforms",
+                                "group": "Takeout Assistant",
                                 "pages": [
+                                    "en/skills/takeout",
                                     "en/skills/supported-platforms"
                                 ]
                             }

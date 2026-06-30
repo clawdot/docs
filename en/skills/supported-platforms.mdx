@@ -1,687 +1,117 @@
 ---
-title: "Supported Platforms"
-description: "Agent platforms integrated with Skills"
+title: "Install & Platforms"
+description: "Install the takeout skill on Claude Code / OpenClaw / Codex"
 icon: "grid"
 ---
 
 import { Card, CardGroup } from '/components/Card';
 import { Tabs, Tab } from '/components/Tabs';
 
-## Integrated Platforms
+## Supported Platforms
 
-Clawdot Skills Platform supports a wide range of AI Agent applications and frameworks. Below are verified and production-ready integration solutions.
+`takeout` (the ClawDot food-delivery assistant) is an **install-and-go skill package** — install it into your Agent and your Agent gains the ability to search shops, pick dishes, place orders, and track them. It supports three platforms today:
 
-<CardGroup cols={2}>
-  <Card title="DingTalk Agent" href="#dingtalk-agent" icon="bell">
-    Enterprise-grade AI assistant, integrated into DingTalk workflows and app center.
+<CardGroup cols={3}>
+  <Card title="Claude Code" icon="terminal">
+    Unpacked into the skills directory, with SKILL.md + scripts/takeout.py; triggered automatically by the skill description.
   </Card>
 
-  <Card title="Kimi Agent" icon="brain">
-    Moonshot's Kimi AI Agent platform, supports Function Calling and custom tools.
+  <Card title="OpenClaw" icon="robot">
+    Installs a SKILL.md that OpenClaw loads and invokes on demand.
   </Card>
 
-  <Card title="QCloud Agent" icon="cloud">
-    Tencent Cloud AI assistant, supports cloud-native deployment and enterprise management.
-  </Card>
-
-  <Card title="Claude Desktop (MCP)" href="#claude-desktop-mcp" icon="desktop">
-    Anthropic's official client, supports MCP protocol for local and remote models.
-  </Card>
-
-  <Card title="Cursor" icon="edit">
-    AI code editor for developers, supports MCP integration.
-  </Card>
-
-  <Card title="Custom Agent" icon="wrench">
-    Any framework that speaks MCP (or tool calling) — integrate via the tool contract, suitable for custom requirements.
+  <Card title="Codex" icon="code">
+    Writes an AGENTS.md at the project root for Codex to read the skill instructions.
   </Card>
 </CardGroup>
 
----
-
-## DingTalk Agent
-
-DingTalk Agent is the most common AI assistant form in enterprise scenarios, can be integrated into DingTalk app store to provide local life services to employees and users.
-
-### Quick Start
-
-<Tabs>
-  <Tab title="Integration Steps">
-    1. **Register DingTalk Developer Account**
-       - Visit [DingTalk Open Platform](https://open.dingtalk.com)
-       - Create enterprise application
-
-    2. **Create Agent**
-       Create a dedicated Agent in [Clawdot Portal](https://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
-
-    3. **Configure WebHook**
-       In DingTalk app settings, configure Clawdot Skills API as message processing endpoint
-
-    4. **Implement Message Handling**
-       Implement logic on your server for DingTalk message interaction
-
-    5. **Publish Application**
-       Publish through DingTalk app store for organization users or public use
-  </Tab>
-
-  <Tab title="Code Example">
-    ```python
-    import asyncio
-    from flask import Flask, request
-    import hmac
-    import hashlib
-    import base64
-    import time
-    import json
-    import os
-
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-
-    app = Flask(__name__)
-
-    DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
-    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    # Gateway's native MCP endpoint (Streamable HTTP)
-    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-
-    def sign_message(timestamp, secret):
-        """DingTalk message signature verification"""
-        message = f"{timestamp}\n{secret}".encode('utf-8')
-        sign = hmac.new(
-            secret.encode('utf-8'),
-            message,
-            hashlib.sha256
-        ).digest()
-        return base64.b64encode(sign).decode('utf-8')
-
-    @app.route("/webhook/dingtalk", methods=["POST"])
-    def handle_dingtalk_message():
-        """Handle DingTalk WebHook message"""
-        timestamp = request.headers.get("X-Dingtalk-Timestamp")
-        sign = request.headers.get("X-Dingtalk-Sign")
-
-        # Verify message integrity
-        expected_sign = sign_message(timestamp, DINGTALK_BOT_SECRET)
-        if sign != expected_sign:
-            return {"code": 401, "message": "Unauthorized"}, 401
-
-        data = request.json
-        conversation_id = data.get("conversationId")
-        sender_id = data.get("senderId")
-        text = data.get("text", {}).get("content", "").strip()
-
-        # Extract user intent
-        if "food delivery" in text or "order food" in text:
-            # Search shops
-            shops = search_shops_for_dingtalk(text, sender_id)
-            reply = format_shop_list_for_dingtalk(shops)
-        elif "order" in text or "query" in text:
-            # Query order
-            order = get_order_for_dingtalk(sender_id)
-            reply = format_order_for_dingtalk(order)
-        else:
-            reply = "Hi, I can help you query food delivery, supermarkets and other local life services."
-
-        # Send reply to DingTalk
-        send_dingtalk_message(conversation_id, reply)
-
-        return {"code": 0, "message": "ok"}, 200
-
-    async def call_gateway_tool(tool_name, args):
-        """Call a Gateway tool over an MCP client.
-
-        Agent identity goes in the connection Authorization header; the user
-        consent_grant_id is passed as a tool argument.
-        """
-        headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}
-        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                return await session.call_tool(tool_name, args)
-
-    def search_shops_for_dingtalk(query, user_id):
-        """Call the Gateway search_shops tool to search shops"""
-        consent_grant_id = get_consent_grant(user_id)  # Get that user's consent grant (cg_ prefix)
-
-        # User consent is passed as a tool argument, not a header
-        result = asyncio.run(call_gateway_tool("search_shops", {
-            "consent_grant_id": consent_grant_id,
-            "keyword": query,
-            "lat": 39.9836,   # GCJ-02 coordinates, get from user location service
-            "lng": 116.3164,
-        }))
-        return result.get("shops", [])  # shops[]: shop_id, cart_id, next_offset?
-
-    def format_shop_list_for_dingtalk(shops):
-        """Format shop list as DingTalk card"""
-        cards = []
-        for shop in shops:
-            # Amount fields are in cents (integers); divide by 100 to display
-            delivery_fee_yuan = shop.get("delivery_fee", 0) / 100
-            cards.append({
-                "title": shop["name"],
-                "actionURL": f"https://your-app.com/shop/{shop['shop_id']}",
-                "content": f"Rating: {shop.get('rating', '-')}⭐ | {shop.get('distance_text', '')} | Delivery fee: ¥{delivery_fee_yuan:.2f}"
-            })
-        return {"cards": cards}
-
-    def send_dingtalk_message(conversation_id, content):
-        """Send message to DingTalk"""
-        # DingTalk API implementation
-        pass
-
-    def get_consent_grant(user_id):
-        """Get user's consent grant (cg_ prefix) from database"""
-        # On first use, run the bind flow (request_user_bind + verify_user_bind),
-        # then persist the returned consent_grant_id and reuse it on later requests
-        pass
-
-    if __name__ == "__main__":
-        app.run(port=5000)
-    ```
-  </Tab>
-
-  <Tab title="Best Practices">
-    - **Async processing**: Use message queue (e.g. RabbitMQ) to handle long API calls, avoid WebHook timeout
-    - **Cache results**: Cache shop lists and menu data to reduce API calls
-    - **Error degradation**: When Clawdot API unavailable, show cached results or friendly error message
-    - **Rate limiting**: Add rate limit for same user to prevent duplicate requests
-    - **Logging**: Log all WebHook requests for debugging
-  </Tab>
-</Tabs>
-
----
-
-## Kimi Agent
-
-Moonshot's Kimi is a leading domestic large language model supporting Agent development and Function Calling.
-
-### Quick Start
-
-<Tabs>
-  <Tab title="Integration Steps">
-    1. **Register Kimi Developer**
-       - Visit [Kimi Open Platform](https://kimi.moonshot.cn)
-       - Create application and get API Key
-
-    2. **Create Clawdot Agent**
-       Create an Agent in [Clawdot Portal](https://console.hicaspian.com/agents), record the API Key (`clw_` prefix)
-
-    3. **Define Function Schema**
-       Register Clawdot Gateway API as Function Calling tool in Kimi app
-
-    4. **Test Integration**
-       Send request using Kimi API, verify Function Calling works
-
-    5. **Deploy Online**
-       Publish Agent to Kimi app store
-  </Tab>
-
-  <Tab title="Code Example">
-    ```python
-    import asyncio
-    import requests
-    import json
-    import os
-
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-
-    KIMI_API_KEY = os.getenv("KIMI_API_KEY")
-    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    # Gateway's native MCP endpoint (Streamable HTTP)
-    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-
-    def call_kimi_with_function_calling(user_message, consent_grant_id):
-        """Use Kimi API with Function Calling"""
-
-        # Define available Functions (Clawdot Gateway tools, one per ordering step).
-        # Full ordering chain: search_shops -> get_shop_menu -> quote_cart ->
-        # select_address -> preview_order -> create_order -> get_sign_action.
-        # Here we list search / menu / preview / create as an example.
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_shops",
-                    "description": "Search / browse local shops (omit keyword to browse nearby shops)",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "keyword": {
-                                "type": "string",
-                                "description": "Shop name / category / item name; omit to browse nearby shops"
-                            },
-                            "address_id": {
-                                "type": "string",
-                                "description": "Saved address id; or use lat/lng (GCJ-02) instead"
-                            },
-                            "lat": {"type": "number", "description": "Latitude (GCJ-02), required without address_id"},
-                            "lng": {"type": "number", "description": "Longitude (GCJ-02), required without address_id"}
-                        }
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_shop_menu",
-                    "description": "Get shop menu (includes orderable item_id / sku_id)",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "shop_id": {"type": "string", "description": "From search_shops"},
-                            "cart_id": {"type": "string", "description": "From search_shops, encapsulates delivery coordinates"},
-                            "keyword": {"type": "string", "description": "Optional, filter by name / category / description"}
-                        },
-                        "required": ["shop_id", "cart_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "preview_order",
-                    "description": "Preview order; returns final price (in cents) and preview_id + confirmation_token",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "shop_id": {"type": "string"},
-                            "cart_id": {"type": "string"},
-                            "address_id": {"type": "string", "description": "From select_address"},
-                            "items": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "item_id": {"type": "string"},
-                                        "sku_id": {"type": "string"},
-                                        "quantity": {"type": "integer"}
-                                    }
-                                }
-                            }
-                        },
-                        "required": ["shop_id", "cart_id", "address_id", "items"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "create_order",
-                    "description": "Place the order using preview_id + confirmation_token from the same preview",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "preview_id": {"type": "string", "description": "From preview_order"},
-                            "confirmation_token": {"type": "string", "description": "From the same preview_order"}
-                        },
-                        "required": ["preview_id", "confirmation_token"]
-                    }
-                }
-            }
-        ]
-
-        # Call Kimi API
-        url = "https://api.moonshot.cn/openai/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {KIMI_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
-        payload = {
-            "model": "moonshot-v1-8k",
-            "messages": [
-                {"role": "user", "content": user_message}
-            ],
-            "tools": tools,
-            "tool_choice": "auto"
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
-        result = response.json()
-
-        # Handle Function Calling response
-        if result.get("choices"):
-            choice = result["choices"][0]
-            if choice.get("finish_reason") == "tool_calls":
-                for tool_call in choice.get("tool_calls", []):
-                    function_name = tool_call["function"]["name"]
-                    function_args = json.loads(tool_call["function"]["arguments"])
-
-                    # Call Clawdot Gateway API
-                    function_result = call_clawdot_function(
-                        function_name,
-                        function_args,
-                        consent_grant_id
-                    )
-
-                    print(f"Function: {function_name}")
-                    print(f"Result: {function_result}")
-
-        return result
-
-    def call_clawdot_function(function_name, args, consent_grant_id):
-        """Call a Clawdot Gateway tool over an MCP client.
-
-        The function_name returned by Kimi matches a Gateway tool name one-to-one,
-        so it is used directly as the call_tool name. The user consent_grant_id is
-        injected as a tool argument, not a header.
-        """
-
-        async def _invoke():
-            headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}  # Agent identity
-            async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    return await session.call_tool(function_name, {
-                        "consent_grant_id": consent_grant_id,
-                        **args,
-                    })
-
-        return asyncio.run(_invoke())
-
-    # Usage example
-    user_message = "I want to order food in Zhongguancun"
-    consent_grant_id = "cg_..."  # User consent grant, obtained via the bind flow on first use
-
-    result = call_kimi_with_function_calling(user_message, consent_grant_id)
-    ```
-  </Tab>
-
-  <Tab title="Best Practices">
-    - **Function timeout handling**: Set reasonable timeout to avoid Kimi API waiting too long
-    - **Smart retry**: Use exponential backoff for temporary failures
-    - **Cache Schema**: Cache Function Schema to reduce repeated calls
-    - **Monitor cost**: Track API call costs and usage
-  </Tab>
-</Tabs>
-
----
-
-## QCloud Agent (Tencent Cloud)
-
-Tencent Cloud provides enterprise-grade AI Agent service supporting cloud-native deployment and complete management console.
-
-### Quick Start
-
-<Tabs>
-  <Tab title="Integration Steps">
-    1. **Register Tencent Cloud Account**
-       - Visit [Tencent Cloud AI](https://cloud.tencent.com/product/ai)
-       - Apply for Agent service permission
-
-    2. **Create Agent Application**
-       - Create new Agent app in Tencent Cloud console
-       - Configure basic info and permissions
-
-    3. **Create Clawdot Agent**
-       Create a dedicated Agent in [Clawdot Portal](https://console.hicaspian.com/agents)
-
-    4. **Configure Integration**
-       Configure Clawdot Skills Platform API endpoint in Tencent Cloud Agent
-
-    5. **Deploy and Test**
-       Deploy Agent to Tencent Cloud environment, run integration tests
-
-    6. **Publish Online**
-       Publish through Tencent Cloud app store
-  </Tab>
-
-  <Tab title="Best Practices">
-    - **Resource management**: Allocate cloud resources reasonably, monitor costs
-    - **Logging and monitoring**: Use Tencent Cloud's logging and monitoring service to track Agent status
-    - **Disaster recovery**: Configure cross-region backup and failover
-    - **Security protection**: Enable Tencent Cloud's DDoS protection and WAF
-  </Tab>
-</Tabs>
-
----
-
-## Claude Desktop (MCP)
-
-Claude Desktop is Anthropic's official client with native support for MCP (Model Context Protocol).
-
-### Quick Start
-
-<Tabs>
-  <Tab title="Installation and Configuration">
-    **1. Install Claude Desktop**
-    - Download [Claude Desktop](https://claude.ai/download)
-    - Follow instructions to complete installation and login
-
-    **2. Create Clawdot Agent**
-    Create an Agent in [Clawdot Portal](https://console.hicaspian.com/agents) and get the API Key (`clw_` prefix)
-
-    **3. Configure MCP Server**
-    The Gateway exposes a native Streamable HTTP MCP endpoint
-    (`https://eleme-gateway.hicaspian.com/mcp/v1`); Agent identity is passed on the connection
-    via the `Authorization: Bearer clw_...` header. Edit
-    `~/.claude-desktop/config.json`:
-
-    ```json
-    {
-      "mcpServers": {
-        "clawdot-skills": {
-          "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
-          "headers": {
-            "Authorization": "Bearer clw_your_api_key_here"
-          }
-        }
-      }
-    }
-    ```
-
-    **4. Restart Claude Desktop**
-    - Close Claude Desktop
-    - Reopen, wait for MCP server connection
-    - Check toolbar for available Gateway skills
-
-    **5. Start Using**
-    - Mention food delivery, supermarkets in conversation
-    - Claude auto-calls corresponding Gateway skills
-  </Tab>
-
-  <Tab title="MCP Client Call">
-    The Gateway already exposes a native MCP endpoint (`/mcp/v1`), so Claude Desktop
-    can **connect directly** (see the previous tab's config) — there is no need to
-    stand up a local proxy of your own. If you want to verify the connection from a
-    script, or reuse the same tools inside a custom Agent, use any MCP client to
-    connect directly. Agent identity goes in the connection `Authorization` header;
-    the user consent `consent_grant_id` (`cg_` prefix) is passed as an argument on
-    each business tool:
-
-    ```python
-    import asyncio
-
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-
-    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-    API_KEY = "clw_your_api_key_here"            # Agent identity, connection header
-    CONSENT_GRANT_ID = "cg_..."                  # User consent grant, tool argument
-
-    async def main():
-        headers = {"Authorization": f"Bearer {API_KEY}"}
-        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-
-                # Once connected, all 18 tools are auto-discovered
-                tools = await session.list_tools()
-                print([t.name for t in tools.tools])
-
-                # User consent is passed as a tool argument, not a header
-                shops = await session.call_tool("search_shops", {
-                    "consent_grant_id": CONSENT_GRANT_ID,
-                    "keyword": "coffee",
-                    "lat": 39.9836,   # GCJ-02 coordinates; or use address_id
-                    "lng": 116.3164,
-                })
-                print(shops)   # contains shops[]: shop_id, cart_id, next_offset?
-
-    asyncio.run(main())
-    ```
-  </Tab>
-
-  <Tab title="Best Practices">
-    - **Tool discovery caching**: Claude caches MCP tool list, restart needed for updates
-    - **Error handling**: Return clear error messages to help Claude understand issues
-    - **Streaming responses**: Support streaming results for long-running operations
-    - **Privacy protection**: Don't record user input, follow privacy policy
-  </Tab>
-</Tabs>
-
----
-
-## Cursor
-
-Cursor is an AI code editor for developers supporting MCP integration.
-
-### Quick Start
-
-Configuration is similar to Claude Desktop — connect directly to the Gateway's native MCP endpoint:
-
-```json
-{
-  "mcpServers": {
-    "clawdot-eleme": {
-      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
-      "headers": {
-        "Authorization": "Bearer clw_your_key"
-      }
-    }
-  }
-}
-```
-
-In Cursor, use `Cmd+K` (Mac) or `Ctrl+K` (Windows/Linux) to open command palette and call Gateway skills.
-
 <Info>
-Cursor integration is basically same as Claude Desktop, main difference is use case (code editing vs general conversation).
+This page only covers **installing the takeout skill**. If you'd rather orchestrate the 18 low-level raw tools yourself (without the skill wrapper), see the [MCP Overview](/en/mcp/overview).
 </Info>
 
 ---
 
-## Custom Agent
+## One-line install
 
-If your Agent platform is not in the list above, you can still integrate as long as it speaks **MCP (Model Context Protocol)** or generic tool calling — connect to the Gateway's tool contract directly. It uses the same MCP channel as Claude Desktop / Cursor, so there is no separate interface to stand up for food-delivery capabilities.
+The install script downloads the skill package from the latest [Release](https://github.com/clawdot/open-gateway-clawdot-skill/releases), verifies its `sha256`, and unpacks it to the right location for the current platform. The command always follows the shape `install.sh ... takeout <platform>`:
 
-### Integration essentials
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
+    ```
 
-1. **Connect**: use any MCP client over Streamable HTTP to `https://eleme-gateway.hicaspian.com/mcp/v1`.
-2. **Agent identity**: send `Authorization: Bearer clw_...` on the connection (generated when you create an Agent in [Clawdot Portal](https://console.hicaspian.com/agents)).
-3. **User consent**: every business tool call carries a `consent_grant_id` argument (`cg_` prefix); obtain it on first use via `request_user_bind` / `verify_user_bind`.
-4. **Call tools along the chain**: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. All cross-step IDs are issued by the Gateway and passed back verbatim.
+    - **Where it lands**: unpacked into Claude Code's skills directory.
+    - **What's inside**: `SKILL.md` (the skill instructions) + `scripts/takeout.py` (the executor script).
+    - **How it triggers**: Claude Code reads the skill's `description` and **triggers it automatically** when you mention ordering food, what you'd like to eat, being hungry, etc.; the skill then calls `scripts/takeout.py` to carry out each action.
+  </Tab>
+
+  <Tab title="OpenClaw">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout openclaw
+    ```
+
+    - **Where it lands**: installs a `SKILL.md` to OpenClaw's skill location.
+    - **How it triggers**: OpenClaw loads that `SKILL.md` and invokes the skill when needed, following its instructions.
+  </Tab>
+
+  <Tab title="Codex">
+    ```bash
+    # Run from the project root
+    curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout codex
+    ```
+
+    - **Where it lands**: writes an `AGENTS.md` at the project root.
+    - **How it triggers**: Codex reads the skill instructions in `AGENTS.md` and invokes it on demand.
+  </Tab>
+</Tabs>
 
 <Info>
-The Gateway exposes a native MCP endpoint, so most clients can **connect directly** with no need to wrap HTTP yourself. See [MCP Overview](/en/mcp/overview) for the full tool list, parameters and return fields.
+The latest version is installed by default. To pin a version, append the version number to the command, e.g. `... takeout claude-code v1.0.0`.
 </Info>
 
-**Quick Example (calling a tool from an MCP client):**
+---
 
-```python
-# Any MCP client works; the official SDK is shown here
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+## Configure `.env` after installing
 
-GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-API_KEY = "clw_your_api_key_here"            # Agent identity, connection header
-CONSENT_GRANT_ID = "cg_..."                  # User consent grant, tool argument
+On all three platforms, after installing you drop a `.env` in the skill root. **The only required field is `API_KEY`** (your Agent identity, `clw_` prefix); `GATEWAY_URL` can stay at its default.
 
-async def search_shops(keyword):
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            # User consent is passed as a tool argument, not a header
-            result = await session.call_tool("search_shops", {
-                "consent_grant_id": CONSENT_GRANT_ID,
-                "keyword": keyword,
-                "lat": 39.9836,   # GCJ-02 coordinates; or use address_id
-                "lng": 116.3164,
-            })
-            return result   # contains shops[]: shop_id, cart_id, next_offset?
+```bash
+GATEWAY_URL=https://eleme-gateway.hicaspian.com   # Gateway URL (the script appends /api/v1; leave as default)
+API_KEY=clw_your_api_key                          # Required: Agent identity
+CONSENT_GRANT_ID=                                  # Leave empty; written back automatically after a user binds (cg_ prefix)
 ```
 
----
-
-## Coming Soon
-
-The following platforms are in development or testing, coming soon:
-
-<CardGroup cols={2}>
-  <Card title="Google Vertex AI" icon="cloud" disabled>
-    Google Cloud's AI agent service, integration coming soon.
-  </Card>
-
-  <Card title="AWS Bedrock Agents" icon="cloud" disabled>
-    AWS managed AI service, supports custom Agents.
-  </Card>
-
-  <Card title="LangChain Integration" icon="link" disabled>
-    Integration through LangChain's Tool/Agent framework.
-  </Card>
-
-  <Card title="More Enterprise Agent Platforms" icon="building" disabled>
-    Support for other commercial AI Agent platforms, stay tuned.
-  </Card>
-</CardGroup>
+- The `clw_` **API Key** is obtained when you create an Agent and enable food-delivery in the [Console → Agents](https://console.hicaspian.com/agents).
+- `CONSENT_GRANT_ID` (user consent, `cg_` prefix) **starts empty**: after a user completes a one-time SMS or H5 bind, the script writes it back into `.env` automatically. See the [Security Model](/en/skills/security-model) for the consent and binding details.
 
 ---
 
-## Platform Comparison
+## What you can do after installing
 
-| Platform | Integration | Difficulty | Enterprise | Developer-Friendly | Community Active |
-|----------|-------------|-----------|-----------|-------------------|------------------|
-| DingTalk | Server-side orchestration + MCP tool calls | Medium | ✓ | High | High |
-| Kimi | Function Calling + MCP tool calls | Low | ✓ | High | Medium |
-| QCloud | Server-side orchestration + MCP tool calls | Medium | ✓ | Medium | Medium |
-| Claude Desktop | MCP (native) | Low | - | High | High |
-| Cursor | MCP (native) | Low | - | High | Medium |
-| Custom Agent | MCP / tool calling | Medium | ✓ | High | - |
+Once installed with `API_KEY` filled in, your Agent can drive `takeout` through the full delivery chain — search shops, view menus, preview, place orders, and track delivery status. For each action's parameters, the order item model, and the success/failure signals, see the [Food-Delivery Assistant](/en/skills/takeout).
 
 ---
 
 ## FAQ
 
 <details>
-<summary>What if my Agent platform is not in the list?</summary>
+<summary>Do all three platforms use the same skill package?</summary>
 
-You can:
-1. As long as the platform speaks MCP or tool calling, follow "Custom Agent" above and connect to `https://eleme-gateway.hicaspian.com/mcp/v1` yourself (see the [Integration Guide](/en/skills/integration-guide))
-2. Contact us at support@clawdot.com to request a new platform integration
+Yes — it's the same `takeout` package; the only difference is the **adapter layer**: Claude Code uses `SKILL.md` + `scripts/takeout.py`, OpenClaw uses `SKILL.md`, and Codex uses `AGENTS.md`. The core executor script and interaction guide (GUIDE) are shared across all three.
 
 </details>
 
 <details>
-<summary>Are API Keys the same across different platforms?</summary>
+<summary>Can I install a specific version?</summary>
 
-Yes, Clawdot generates unique API Key for each Agent application. You can use the same API Key across multiple platforms, but recommend creating different Agents for different platforms for better monitoring and management.
-
-</details>
-
-<details>
-<summary>How to safely manage API Key in production?</summary>
-
-Best practices:
-- Use environment variables or secret management service (e.g. HashiCorp Vault, AWS Secrets Manager)
-- Don't hardcode API Key in code
-- Rotate / disable API Keys in the Portal as needed (a disabled key takes effect immediately)
-- The API Key only identifies the Agent; per-user access is controlled separately by each user's consent grant (`cg_` prefix)
+Yes. By default it installs from the latest Release; append a version number to the install command to pin it, e.g. `... takeout claude-code v1.0.0`. The script downloads that version and verifies its `sha256`.
 
 </details>
 
 <details>
-<summary>Why integrate everything via MCP?</summary>
+<summary>I want to call the low-level tools myself instead of using this skill package?</summary>
 
-The Gateway exposes a single **MCP tool contract**, and every platform (including custom Agents) uses the same channel:
-
-- **Standardized protocol, automatic tool discovery**: once connected, the client gets all 18 tools with their parameters and return fields — no per-endpoint wiring
-- **Deep integration with large models**: tool names and parameter semantics are model-friendly, ideal for letting the Agent orchestrate the ordering chain autonomously
-- **Simple configuration**: Streamable HTTP straight to `/mcp/v1`; Agent identity goes in the `Authorization` header and user consent in the `consent_grant_id` argument — no low-level plumbing to wrap
-
-See [MCP Overview](/en/mcp/overview) for the full tool list.
+You can. The Gateway also exposes an MCP tool contract (18 raw tools), suitable for orchestrating the ordering chain yourself inside a custom Agent. See the [MCP Overview](/en/mcp/overview). The skill package (this page) instead wraps those actions for install-and-go use, with no wiring to assemble yourself.
 
 </details>

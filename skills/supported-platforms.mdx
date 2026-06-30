@@ -1,681 +1,117 @@
 ---
-title: "支持的平台"
-description: "Skills 已接入的 Agent 平台"
+title: "安装与平台"
+description: "在 Claude Code / OpenClaw / Codex 上安装 takeout 技能"
 icon: "grid"
 ---
 
 import { Card, CardGroup } from '/components/Card';
 import { Tabs, Tab } from '/components/Tabs';
 
-## 已接入平台
+## 支持的平台
 
-Clawdot Skills 平台支持广泛的 AI Agent 应用和框架。以下是已验证和生产就绪的集成方案。
+`takeout`（ClawDot 外卖助手）是一个**装上即用的技能包**——把它安装到你的 Agent，你的 Agent 就具备了搜店、点菜、下单、查单的外卖能力。目前支持三个平台：
 
-<CardGroup cols={2}>
-  <Card title="钉钉 Agent" href="#dingtalk-agent" icon="bell">
-    企业级 AI 助手，集成到钉钉工作流和应用中心。
+<CardGroup cols={3}>
+  <Card title="Claude Code" icon="terminal">
+    解压到 skills 目录，含 SKILL.md + scripts/takeout.py，靠技能 description 自动触发。
   </Card>
 
-  <Card title="Kimi Agent" icon="brain">
-    月之暗面 Kimi 的 AI Agent 平台，支持 Function Calling 和自定义工具。
+  <Card title="OpenClaw" icon="robot">
+    安装一份 SKILL.md，由 OpenClaw 加载并按需调用。
   </Card>
 
-  <Card title="QCloud Agent" icon="cloud">
-    腾讯云 AI 助手，支持云原生部署和企业级管理。
-  </Card>
-
-  <Card title="Claude Desktop (MCP)" href="#claude-desktop-mcp" icon="desktop">
-    Anthropic 官方客户端，支持 MCP 协议的本地和远程模型。
-  </Card>
-
-  <Card title="Cursor" icon="edit">
-    面向开发者的 AI 代码编辑器，支持 MCP 集成。
-  </Card>
-
-  <Card title="自建 Agent" icon="wrench">
-    任何支持 MCP（或工具调用）的框架，按工具契约自行接入，适合定制需求。
+  <Card title="Codex" icon="code">
+    在项目根写入 AGENTS.md，供 Codex 读取技能说明。
   </Card>
 </CardGroup>
 
----
-
-## 钉钉 Agent
-
-钉钉 Agent 是企业场景中最常见的 AI 助手形式，可以集成到钉钉应用市场，为员工和用户提供本地生活服务。
-
-### 快速开始
-
-<Tabs>
-  <Tab title="集成步骤">
-    1. **注册钉钉开发者账号**
-       - 访问 [钉钉开放平台](https://open.dingtalk.com)
-       - 创建企业应用
-
-    2. **创建 Agent**
-       在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建专用于钉钉的 Agent，记录 API Key（`clw_` 前缀）
-
-    3. **配置 WebHook**
-       在钉钉应用设置中，配置 Clawdot Skills API 作为消息处理端点
-
-    4. **实现消息处理**
-       在你的服务端实现与钉钉消息交互的逻辑
-
-    5. **发布应用**
-       通过钉钉应用市场发布，供组织内用户或公众使用
-  </Tab>
-
-  <Tab title="代码示例">
-    ```python
-    import asyncio
-    from flask import Flask, request
-    import hmac
-    import hashlib
-    import base64
-    import time
-    import json
-    import os
-
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-
-    app = Flask(__name__)
-
-    DINGTALK_BOT_SECRET = os.getenv("DINGTALK_BOT_SECRET")
-    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    # Gateway 原生 MCP 端点（Streamable HTTP）
-    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-
-    def sign_message(timestamp, secret):
-        """钉钉消息签名验证"""
-        message = f"{timestamp}\n{secret}".encode('utf-8')
-        sign = hmac.new(
-            secret.encode('utf-8'),
-            message,
-            hashlib.sha256
-        ).digest()
-        return base64.b64encode(sign).decode('utf-8')
-
-    @app.route("/webhook/dingtalk", methods=["POST"])
-    def handle_dingtalk_message():
-        """处理钉钉 WebHook 消息"""
-        timestamp = request.headers.get("X-Dingtalk-Timestamp")
-        sign = request.headers.get("X-Dingtalk-Sign")
-
-        # 验证消息完整性
-        expected_sign = sign_message(timestamp, DINGTALK_BOT_SECRET)
-        if sign != expected_sign:
-            return {"code": 401, "message": "Unauthorized"}, 401
-
-        data = request.json
-        conversation_id = data.get("conversationId")
-        sender_id = data.get("senderId")
-        text = data.get("text", {}).get("content", "").strip()
-
-        # 提取用户意图
-        if "外卖" in text or "点餐" in text:
-            # 搜索商店
-            shops = search_shops_for_dingtalk(text, sender_id)
-            reply = format_shop_list_for_dingtalk(shops)
-        elif "订单" in text or "查询" in text:
-            # 查询订单
-            order = get_order_for_dingtalk(sender_id)
-            reply = format_order_for_dingtalk(order)
-        else:
-            reply = "你好，我可以帮助你查询外卖、商超等本地生活服务。"
-
-        # 发送回复到钉钉
-        send_dingtalk_message(conversation_id, reply)
-
-        return {"code": 0, "message": "ok"}, 200
-
-    async def call_gateway_tool(tool_name, args):
-        """通过 MCP 客户端调用 Gateway 工具
-
-        Agent 身份走连接层 Authorization 头；用户授权 consent_grant_id 作为工具参数。
-        """
-        headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}
-        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                return await session.call_tool(tool_name, args)
-
-    def search_shops_for_dingtalk(query, user_id):
-        """调用 Gateway 的 search_shops 工具搜索商店"""
-        consent_grant_id = get_consent_grant(user_id)  # 获取该用户的授权（cg_ 前缀）
-
-        # 用户授权作为工具参数传入，不走请求头
-        result = asyncio.run(call_gateway_tool("search_shops", {
-            "consent_grant_id": consent_grant_id,
-            "keyword": query,
-            "lat": 39.9836,   # GCJ-02 坐标，应从用户位置服务获取
-            "lng": 116.3164,
-        }))
-        return result.get("shops", [])  # shops[]：shop_id、cart_id、next_offset?
-
-    def format_shop_list_for_dingtalk(shops):
-        """格式化商店列表为钉钉卡片"""
-        cards = []
-        for shop in shops:
-            # 金额字段单位为分（整数），展示时除以 100
-            delivery_fee_yuan = shop.get("delivery_fee", 0) / 100
-            cards.append({
-                "title": shop["name"],
-                "actionURL": f"https://your-app.com/shop/{shop['shop_id']}",
-                "content": f"评分: {shop.get('rating', '-')}⭐ | {shop.get('distance_text', '')} | 配送费: ¥{delivery_fee_yuan:.2f}"
-            })
-        return {"cards": cards}
-
-    def send_dingtalk_message(conversation_id, content):
-        """发送消息到钉钉"""
-        # 钉钉 API 实现
-        pass
-
-    def get_consent_grant(user_id):
-        """从数据库获取用户的 consent grant（cg_ 前缀）"""
-        # 用户首次使用时走绑定流程（request_user_bind + verify_user_bind）
-        # 拿到 consent_grant_id 后持久化，后续请求复用
-        pass
-
-    if __name__ == "__main__":
-        app.run(port=5000)
-    ```
-  </Tab>
-
-  <Tab title="最佳实践">
-    - **异步处理**：使用消息队列（如 RabbitMQ）处理长时间的 API 调用，避免 WebHook 超时
-    - **缓存结果**：缓存商店列表和菜单数据，减少 API 调用
-    - **错误降级**：当 Clawdot API 不可用时，展示缓存的结果或友好的错误提示
-    - **速率限制**：为同一用户添加速率限制，防止重复请求
-    - **日志记录**：记录所有 WebHook 请求，便于调试
-  </Tab>
-</Tabs>
-
----
-
-## Kimi Agent
-
-月之暗面 Kimi 是国内领先的大语言模型，支持 Agent 开发和 Function Calling。
-
-### 快速开始
-
-<Tabs>
-  <Tab title="集成步骤">
-    1. **注册 Kimi 开发者**
-       - 访问 [Kimi 开放平台](https://kimi.moonshot.cn)
-       - 创建应用并获取 API Key
-
-    2. **创建 Clawdot Agent**
-       在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建 Agent，记录 API Key（`clw_` 前缀）
-
-    3. **定义 Function Schema**
-       在 Kimi 应用中注册 Clawdot Gateway 的 API 为 Function Calling 工具
-
-    4. **测试集成**
-       使用 Kimi API 发送请求，验证 Function Calling 工作正常
-
-    5. **部署上线**
-       将 Agent 发布到 Kimi 应用市场
-  </Tab>
-
-  <Tab title="代码示例">
-    ```python
-    import asyncio
-    import requests
-    import json
-    import os
-
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-
-    KIMI_API_KEY = os.getenv("KIMI_API_KEY")
-    CLAWDOT_API_KEY = os.getenv("CLAWDOT_API_KEY")
-    # Gateway 原生 MCP 端点（Streamable HTTP）
-    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-
-    def call_kimi_with_function_calling(user_message, consent_grant_id):
-        """使用 Kimi API 和 Function Calling"""
-
-        # 定义可用的 Function（Clawdot Gateway 工具，与下单链路一一对应）。
-        # 完整下单链路：search_shops → get_shop_menu → quote_cart →
-        # select_address → preview_order → create_order → get_sign_action。
-        # 这里只列搜索 / 菜单 / 预览 / 下单四步作为示例。
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_shops",
-                    "description": "搜索 / 浏览本地商家（不传 keyword 为浏览附近店铺）",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "keyword": {
-                                "type": "string",
-                                "description": "店名 / 品类 / 商品名；省略则浏览附近店铺"
-                            },
-                            "address_id": {
-                                "type": "string",
-                                "description": "已保存地址 ID；或改用 lat/lng（GCJ-02）"
-                            },
-                            "lat": {"type": "number", "description": "纬度（GCJ-02），无 address_id 时必传"},
-                            "lng": {"type": "number", "description": "经度（GCJ-02），无 address_id 时必传"}
-                        }
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_shop_menu",
-                    "description": "获取商家菜单（含可下单的 item_id / sku_id）",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "shop_id": {"type": "string", "description": "来自 search_shops"},
-                            "cart_id": {"type": "string", "description": "来自 search_shops，已封装配送坐标"},
-                            "keyword": {"type": "string", "description": "可选，按名称 / 分类 / 描述过滤"}
-                        },
-                        "required": ["shop_id", "cart_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "preview_order",
-                    "description": "预览订单，返回最终价格（单位分）与 preview_id + confirmation_token",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "shop_id": {"type": "string"},
-                            "cart_id": {"type": "string"},
-                            "address_id": {"type": "string", "description": "来自 select_address"},
-                            "items": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "item_id": {"type": "string"},
-                                        "sku_id": {"type": "string"},
-                                        "quantity": {"type": "integer"}
-                                    }
-                                }
-                            }
-                        },
-                        "required": ["shop_id", "cart_id", "address_id", "items"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "create_order",
-                    "description": "用同一次预览的 preview_id + confirmation_token 正式下单",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "preview_id": {"type": "string", "description": "来自 preview_order"},
-                            "confirmation_token": {"type": "string", "description": "来自同一次 preview_order"}
-                        },
-                        "required": ["preview_id", "confirmation_token"]
-                    }
-                }
-            }
-        ]
-
-        # 调用 Kimi API
-        url = "https://api.moonshot.cn/openai/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {KIMI_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
-        payload = {
-            "model": "moonshot-v1-8k",
-            "messages": [
-                {"role": "user", "content": user_message}
-            ],
-            "tools": tools,
-            "tool_choice": "auto"
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
-        result = response.json()
-
-        # 处理 Function Calling 响应
-        if result.get("choices"):
-            choice = result["choices"][0]
-            if choice.get("finish_reason") == "tool_calls":
-                for tool_call in choice.get("tool_calls", []):
-                    function_name = tool_call["function"]["name"]
-                    function_args = json.loads(tool_call["function"]["arguments"])
-
-                    # 调用 Clawdot Gateway API
-                    function_result = call_clawdot_function(
-                        function_name,
-                        function_args,
-                        consent_grant_id
-                    )
-
-                    print(f"Function: {function_name}")
-                    print(f"Result: {function_result}")
-
-        return result
-
-    def call_clawdot_function(function_name, args, consent_grant_id):
-        """通过 MCP 客户端调用 Clawdot Gateway 工具
-
-        Kimi 返回的 function_name 与 Gateway 工具名一一对应，直接作为 call_tool 的工具名。
-        用户授权 consent_grant_id 作为工具参数注入，不走请求头。
-        """
-
-        async def _invoke():
-            headers = {"Authorization": f"Bearer {CLAWDOT_API_KEY}"}  # Agent 身份
-            async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    return await session.call_tool(function_name, {
-                        "consent_grant_id": consent_grant_id,
-                        **args,
-                    })
-
-        return asyncio.run(_invoke())
-
-    # 使用示例
-    user_message = "我想在中关村点一份外卖"
-    consent_grant_id = "cg_..."  # 用户授权，首次使用走绑定流程获取
-
-    result = call_kimi_with_function_calling(user_message, consent_grant_id)
-    ```
-  </Tab>
-
-  <Tab title="最佳实践">
-    - **Function 超时处理**：设置合理的超时时间，避免 Kimi API 等待过长
-    - **智能重试**：对于临时失败，使用指数退避重试
-    - **缓存 Schema**：缓存 Function Schema，减少重复调用
-    - **监控成本**：追踪 API 调用成本和使用情况
-  </Tab>
-</Tabs>
-
----
-
-## QCloud Agent (腾讯云)
-
-腾讯云提供企业级的 AI Agent 服务，支持云原生部署和完整的管理后台。
-
-### 快速开始
-
-<Tabs>
-  <Tab title="集成步骤">
-    1. **注册腾讯云账号**
-       - 访问 [腾讯云 AI](https://cloud.tencent.com/product/ai)
-       - 申请 Agent 服务权限
-
-    2. **创建 Agent 应用**
-       - 在腾讯云控制台创建新的 Agent 应用
-       - 配置基础信息和权限
-
-    3. **创建 Clawdot Agent**
-       在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建专用 Agent
-
-    4. **配置集成**
-       在腾讯云 Agent 中配置 Clawdot Skills 平台的 API 端点
-
-    5. **部署和测试**
-       部署 Agent 到腾讯云环境，进行集成测试
-
-    6. **发布上线**
-       通过腾讯云应用市场发布
-  </Tab>
-
-  <Tab title="最佳实践">
-    - **资源管理**：合理分配云资源，监控成本
-    - **日志和监控**：使用腾讯云的日志和监控服务追踪 Agent 运行状态
-    - **灾备策略**：配置跨区域备份和故障转移
-    - **安全防护**：启用腾讯云的 DDoS 防护和 WAF
-  </Tab>
-</Tabs>
-
----
-
-## Claude Desktop (MCP)
-
-Claude Desktop 是 Anthropic 官方推出的客户端，原生支持 MCP（Model Context Protocol）协议。
-
-### 快速开始
-
-<Tabs>
-  <Tab title="安装和配置">
-    **1. 安装 Claude Desktop**
-    - 下载 [Claude Desktop](https://claude.ai/download)
-    - 按照指示完成安装和登录
-
-    **2. 创建 Clawdot Agent**
-    在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建 Agent 并获取 API Key（`clw_` 前缀）
-
-    **3. 配置 MCP 服务器**
-    Gateway 原生提供 Streamable HTTP MCP 端点（`https://eleme-gateway.hicaspian.com/mcp/v1`），
-    Agent 身份通过 `Authorization: Bearer clw_...` 请求头在连接层传递。编辑
-    `~/.claude-desktop/config.json`：
-
-    ```json
-    {
-      "mcpServers": {
-        "clawdot-skills": {
-          "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
-          "headers": {
-            "Authorization": "Bearer clw_your_api_key_here"
-          }
-        }
-      }
-    }
-    ```
-
-    **4. 重启 Claude Desktop**
-    - 关闭 Claude Desktop
-    - 重新打开，等待 MCP 服务器连接
-    - 在工具栏中查看可用的 Gateway 技能
-
-    **5. 开始使用**
-    - 在对话中提及外卖、商超等本地生活需求
-    - Claude 会自动调用相应的 Gateway 技能
-  </Tab>
-
-  <Tab title="MCP 客户端调用">
-    Gateway 已原生提供 MCP 端点（`/mcp/v1`），Claude Desktop **直接连接即可**（见上一
-    标签页的配置），无需自己再搭一层本地代理。如果你想在脚本里手动验证连接、或在自建
-    Agent 中复用同一套工具，可用任意 MCP 客户端直连。Agent 身份走连接层
-    `Authorization` 头；用户授权 `consent_grant_id`（`cg_` 前缀）作为每个业务工具的参数：
-
-    ```python
-    import asyncio
-
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-
-    GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-    API_KEY = "clw_your_api_key_here"            # Agent 身份，连接层请求头
-    CONSENT_GRANT_ID = "cg_..."                  # 用户授权，工具参数
-
-    async def main():
-        headers = {"Authorization": f"Bearer {API_KEY}"}
-        async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-
-                # 连上即可自动发现全部 18 个工具
-                tools = await session.list_tools()
-                print([t.name for t in tools.tools])
-
-                # 用户授权作为工具参数传入，不走请求头
-                shops = await session.call_tool("search_shops", {
-                    "consent_grant_id": CONSENT_GRANT_ID,
-                    "keyword": "咖啡",
-                    "lat": 39.9836,   # GCJ-02 坐标；或改用 address_id
-                    "lng": 116.3164,
-                })
-                print(shops)   # 含 shops[]：shop_id、cart_id、next_offset?
-
-    asyncio.run(main())
-    ```
-  </Tab>
-
-  <Tab title="最佳实践">
-    - **工具发现缓存**：Claude 会缓存 MCP 工具列表，更新时需要重启
-    - **错误处理**：返回清晰的错误消息，帮助 Claude 理解问题
-    - **流式响应**：支持长时间运行的操作流式返回结果
-    - **隐私保护**：不记录用户输入，遵守隐私政策
-  </Tab>
-</Tabs>
-
----
-
-## Cursor
-
-Cursor 是面向开发者的 AI 代码编辑器，支持 MCP 集成。
-
-### 快速开始
-
-配置与 Claude Desktop 类似，直接连接 Gateway 的原生 MCP 端点：
-
-```json
-{
-  "mcpServers": {
-    "clawdot-eleme": {
-      "url": "https://eleme-gateway.hicaspian.com/mcp/v1",
-      "headers": {
-        "Authorization": "Bearer clw_your_key"
-      }
-    }
-  }
-}
-```
-
-在 Cursor 中使用 `Cmd+K` (Mac) 或 `Ctrl+K` (Windows/Linux) 打开命令面板，调用 Gateway 技能。
-
 <Info>
-Cursor 集成方式与 Claude Desktop 基本相同，主要区别是使用场景（代码编辑 vs 通用对话）。
+本页只讲「安装 takeout 技能」。如果你想自己编排底层的 18 个裸工具（不经技能封装），见 [MCP 概览](/mcp/overview)。
 </Info>
 
 ---
 
-## 自建 Agent
+## 一键安装
 
-如果你的 Agent 平台未在上述列表中，只要它支持 **MCP（Model Context Protocol）** 或通用工具调用，就能按 Gateway 的工具契约自行接入——和 Claude Desktop / Cursor 走的是同一条 MCP 通道，无需为外卖能力单独搭一套接口。
+安装脚本会从最新 [Release](https://github.com/clawdot/open-gateway-clawdot-skill/releases) 下载技能包、校验 `sha256`、解压到当前平台对应的位置。命令格式统一为 `install.sh ... takeout <platform>`：
 
-### 接入要点
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
+    ```
 
-1. **连接**：用任意 MCP 客户端，通过 Streamable HTTP 连到 `https://eleme-gateway.hicaspian.com/mcp/v1`。
-2. **Agent 身份**：在连接层请求头携带 `Authorization: Bearer clw_...`（在 [Clawdot Portal](https://console.hicaspian.com/agents) 创建 Agent 时生成）。
-3. **用户授权**：每个业务工具调用都带 `consent_grant_id` 参数（`cg_` 前缀）；首次使用先走 `request_user_bind` / `verify_user_bind` 拿到它。
-4. **按链路调用工具**：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。所有跨步 ID 由网关签发、原样回传。
+    - **装到哪**：解压到 Claude Code 的 skills 目录。
+    - **包含什么**：`SKILL.md`（技能说明）+ `scripts/takeout.py`（执行脚本）。
+    - **怎么触发**：Claude Code 读取技能的 `description`，当你提到点外卖、想吃什么、饿了等需求时**自动触发**该技能，再由它调用 `scripts/takeout.py` 完成各个动作。
+  </Tab>
+
+  <Tab title="OpenClaw">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout openclaw
+    ```
+
+    - **装到哪**：安装一份 `SKILL.md` 到 OpenClaw 的技能位置。
+    - **怎么触发**：OpenClaw 加载该 `SKILL.md`，按其中的说明在需要时调用技能。
+  </Tab>
+
+  <Tab title="Codex">
+    ```bash
+    # 在项目根目录执行
+    curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout codex
+    ```
+
+    - **装到哪**：在项目根目录写入 `AGENTS.md`。
+    - **怎么触发**：Codex 读取 `AGENTS.md` 中的技能说明，按需调用。
+  </Tab>
+</Tabs>
 
 <Info>
-Gateway 已原生暴露 MCP 端点，绝大多数客户端**直接连接即可**，无需自行封装 HTTP。完整工具清单、参数与返回字段见 [MCP 概览](/mcp/overview)。
+默认安装最新版。如需固定版本，在命令末尾追加版本号，例如 `... takeout claude-code v1.0.0`。
 </Info>
 
-**快速示例（MCP 客户端调用工具）：**
+---
 
-```python
-# 任意 MCP 客户端均可，这里以官方 SDK 为例
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+## 装完配置 `.env`
 
-GATEWAY_MCP_URL = "https://eleme-gateway.hicaspian.com/mcp/v1"
-API_KEY = "clw_your_api_key_here"            # Agent 身份，连接层请求头
-CONSENT_GRANT_ID = "cg_..."                  # 用户授权，工具参数
+三个平台装完后，都在技能根目录放一个 `.env`。**唯一必填的是 `API_KEY`**（你的 Agent 身份，`clw_` 前缀）；`GATEWAY_URL` 用默认即可。
 
-async def search_shops(keyword):
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    async with streamablehttp_client(GATEWAY_MCP_URL, headers=headers) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            # 用户授权作为工具参数传入，不走请求头
-            result = await session.call_tool("search_shops", {
-                "consent_grant_id": CONSENT_GRANT_ID,
-                "keyword": keyword,
-                "lat": 39.9836,   # GCJ-02 坐标；或改用 address_id
-                "lng": 116.3164,
-            })
-            return result   # 含 shops[]：shop_id、cart_id、next_offset?
+```bash
+GATEWAY_URL=https://eleme-gateway.hicaspian.com   # 网关地址（脚本自动追加 /api/v1，留默认即可）
+API_KEY=clw_your_api_key                          # 唯一必填：Agent 身份
+CONSENT_GRANT_ID=                                  # 留空；用户首次绑定后自动回写（cg_ 前缀）
 ```
 
----
-
-## 即将支持的平台
-
-以下平台已在开发或测试中，即将支持：
-
-<CardGroup cols={2}>
-  <Card title="Google Vertex AI" icon="cloud" disabled>
-    Google Cloud 的 AI 代理服务，即将集成。
-  </Card>
-
-  <Card title="AWS Bedrock Agents" icon="cloud" disabled>
-    AWS 的托管 AI 服务，支持自定义 Agent。
-  </Card>
-
-  <Card title="LangChain 集成" icon="link" disabled>
-    通过 LangChain 的 Tool/Agent 框架集成。
-  </Card>
-
-  <Card title="更多企业 Agent 平台" icon="building" disabled>
-    支持其他商业 AI Agent 平台，敬请期待。
-  </Card>
-</CardGroup>
+- `clw_` 开头的 **API Key** 在 [控制台 → Agents](https://console.hicaspian.com/agents) 创建 Agent、开通外卖能力时获取。
+- `CONSENT_GRANT_ID`（用户授权，`cg_` 前缀）**开局留空**：用户首次走一次短信或 H5 绑定后，脚本会自动把它回写进 `.env`。授权与绑定的细节见 [安全模型](/skills/security-model)。
 
 ---
 
-## 平台对比
+## 安装后能做什么
 
-| 平台 | 接入方式 | 难度 | 企业级 | 开发者友好 | 社区活跃度 |
-|------|---------|------|--------|-----------|----------|
-| 钉钉 | 服务端编排 + MCP 工具调用 | 中 | ✓ | 高 | 高 |
-| Kimi | Function Calling + MCP 工具调用 | 低 | ✓ | 高 | 中 |
-| QCloud | 服务端编排 + MCP 工具调用 | 中 | ✓ | 中 | 中 |
-| Claude Desktop | MCP（原生） | 低 | - | 高 | 高 |
-| Cursor | MCP（原生） | 低 | - | 高 | 中 |
-| 自建 Agent | MCP / 工具调用 | 中 | ✓ | 高 | - |
+装好并填好 `API_KEY` 后，你的 Agent 就能驱动 `takeout` 跑完整条外卖链路——搜店、看菜单、预览、下单、查配送状态。每个动作的参数、下单 item 模型、以及成功/失败信号，见 [外卖助手](/skills/takeout)。
 
 ---
 
 ## 常见问题
 
 <details>
-<summary>我的 Agent 平台不在列表中怎么办？</summary>
+<summary>三个平台用的是同一个技能包吗？</summary>
 
-你可以：
-1. 只要平台支持 MCP 或工具调用，按上文「自建 Agent」连接 `https://eleme-gateway.hicaspian.com/mcp/v1` 自行接入（参考 [接入指南](/skills/integration-guide)）
-2. 联系我们 support@clawdot.com，申请添加新的平台集成
+是的，同一个 `takeout` 技能包，区别只在**适配层**：Claude Code 用 `SKILL.md` + `scripts/takeout.py`，OpenClaw 用 `SKILL.md`，Codex 用 `AGENTS.md`。核心的执行脚本与交互指南（GUIDE）三平台共用。
 
 </details>
 
 <details>
-<summary>不同平台的 API Key 是否相同？</summary>
+<summary>能装到指定版本吗？</summary>
 
-是的，Clawdot 为每个 Agent 应用生成唯一的 API Key。你可以在多个平台使用同一个 API Key，但建议为不同平台创建不同的 Agent（便于监控和管理）。
-
-</details>
-
-<details>
-<summary>如何在生产环境中安全地管理 API Key？</summary>
-
-最佳实践：
-- 使用环境变量或密钥管理服务（如 HashiCorp Vault、AWS Secrets Manager）
-- 不要在代码中硬编码 API Key
-- 在 Portal 中按需轮换 / 禁用 API Key（被禁用的 Key 立即失效）
-- API Key 只标识 Agent；用户级访问由各用户的 consent grant（`cg_` 前缀）独立控制
+可以。默认从最新 Release 安装；在安装命令末尾追加版本号即可固定，例如 `... takeout claude-code v1.0.0`。脚本会按该版本下载并校验 `sha256`。
 
 </details>
 
 <details>
-<summary>为什么统一用 MCP 接入？</summary>
+<summary>我想自己调用底层工具，而不是用这个技能包？</summary>
 
-Gateway 对外只暴露一套 **MCP 工具契约**，所有平台（含自建 Agent）都走同一条通道：
-
-- **标准化协议，自动工具发现**：客户端连上即可拿到全部 18 个工具及其参数、返回字段，无需逐个对接口
-- **与大模型深度集成**：工具名、参数语义对模型友好，适合直接交给 Agent 自主编排下单链路
-- **配置简单**：Streamable HTTP 直连 `/mcp/v1`，Agent 身份走 `Authorization` 头、用户授权走 `consent_grant_id` 参数，无需自行封装底层调用
-
-完整工具清单见 [MCP 概览](/mcp/overview)。
+可以。网关对外还暴露一套 MCP 工具契约（18 个裸工具），适合你在自建 Agent 里自行编排下单链路。见 [MCP 概览](/mcp/overview)。技能包（本页）则是把这些动作封装好、装上即用，无需自己拼接。
 
 </details>
