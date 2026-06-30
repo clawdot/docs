@@ -228,7 +228,7 @@ sequenceDiagram
 
 每个工具调用都需要双层认证：
 
-- **Agent 身份（API Key）**：连接 MCP 时通过 `Authorization: Bearer clw_...` 请求头携带，每个请求都要带。在控制台 [`http://console.hicaspian.com/agents`](http://console.hicaspian.com/agents) 创建 Agent 时生成。
+- **Agent 身份（API Key）**：连接 MCP 时通过 `Authorization: Bearer clw_...` 请求头携带，每个请求都要带。在控制台 [`https://console.hicaspian.com/agents`](https://console.hicaspian.com/agents) 创建 Agent 时生成。
 - **用户授权 consent grant**（标识已授权用户，`cg_` 前缀）：作为每个业务工具的 `consent_grant_id` 参数传入（不走请求头）。绑定类工具 `request_user_bind` / `verify_user_bind` 例外——它们是拿授权的入口，本身不传 `consent_grant_id`。
 
 详见 [认证机制](/gateway/authentication)。错误统一返回 `{"error": {"code", "message"}}`，见 [错误处理](/gateway/error-handling)。

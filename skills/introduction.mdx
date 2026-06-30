@@ -90,7 +90,7 @@ Skills 的设计遵循三层分离的原则：
 
 Skills 采用 **双层认证**：**API Key** 标识 Agent 身份，**用户授权（consent grant）** 标识已授权的外卖用户。Agent 持有自己的 API Key，再为每个用户走绑定流程拿到一个 `consent_grant_id`（`cg_` 前缀），二者配合即可代表该用户操作。每个授权独立、可随时撤销，天然形成安全隔离，无需复杂的权限管理系统。
 
-- **API Key（Agent 身份）：** 在连接层通过 `Authorization: Bearer clw_...` 请求头传递；在[控制台](http://console.hicaspian.com/agents)创建 Agent 时生成。
+- **API Key（Agent 身份）：** 在连接层通过 `Authorization: Bearer clw_...` 请求头传递；在[控制台](https://console.hicaspian.com/agents)创建 Agent 时生成。
 - **用户授权（consent grant）：** 作为每个 MCP 工具的 `consent_grant_id` 参数传入（`cg_` 前缀，不走请求头）。
 
 适用于：个人助手、桌面端 Agent（Claude Desktop、Cursor 等）、各类 Agent 平台集成。完整说明见 [认证机制](/gateway/authentication)。

@@ -288,7 +288,7 @@
         "primary": {
             "type": "button",
             "label": "申请接入",
-            "href": "http://console.hicaspian.com/agents"
+            "href": "https://console.hicaspian.com/agents"
         }
     },
     "contextual": {

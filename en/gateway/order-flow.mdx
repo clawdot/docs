@@ -228,7 +228,7 @@ The callback body has 6 keys: `event`, `order_id`, `ispay`, `status`, `status_te
 
 Every tool call requires two-layer authentication:
 
-- **Agent identity (API Key)**: carried when connecting to MCP via the `Authorization: Bearer clw_...` header, on every request. Generated when you create an Agent in the console [`http://console.hicaspian.com/agents`](http://console.hicaspian.com/agents).
+- **Agent identity (API Key)**: carried when connecting to MCP via the `Authorization: Bearer clw_...` header, on every request. Generated when you create an Agent in the console [`https://console.hicaspian.com/agents`](https://console.hicaspian.com/agents).
 - **User consent grant** (identifies the authorized user, `cg_` prefix): passed as each business tool's `consent_grant_id` argument (not a header). The binding tools `request_user_bind` / `verify_user_bind` are the exception — they are how you obtain consent, so they take no `consent_grant_id`.
 
 See [Authentication](/en/gateway/authentication). Errors are returned in the uniform shape `{"error": {"code", "message"}}`; see [Error Handling](/en/gateway/error-handling).
