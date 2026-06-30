@@ -14,7 +14,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 **Two modes (switched by `keyword`):**
 
 - **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
-- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / delivery_fee fields are usually `null` (upstream limitation; `rating` may carry a value depending on the upstream).
+- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / rating are usually `null` (upstream limitation); but `delivery_time_text` / `delivery_fee_text` are now derived from the upstream `orderLeadTime` / `floatDeliveryFee` (a fee of 0 shows as "免配送费", i.e. free delivery).
 
 <Note>
   **Browse pagination**: in browse mode (no `keyword`), pass `offset` to page through results — send `offset: 0` on the first call, then the response's `next_offset` on each subsequent call, until `shops` comes back empty (end reached). Page size is fixed and not adjustable (it only caps how many shops one page may return). Keyword search does not support pagination.
@@ -86,8 +86,8 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].tags` | string[] | Category tags: one of `咖啡` / `奶茶` / `快餐`, or empty `[]` when none. For client-side category filtering; the gateway does not filter for you |
 | `shops[].logo_url` | string \| null | Shop logo URL |
 | `shops[].distance_text` | string \| null | Distance from the delivery location (text; may be `null` in keyword search mode) |
-| `shops[].delivery_time_text` | string \| null | Estimated delivery text (may be `null` in keyword search mode) |
-| `shops[].delivery_fee_text` | string \| null | Delivery fee text (may be `null` in keyword search mode) |
+| `shops[].delivery_time_text` | string \| null | Estimated delivery text; present in both modes, `null` only when the upstream omits it |
+| `shops[].delivery_fee_text` | string \| null | Delivery fee text; present in both modes, `null` only when the upstream omits it; a fee of 0 shows as "免配送费" (free delivery) |
 | `shops[].rating` | float \| null | Rating (may be `null` in keyword search mode) |
 | `shops[].monthly_sales_text` | string \| null | Monthly sales text |
 | `shops[].min_order_amount` | integer \| null | Minimum order amount (cents); `null` when absent |
