@@ -26,6 +26,17 @@
                 "default": true,
                 "tabs": [
                     {
+                        "tab": "主页",
+                        "groups": [
+                            {
+                                "group": "主页",
+                                "pages": [
+                                    "index"
+                                ]
+                            }
+                        ]
+                    },
+                    {
                         "tab": "Overview 概览",
                         "groups": [
                             {
@@ -149,6 +160,17 @@
             {
                 "language": "en",
                 "tabs": [
+                    {
+                        "tab": "Home",
+                        "groups": [
+                            {
+                                "group": "Home",
+                                "pages": [
+                                    "en/index"
+                                ]
+                            }
+                        ]
+                    },
                     {
                         "tab": "Overview",
                         "groups": [
