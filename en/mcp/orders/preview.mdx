@@ -82,6 +82,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `address_id` invalid |
+| `MISSING_REQUIRED_SELECTION` | The cart hasn't satisfied a store-level required item group (e.g. a malatang shop's "Required Soup"). Add an item from `required_groups[].candidate_item_ids` (in the `get_shop_menu` response) and retry; `message` names the missing group |
 | `ELEME_ERROR` | Upstream preview API error; retry later |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.

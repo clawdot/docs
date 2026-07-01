@@ -116,7 +116,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
   ],
   "total_items": 128,
   "has_more": true,
-  "next_offset": 20
+  "next_offset": 20,
+  "required_groups": []
 }
 ```
 
@@ -128,6 +129,10 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
   **Ingredients are per-SKU.** Ingredients are bound to a specific SKU — which ingredients are available, and their internal IDs, can differ per SKU (e.g. cup size). The top-level `items[].ingredient_options` belongs to the **default SKU**; for any other SKU, use the `option_id`s under that SKU's `items[].sku_options[].ingredient_options`. If you reuse a default-SKU `option_id` on a non-default SKU, the gateway maps it to that SKU's matching ingredient by (group name + option name); an ingredient that doesn't exist on the chosen SKU is rejected at `quote_cart` / `preview_order` (not at `create_order`).
 </Note>
 
+<Note>
+  **Store-level required item groups.** Some shops (malatang, certain combo shops) require the whole order to include an item of a certain kind — e.g. a malatang shop's "Required Soup"; without a soup the upstream rejects the order. This constraint is exposed via `required_groups`: before ordering you must pick at least `min_select` item(s) from each `required_groups[].candidate_item_ids` and add them as normal entries to `items[]` (candidate details are in `required_groups[].candidates` — with name/price/available, always complete; with `keyword` or paging the required candidates may not appear in the current page's `items[]`). When unmet, `quote_cart` returns `can_checkout=false` + `blocking_reason`, and `preview_order` returns `MISSING_REQUIRED_SELECTION` (HTTP 400). This is a different layer from a product's **required ingredient groups** (the required option groups inside `ingredient_options`, e.g. a drink's required temperature / sugar): the former is "must add another item", the latter is "must pick enough options inside one item".
+</Note>
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `shop.shop_id` | string | Shop ID (echoes the request `shop_id`) |
@@ -137,6 +142,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `categories` | array | Lightweight index of this page's items by category |
 | `categories[].name` | string | Category name |
 | `categories[].items` | array | Items in this category (only `item_id` + `name`) |
+| `categories[].required` | boolean | Whether this category is a store-level required group (returned for required categories only) |
+| `categories[].min_select` | integer | Minimum items to pick from a required category (returned for required categories only) |
 | `items` | array | Full item list for this page (see below) |
 | `items[].item_id` | string | Item ID (`item_`), **required to order**; pass as `items[].item_id` to `/cart/quote` and `/orders/preview` |
 | `items[].name` | string | Item name |
@@ -163,6 +170,12 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `total_items` | integer | Total item count after `keyword` filtering |
 | `has_more` | boolean | Whether there is a next page |
 | `next_offset` | integer \| null | The `offset` for the next page; `null` when `has_more` is `false` |
+| `required_groups` | array | Store-level required item groups (e.g. a malatang shop's "Required Soup"); the order must include at least `min_select` item(s) from each group's `candidate_item_ids`. `[]` when the shop has no such constraint |
+| `required_groups[].name` | string | Required-group name (e.g. "Required Soup") |
+| `required_groups[].required` | boolean | Always `true` |
+| `required_groups[].min_select` | integer | Minimum items to pick from this group (currently always `1`) |
+| `required_groups[].candidate_item_ids` | array | `item_id`s of candidate items; pick at least `min_select` of them and add as normal items to the order `items[]` |
+| `required_groups[].candidates` | array | Candidate details `[{item_id, name, price, available}]`, one-to-one with `candidate_item_ids` and **always complete** (decoupled from `keyword`/paging); agent renders candidates directly without re-checking `items[]` |
 
 <Tip>
   **Progressive disclosure**: use `keyword` to narrow results, or `limit` + `offset` to page. While `has_more` is `true`, keep calling with `offset=next_offset` until `has_more` is `false`. Item IDs returned by earlier calls on the same `cart_id` stay orderable for the cart's lifetime.

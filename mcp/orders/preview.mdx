@@ -82,6 +82,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `address_id` 无效 |
+| `MISSING_REQUIRED_SELECTION` | 购物车未选满店铺必选商品组（如麻辣烫「必选好汤」）。需从 `get_shop_menu` 响应 `required_groups[].candidate_item_ids` 补选商品后重试；`message` 指明缺哪个组 |
 | `ELEME_ERROR` | 上游预览 API 错误；稍后重试 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。

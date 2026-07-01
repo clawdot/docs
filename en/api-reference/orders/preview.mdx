@@ -168,6 +168,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | 403 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
 | 422 | (request validation) | On the REST path, body field type / required / constraint violations are caught by pydantic and return FastAPI's default 422 (a structured validation body, not `{error:{code}}`). e.g. `items[].quantity` not an integer or < 1 (`Field(ge=1)`), or undefined fields in the body or `items[]` (`extra=forbid`) |
 | 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `address_id` invalid |
+| 400 | `MISSING_REQUIRED_SELECTION` | The cart hasn't satisfied a store-level required item group (e.g. a malatang shop's "Required Soup"). Add an item from `required_groups[].candidate_item_ids` (in the `get_shop_menu` response) and retry; `message` names the missing group |
 | 502 | `ELEME_ERROR` | Upstream preview API error; retry later |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.

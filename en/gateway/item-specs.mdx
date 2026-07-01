@@ -166,6 +166,17 @@ This is the result of system automatically selecting the first non-conflicting o
   For most ordering scenarios, directly using `default_ingredients` is the simplest approach. Only need manual selection when user explicitly requests customization.
 </Tip>
 
+## Two layers of "required groups"
+
+"Required" appears at two distinct layers in a menu — don't conflate them:
+
+- **Per-item required ingredient groups**: within one item you must pick enough options, e.g. a drink's required "Temperature" / "Sugar". These live in that item's `ingredient_options` (upstream `isRequired` groups). Missing one is rejected at order time as "ingredients not fully selected".
+- **Store-level required item groups**: the whole order must include another item of a certain kind, e.g. a malatang shop's "Required Soup". These live in the top-level `required_groups[]` of the `get_shop_menu` response (and `categories[].required`); pick from `candidate_item_ids` and add to `items[]`.
+
+<Note>
+  The two are enforced at different times: store-level required groups are checked by the gateway at `quote_cart` (`can_checkout=false` + `blocking_reason`, a soft hint) and `preview_order` (`MISSING_REQUIRED_SELECTION`, HTTP 400 hard block); per-item required ingredient groups are validated by the upstream at order time.
+</Note>
+
 ## Echoing selected specs
 
 `get_shop_menu` returns the **available** options; `quote_cart` and `preview_order` **echo back the user's selected** specs and ingredients on each item, so you can show "what was ordered":
