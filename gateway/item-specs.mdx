@@ -166,6 +166,17 @@ ID 格式为 `ig_{组索引}_{选项索引}`，稳定且可预测。
   对于大多数下单场景，直接使用 `default_ingredients` 是最简单的方式。只有用户明确要求定制时才需要手动选择。
 </Tip>
 
+## 两层「必选组」
+
+「必选」在菜单里有两个不同层次，别混：
+
+- **商品内·配料必选组**：某商品内部必须选够做法，如奶茶必选「温度」「糖度」。落在该商品的 `ingredient_options`（上游 `isRequired` 组）。漏选会在下单时被上游判「配料未选齐」。
+- **店铺级·必选商品组**：整单必须再点一个某类商品，如麻辣烫的「必选好汤」汤底。落在 `get_shop_menu` 响应顶层的 `required_groups[]`（及 `categories[].required`），需从 `candidate_item_ids` 选商品加入 `items[]`。
+
+<Note>
+  两者判定时机不同：店铺级必选组由网关在 `quote_cart`（`can_checkout=false` + `blocking_reason` 软提示）和 `preview_order`（`MISSING_REQUIRED_SELECTION`，HTTP 400 硬拦）拦截；商品内配料必选组则在下单时由上游校验。
+</Note>
+
 ## 回显已选规格
 
 `get_shop_menu` 返回的是**可选**项；而 `quote_cart`（算价）与 `preview_order`（预览）会在每个商品上**回显用户已选**的规格与配料，便于向用户展示「点了什么」：

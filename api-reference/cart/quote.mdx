@@ -89,8 +89,8 @@ description: "POST /cart/quote — 对已选商品的购物车算价，返回价
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `quote_id` | string | 报价 ID（`qt_`），传给 `/orders/preview` 校验报价上下文 |
-| `can_checkout` | boolean | 是否可结算（有不可结算商品或上游禁止结算时为 `false`）|
-| `blocking_reason` | string \| null | 不可结算原因（`can_checkout` 为 `true` 时为 `null`）|
+| `can_checkout` | boolean | 是否可结算（有不可结算商品、缺店铺必选组、或上游禁止结算时为 `false`）|
+| `blocking_reason` | string \| null | 不可结算原因（`can_checkout` 为 `true` 时为 `null`）；例如「需从『必选好汤』补选必选项再下单（每组至少选 1 项）」或未达起送价。缺店铺必选组见 `get_shop_menu` 响应的 `required_groups` |
 | `goods_price` | integer | 商品小计（分）|
 | `delivery_fee` | integer | 配送费（分）|
 | `packing_fee` | integer | 打包费（分）|

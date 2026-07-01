@@ -35,8 +35,8 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | Field | Type | Description |
 |-------|------|-------------|
 | `quote_id` | string | Quote ID (`qt_`), passed to `preview_order` to validate the quote context |
-| `can_checkout` | boolean | Whether checkout is allowed (`false` when items are unavailable or the upstream forbids checkout) |
-| `blocking_reason` | string \| null | Reason checkout is blocked (`null` when `can_checkout` is `true`) |
+| `can_checkout` | boolean | Whether the cart is checkout-ready (`false` if any item is not checkout-able, a store-level required group is unmet, or upstream blocks checkout) |
+| `blocking_reason` | string \| null | Why checkout is blocked (`null` when `can_checkout` is `true`); e.g. "pick a required item from 'Required Soup' before ordering (at least 1 per group)" or below the minimum order. For missing required groups see `required_groups` in the `get_shop_menu` response |
 | `goods_price` | integer | Goods subtotal (cents) |
 | `delivery_fee` | integer | Delivery fee (cents) |
 | `packing_fee` | integer | Packing fee (cents) |

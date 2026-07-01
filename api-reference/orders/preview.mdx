@@ -168,6 +168,7 @@ description: "POST /orders/preview — 校验已算价的购物车，返回最�
 | 403 | `CONSENT_GRANT_WRONG_CAP` | 该授权属于其它能力 / 服务商 |
 | 422 | （参数校验） | REST 端请求体字段类型 / 必填 / 约束不满足由 pydantic 拦截，返回 FastAPI 默认 422（结构化校验体，非 `{error:{code}}`）。例如 `items[].quantity` 非整数或 < 1（`Field(ge=1)`）、请求体本体或 `items[]` 多传未定义字段（`extra=forbid`） |
 | 400 | `PUBLIC_REFERENCE_INVALID` | `cart_id` / `quote_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `address_id` 无效 |
+| 400 | `MISSING_REQUIRED_SELECTION` | 购物车未选满店铺必选商品组（如麻辣烫「必选好汤」）。需从 `get_shop_menu` 响应 `required_groups[].candidate_item_ids` 补选商品后重试；`message` 指明缺哪个组 |
 | 502 | `ELEME_ERROR` | 上游预览 API 错误；稍后重试 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。

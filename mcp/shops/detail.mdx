@@ -39,6 +39,10 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
   **配料按规格区分。** 配料与具体规格（SKU）绑定——不同杯型可选的配料及其内部标识可能不同。顶层 `items[].ingredient_options` 对应**默认规格**；选其他规格时请使用该规格 `items[].sku_options[].ingredient_options` 里的 `option_id`。若沿用默认规格的 `option_id` 下非默认规格，网关会按「组名 + 选项名」自动映射到该规格的对应配料；该规格不存在的配料会在 `quote_cart` / `preview_order` 阶段报错（而非到 `create_order` 才失败）。
 </Note>
 
+<Note>
+  **店铺级必选商品组。** 部分店铺（麻辣烫、部分套餐店）要求整单必须包含某类商品——如麻辣烫的「必选好汤」，不选汤底上游会拒单。这类约束通过 `required_groups` 暴露：下单前须从每个 `required_groups[].candidate_item_ids` 里至少选 `min_select` 个商品，作为普通条目加入 `items[]`（候选详情直接看 `required_groups[].candidates`——含 name/price/available、始终完整；带 `keyword` 或分页拉菜单时必选候选可能不在当前页 `items[]` 中）。未选满时 `quote_cart` 返回 `can_checkout=false` + `blocking_reason`，`preview_order` 直接报 `MISSING_REQUIRED_SELECTION`（HTTP 400）。这与商品内的**配料必选组**（`ingredient_options` 里的必选做法组，如奶茶必选温度 / 糖度）是两个层次：前者是「必须再点一个商品」，后者是「某商品内部必须选够做法」。
+</Note>
+
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `shop.shop_id` | string | 店铺 ID（原样回传请求中的 `shop_id`）|
@@ -48,6 +52,8 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `categories` | array | 本页商品按分类的轻量索引 |
 | `categories[].name` | string | 分类名 |
 | `categories[].items` | array | 该分类下的商品（仅 `item_id` + `name`）|
+| `categories[].required` | boolean | 该分类是否为店铺级必选组（仅必选分类返回）|
+| `categories[].min_select` | integer | 必选分类至少需选的商品数（仅必选分类返回）|
 | `items` | array | 本页完整商品列表（见下）|
 | `items[].item_id` | string | 商品 ID（`item_`），**下单必需**；传给 `quote_cart`、`preview_order` 的 `items[].item_id` |
 | `items[].name` | string | 商品名 |
@@ -74,6 +80,12 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `total_items` | integer | 过滤（`keyword`）后的商品总数 |
 | `has_more` | boolean | 是否还有下一页 |
 | `next_offset` | integer \| null | 下一页的 `offset`；`has_more` 为 `false` 时为 `null` |
+| `required_groups` | array | 店铺级必选商品组（如麻辣烫「必选好汤」）；整单须从每组 `candidate_item_ids` 至少选 `min_select` 个商品才能下单，无此约束时为 `[]` |
+| `required_groups[].name` | string | 必选组名（如「必选好汤」）|
+| `required_groups[].required` | boolean | 恒为 `true` |
+| `required_groups[].min_select` | integer | 该组至少需选的商品数（当前恒为 `1`）|
+| `required_groups[].candidate_item_ids` | array | 候选商品的 `item_id` 列表；从中至少选 `min_select` 个，作为普通商品加入下单 `items[]` |
+| `required_groups[].candidates` | array | 候选商品详情 `[{item_id, name, price, available}]`，与 `candidate_item_ids` 一一对应且**始终完整**（与 `keyword`/分页解耦）；agent 直接据此展示候选，无需回查 `items[]` |
 
 <Tip>
   **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。
