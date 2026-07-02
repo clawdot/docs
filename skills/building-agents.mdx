@@ -401,7 +401,7 @@ def handle_tool_result(result: dict):
     ```
   </Card>
 
-  <Card title="渐进披露大菜单" icon="sliders">
+  <Card title="渐进披露大菜单" icon="sliders-horizontal">
     菜单可能有 100+ 项。`get_shop_menu` 用 `keyword` 或 `limit` / `offset` 分页，按 `has_more` / `next_offset` 翻页直到取完。
 
     ```json
@@ -414,7 +414,7 @@ def handle_tool_result(result: dict):
     记录关键工具调用（入参摘要、返回的 `order_id` / 错误码等），便于调试和监控。注意脱敏 `consent_grant_id` 等敏感字段。
   </Card>
 
-  <Card title="速率限制处理" icon="throttle">
+  <Card title="速率限制处理" icon="gauge">
     尊重速率限制（下单 10 次/分钟，其他 60 次/分钟，每 Agent）。超限时工具返回 `RATE_LIMITED`，用指数退避重试。
   </Card>
 
