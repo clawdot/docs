@@ -63,6 +63,11 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].image_url` | string \| null | Item image URL |
 | `items[].price` | integer | Current price (cents) |
 | `items[].original_price` | integer \| null | Original price (cents); `null` when not discounted |
+| `items[].tip_texts` | array | Ready-made marketing copy from upstream (e.g. `["月售 1000+", "好评率 100%"]` — monthly sales / positive-rating rate); `[]` when absent. Display-only, not an order input |
+| `items[].promo_labels` | array | Discount/promo labels with main/sub structure; `[]` when absent. Display-only |
+| `items[].promo_labels[].text` | string | Main label text (e.g. "66折" = 34% off) |
+| `items[].promo_labels[].sub_texts` | array | Sub label texts (e.g. `["限3份"]` = limit 3) |
+| `items[].recommend_reasons` | array | Recommendation copy (e.g. `["7天内15人下单"]` = 15 orders in 7 days); `[]` when absent. Display-only |
 | `items[].available` | boolean | Whether in stock |
 | `items[].unavailable_reason` | string \| null | Reason if unavailable; `"sold_out"` when out of stock, otherwise `null` |
 | `items[].sku_options` | array | SKU options (e.g. cup size); pass the chosen `sku_id` as `items[].sku_id` when ordering |
