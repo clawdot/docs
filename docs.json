@@ -330,6 +330,22 @@
     },
     "redirects": [
         {
+            "source": "/api-reference/introduction",
+            "destination": "/mcp/overview"
+        },
+        {
+            "source": "/en/api-reference/introduction",
+            "destination": "/en/mcp/overview"
+        },
+        {
+            "source": "/api-reference/:slug*",
+            "destination": "/mcp/:slug*"
+        },
+        {
+            "source": "/en/api-reference/:slug*",
+            "destination": "/en/mcp/:slug*"
+        },
+        {
             "source": "/gateway/mcp-overview",
             "destination": "/mcp/overview"
         },

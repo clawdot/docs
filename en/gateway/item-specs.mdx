@@ -52,7 +52,7 @@ Customization options not affecting price:
 ## Ingredients — Extra Ingredients
 
 <Warning>
-  **Ingredients are per-SKU.** For one item, different SKUs (e.g. cup sizes) can offer different ingredients and different internal IDs — e.g. an item's "Extra Large" may only allow "Iced" while "Venti" only allows "Hot". The top-level `ingredient_options` from `get_shop_menu` is the **default SKU**'s; for any other SKU, use the `option_id`s under that SKU's `sku_options[].ingredient_options` (see [Menu API](/en/api-reference/shops/detail)). If you reuse a default-SKU `option_id` on another SKU, the gateway maps it by (group name + option name); an ingredient absent on the chosen SKU is rejected at `quote_cart` / `preview_order`.
+  **Ingredients are per-SKU.** For one item, different SKUs (e.g. cup sizes) can offer different ingredients and different internal IDs — e.g. an item's "Extra Large" may only allow "Iced" while "Venti" only allows "Hot". The top-level `ingredient_options` from `get_shop_menu` is the **default SKU**'s; for any other SKU, use the `option_id`s under that SKU's `sku_options[].ingredient_options` (see [Menu API](/en/mcp/shops/detail)). If you reuse a default-SKU `option_id` on another SKU, the gateway maps it by (group name + option name); an ingredient absent on the chosen SKU is rejected at `quote_cart` / `preview_order`.
 </Warning>
 
 Most complex customization layer, including **exclusion rules**:

@@ -1,6 +1,7 @@
 ---
 title: "外卖点餐"
 description: "AI 外卖点餐场景"
+icon: "utensils"
 ---
 
 ## 概述
@@ -92,7 +93,7 @@ Agent：→ 调用 create_order(
 ## Agent 设计建议
 
 <AccordionGroup>
-  <Accordion title="使用默认规格" icon="bolt">
+  <Accordion title="使用默认规格" icon="zap">
     `get_shop_menu` 返回的每个商品都带 `ingredient_option_ids`（规格 / 属性 / 加料的可选项），并标注了商家推荐的默认组合。除非用户明确要求定制（"大杯改中杯"、"加一份浓缩"、"无糖"），否则直接用默认值即可。
 
     这样做的好处：
@@ -135,7 +136,7 @@ Agent：→ 调用 create_order(
     ```
   </Accordion>
 
-  <Accordion title="地址管理策略" icon="location-dot">
+  <Accordion title="地址管理策略" icon="map-pin">
     地址管理是提升用户体验的关键：
 
     **首次使用**：
@@ -152,7 +153,7 @@ Agent：→ 调用 create_order(
     这大大减少了重复交互，尤其对于经常下单的用户。
   </Accordion>
 
-  <Accordion title="错误处理" icon="triangle-exclamation">
+  <Accordion title="错误处理" icon="triangle-alert">
     外卖场景中常见的错误和处理方式：
 
     | 错误 | 原因 | 处理方案 |
@@ -247,7 +248,7 @@ graph LR
     - 提供友好的错误提示
   </Card>
 
-  <Card title="❌ 避免做法" icon="circle-xmark" color="red">
+  <Card title="❌ 避免做法" icon="circle-x" color="red">
     - 直接创建而不预览
     - 让用户手动处理规格互斥
     - 每次都重新搜索地址

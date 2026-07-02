@@ -401,7 +401,7 @@ Use bounded backoff retries (e.g. up to 3) for read-only tools like `get_order_s
     ```
   </Card>
 
-  <Card title="Progressive Menu Disclosure" icon="sliders">
+  <Card title="Progressive Menu Disclosure" icon="sliders-horizontal">
     Menus can have 100+ items. Use `keyword` or `limit` / `offset` on `get_shop_menu` to page, following `has_more` / `next_offset` until done.
 
     ```json
@@ -414,7 +414,7 @@ Use bounded backoff retries (e.g. up to 3) for read-only tools like `get_order_s
     Record critical tool calls (argument summaries, returned `order_id` / error codes, etc.) for debugging and monitoring. Be sure to redact sensitive fields like `consent_grant_id`.
   </Card>
 
-  <Card title="Rate Limit Handling" icon="throttle">
+  <Card title="Rate Limit Handling" icon="gauge">
     Respect rate limits (create order 10/min, others 60/min, per Agent). On limit a tool returns `RATE_LIMITED`; use exponential backoff.
   </Card>
 
