@@ -141,7 +141,7 @@ description: "POST /shops/menu — 拉取店铺的可下单菜单，返回下单
 | `shop.available` | boolean | 店铺是否可下单（当前恒为 `true`）|
 | `categories` | array | 本页商品按分类的轻量索引 |
 | `categories[].name` | string | 分类名 |
-| `categories[].items` | array | 该分类下的商品（仅 `item_id` + `name`）|
+| `categories[].items` | array | 该分类下的商品，带卡片四要素：`item_id`/`name`/`price`/`available`/`image_url`——客户端可直接用 categories 渲染分类导航+卡片页，规格从本响应 `items[]` 按 `item_id` 查 |
 | `categories[].required` | boolean | 该分类是否为店铺级必选组（仅必选分类返回）|
 | `categories[].min_select` | integer | 必选分类至少需选的商品数（仅必选分类返回）|
 | `items` | array | 本页完整商品列表（见下）|
