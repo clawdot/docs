@@ -48,6 +48,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `shop.shop_id` | string | 店铺 ID（原样回传请求中的 `shop_id`）|
 | `shop.cart_id` | string | 购物车上下文 ID（原样回传请求中的 `cart_id`）|
 | `shop.name` | string | 店铺名称 |
+| `shop.logo_url` | string \| null | 店铺 logo URL，与 `search_shops` 的 `shops[].logo_url` 同源（菜单上游不返回 logo，值取自搜索时随 `cart_id` 保存的上下文）；本字段上线前获取的 `cart_id` 返回 `null` |
 | `shop.available` | boolean | 店铺是否可下单（当前恒为 `true`）|
 | `categories` | array | 本页商品按分类的轻量索引 |
 | `categories[].name` | string | 分类名 |
