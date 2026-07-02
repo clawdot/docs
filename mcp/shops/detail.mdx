@@ -63,6 +63,11 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].image_url` | string \| null | 商品图片 URL |
 | `items[].price` | integer | 当前价（分）|
 | `items[].original_price` | integer \| null | 原价（分）；无折扣时为 `null` |
+| `items[].tip_texts` | array | 营销展示文案（上游现成文案，如 `["月售 1000+", "好评率 100%"]`）；无则为 `[]`。仅供展示，不是下单入参 |
+| `items[].promo_labels` | array | 折扣/促销标签，主副结构；无则为 `[]`。仅供展示 |
+| `items[].promo_labels[].text` | string | 主标签文案（如「66折」）|
+| `items[].promo_labels[].sub_texts` | array | 副标签文案列表（如 `["限3份"]`）|
+| `items[].recommend_reasons` | array | 推荐理由文案（如 `["7天内15人下单"]`）；无则为 `[]`。仅供展示 |
 | `items[].available` | boolean | 是否有货 |
 | `items[].unavailable_reason` | string \| null | 不可用原因；售罄时为 `"sold_out"`，否则 `null` |
 | `items[].sku_options` | array | 规格选项（如杯型）；下单时在 `items[].sku_id` 传所选 `sku_id` |
