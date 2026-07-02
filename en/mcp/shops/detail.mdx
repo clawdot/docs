@@ -51,7 +51,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `shop.available` | boolean | Whether the shop is orderable (currently always `true`) |
 | `categories` | array | Lightweight index of this page's items by category |
 | `categories[].name` | string | Category name |
-| `categories[].items` | array | Items in this category (only `item_id` + `name`) |
+| `categories[].items` | array | Items in this category with card essentials: `item_id`/`name`/`price`/`available`/`image_url` — clients can render category nav + card pages directly from categories; specs are looked up locally in this response's `items[]` by `item_id` |
 | `categories[].required` | boolean | Whether this category is a store-level required group (returned for required categories only) |
 | `categories[].min_select` | integer | Minimum items to pick from a required category (returned for required categories only) |
 | `items` | array | Full item list for this page (see below) |
