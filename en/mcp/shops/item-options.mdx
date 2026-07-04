@@ -1,0 +1,109 @@
+---
+title: "get_item_options"
+description: "MCP tool get_item_options — fetch one item's full sku / ingredient option candidates, with the effective order selection marked (selected)"
+---
+
+## get_item_options
+
+Fetches the **full** candidate lists of one item — specs (`sku_options`) and ingredients / preparations (`ingredient_options`) — with `selected: true` on every entry that would actually ride along on the order under the current selection. Read-only, mutates nothing, and fully decoupled from `preview_order`.
+
+Typical scenarios:
+
+- **Adjusting an order at preview time**: after `preview_order`, the user wants a different cup size or topping — call this tool to see all candidates and the current selection, swap IDs, then simply re-run `preview_order` (`quote_cart` is optional).
+- **Checking an item's options before adding to cart**, without re-reading the whole menu response.
+- **Recovering options after menu paging / filtering**: when the menu response has been pushed out of the conversation context, one call with `item_id` brings back every option and ID for that item.
+
+<Note>
+  **Modification loop**: every `sku_id` / `option_id` returned here is **identical** to the IDs `get_shop_menu` minted for this cart (never re-minted), so any entry can be passed straight back into `quote_cart` / `preview_order`. After changing the selection, call `preview_order` again for a **fresh** `preview_id` + `confirmation_token` before ordering (the old tokens are single-use with a 10-minute TTL).
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `cart_id` | string | Yes | — | Cart context ID (from `search_shops`) |
+| `item_id` | string | Yes | — | Item ID (from `get_shop_menu` on the same cart) |
+| `sku_id` | string \| null | No | `null` | The currently chosen sku ID, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default sku** |
+| `ingredient_option_ids` | array \| null | No | `null` | The currently chosen option ID list, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default selection** |
+
+### Returns
+
+<Warning>
+  All money fields (`price` / `price_delta`) are in **cents (integer)**, not yuan. For example `price: 1600` means ¥16.00.
+</Warning>
+
+<Note>
+  **`selected` vs `selected_by_default`.** `selected_by_default` says which entry is the menu default; `selected` says which entry the order would actually carry. It is computed by the same logic as the ordering path: explicit picks count, and every required group you did not touch is auto-completed with that group's default. With neither `sku_id` nor `ingredient_option_ids` supplied, `selected` shows exactly what a fully-default order carries — so you can render `selected: true` entries as "currently chosen" without missing auto-completed defaults.
+</Note>
+
+<Note>
+  **Ingredients are per-sku.** `ingredient_options` is the candidate set of the **selected sku** (ingredients are bound to a specific sku; different cup sizes may offer different options). After switching sku, call again with the new `sku_id` to get that sku's candidates — same per-sku rule as `get_shop_menu`'s `sku_options[].ingredient_options`.
+</Note>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | string | The requested `item_id`, echoed back |
+| `name` | string | Item name |
+| `available` | boolean | Whether the item is in stock |
+| `sku_options` | array | Full spec candidates; empty array for single-spec items |
+| `sku_options[].sku_id` | string | Sku ID (`sku_`), usable directly as an order input |
+| `sku_options[].name` | string | Spec name (e.g. "Large") |
+| `sku_options[].price` | integer | Price of this sku (cents) |
+| `sku_options[].available` | boolean | Whether this sku can be purchased |
+| `sku_options[].specs` | array | Spec detail `[{name, value}]`, e.g. `[{"name": "Cup size", "value": "Large"}]` |
+| `sku_options[].selected` | boolean | The sku the order would actually use; the default sku is marked when `sku_id` is omitted |
+| `ingredient_options` | array | Full ingredient / preparation candidates of the **selected sku** |
+| `ingredient_options[].option_id` | string | Option ID (`opt_`), usable directly in the order's `ingredient_option_ids` |
+| `ingredient_options[].group_name` | string \| null | Option group name (e.g. "Temperature", "Sugar") |
+| `ingredient_options[].name` | string | Option name |
+| `ingredient_options[].price_delta` | integer | Price delta of this option (cents) |
+| `ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
+| `ingredient_options[].available` | boolean | Whether this option can be picked |
+| `ingredient_options[].selected` | boolean | Whether the order would actually carry this option |
+
+### Errors
+
+| Scenario | Error |
+|----------|-------|
+| Two options passed for the same single-select required group | HTTP 400 `CART_PRICE_INVALID` (same validation as `quote_cart` / `preview_order`) |
+| `item_id` does not belong to the `cart_id`, or the cart has expired | HTTP 400 `PUBLIC_REFERENCE_INVALID` |
+
+### Example
+
+Request (the user chose a large cup at preview time and wants to see the alternatives):
+
+```json
+{
+  "name": "get_item_options",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>",
+    "cart_id": "<cart_id>",
+    "item_id": "<item_id>",
+    "sku_id": "<currently chosen sku_id>",
+    "ingredient_option_ids": ["<currently chosen option_id>"]
+  }
+}
+```
+
+Response (excerpt):
+
+```json
+{
+  "item_id": "item_xxx",
+  "name": "Coconut Latte",
+  "available": true,
+  "sku_options": [
+    {"sku_id": "sku_a", "name": "Medium", "price": 1600, "available": true,
+     "specs": [{"name": "Cup size", "value": "Medium"}], "selected": false},
+    {"sku_id": "sku_b", "name": "Large", "price": 1900, "available": true,
+     "specs": [{"name": "Cup size", "value": "Large"}], "selected": true}
+  ],
+  "ingredient_options": [
+    {"option_id": "opt_1", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
+     "selected_by_default": true, "available": true, "selected": true},
+    {"option_id": "opt_2", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
+     "selected_by_default": false, "available": true, "selected": false}
+  ]
+}
+```

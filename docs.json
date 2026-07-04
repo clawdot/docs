@@ -125,6 +125,7 @@
                                 "pages": [
                                     "mcp/shops/search",
                                     "mcp/shops/detail",
+                                    "mcp/shops/item-options",
                                     "mcp/shops/share-url"
                                 ]
                             },
@@ -261,6 +262,7 @@
                                 "pages": [
                                     "en/mcp/shops/search",
                                     "en/mcp/shops/detail",
+                                    "en/mcp/shops/item-options",
                                     "en/mcp/shops/share-url"
                                 ]
                             },

@@ -1,0 +1,109 @@
+---
+title: "get_item_options"
+description: "MCP 工具 get_item_options — 按商品拉取全量规格 / 配料候选，并标记当前选择下单实际生效的项（selected）"
+---
+
+## get_item_options
+
+按单个商品拉取**全量**规格（`sku_options`）与配料 / 做法（`ingredient_options`）候选，并对「按当前选择下单实际会生效」的项标 `selected: true`。只读、不改任何状态，与 `preview_order` 解耦。
+
+典型场景：
+
+- **预订单阶段修改规格 / 配料**：`preview_order` 之后用户想换杯型 / 换配料——先调本工具拿全量候选与当前选中，换好 ID 后直接重新 `preview_order`（`quote_cart` 可选）。
+- **加购前查看单品可选项**：不必回翻整个菜单响应。
+- **菜单被分页 / 过滤后按单品回查**：对话上下文里菜单被挤掉时，凭 `item_id` 一次找回该商品的全部可选项和 ID。
+
+<Note>
+  **修改闭环**：本工具返回的所有 `sku_id` / `option_id` 与 `get_shop_menu` 为该 cart 生成的 ID **完全相同**（不重新生成），任意一项可直接回传 `quote_cart` / `preview_order` 修改选择；修改后重新调用 `preview_order` 获取**新的** `preview_id` + `confirmation_token` 再下单（旧令牌 10 分钟有效且一次性）。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`）|
+| `item_id` | string | 是 | — | 商品 ID（来自同一 cart 的 `get_shop_menu`）|
+| `sku_id` | string \| null | 否 | `null` | 当前选择的规格 ID，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认规格**计算 |
+| `ingredient_option_ids` | array \| null | 否 | `null` | 当前选择的配料选项 ID 列表，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认选择**计算 |
+
+### 返回
+
+<Warning>
+  所有金额字段（`price` / `price_delta`）单位为**分（整数）**，不是元。例如 `price: 1600` 表示 ¥16.00。
+</Warning>
+
+<Note>
+  **`selected` 与 `selected_by_default` 的区别。** `selected_by_default` 是「菜单默认是哪个」；`selected` 是「这次下单实际会带哪个」，计算与下单链路同源：显式传的选项算上，没传到的**必选组自动补该组默认**；`sku_id` / `ingredient_option_ids` 都不传时即「全默认下单」会带的整套选择。因此可以直接把 `selected: true` 的项展示为「当前已选」，不会漏掉自动补齐的默认项。
+</Note>
+
+<Note>
+  **配料按规格区分。** `ingredient_options` 返回的是**选中规格**的候选集（配料与 SKU 绑定，不同杯型可选项可能不同）。换规格后请带新的 `sku_id` 再调一次，获取该规格的配料候选——与 `get_shop_menu` 的 `sku_options[].ingredient_options` per-SKU 规则一致。
+</Note>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `item_id` | string | 原样回传请求中的 `item_id` |
+| `name` | string | 商品名称 |
+| `available` | boolean | 商品是否有货 |
+| `sku_options` | array | 全量规格候选；单规格商品为空数组 |
+| `sku_options[].sku_id` | string | 规格 ID（`sku_`），可直接作为下单入参 |
+| `sku_options[].name` | string | 规格名（如「大杯」）|
+| `sku_options[].price` | integer | 该规格售价（分）|
+| `sku_options[].available` | boolean | 该规格是否可购买 |
+| `sku_options[].specs` | array | 规格明细 `[{name, value}]`，如 `[{"name": "杯型", "value": "大杯"}]` |
+| `sku_options[].selected` | boolean | 当前选择下实际生效的规格；不传 `sku_id` 时标默认规格 |
+| `ingredient_options` | array | **选中规格**的全量配料 / 做法候选 |
+| `ingredient_options[].option_id` | string | 选项 ID（`opt_`），可直接回传下单的 `ingredient_option_ids` |
+| `ingredient_options[].group_name` | string \| null | 选项组名（如「温度」「糖度」）|
+| `ingredient_options[].name` | string | 选项名 |
+| `ingredient_options[].price_delta` | integer | 该选项加价（分）|
+| `ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
+| `ingredient_options[].available` | boolean | 该选项是否可选 |
+| `ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项 |
+
+### 错误
+
+| 场景 | 错误 |
+|------|------|
+| 同一单选必选组传入两个选项 | HTTP 400 `CART_PRICE_INVALID`（与 `quote_cart` / `preview_order` 同款校验）|
+| `item_id` 不属于该 `cart_id`，或 cart 已过期 | HTTP 400 `PUBLIC_REFERENCE_INVALID` |
+
+### 示例
+
+请求（用户已在 preview 选了大杯，想看还能换什么）：
+
+```json
+{
+  "name": "get_item_options",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>",
+    "cart_id": "<cart_id>",
+    "item_id": "<item_id>",
+    "sku_id": "<当前选择的 sku_id>",
+    "ingredient_option_ids": ["<当前选择的 option_id>"]
+  }
+}
+```
+
+响应（节选）：
+
+```json
+{
+  "item_id": "item_xxx",
+  "name": "生椰拿铁",
+  "available": true,
+  "sku_options": [
+    {"sku_id": "sku_a", "name": "中杯", "price": 1600, "available": true,
+     "specs": [{"name": "杯型", "value": "中杯"}], "selected": false},
+    {"sku_id": "sku_b", "name": "大杯", "price": 1900, "available": true,
+     "specs": [{"name": "杯型", "value": "大杯"}], "selected": true}
+  ],
+  "ingredient_options": [
+    {"option_id": "opt_1", "group_name": "温度", "name": "冰", "price_delta": 0,
+     "selected_by_default": true, "available": true, "selected": true},
+    {"option_id": "opt_2", "group_name": "温度", "name": "热", "price_delta": 0,
+     "selected_by_default": false, "available": true, "selected": false}
+  ]
+}
+```
