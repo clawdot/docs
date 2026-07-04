@@ -49,9 +49,11 @@ Previews an order before creation: validates the shop / address / items, applies
 | `address.display_name` | string | Address display name |
 | `address.address_detail` | string | Door number / details |
 | `address.city` | string | City (currently always an empty string) |
+| `items[].item_id` | string | Item ID |
 | `items[].name` | string | Item name |
 | `items[].quantity` | integer | Quantity |
 | `items[].price` | integer | Item price (cents) |
+| `items[].image_url` | string \| null | Item image URL; `null` if none |
 | `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
 | `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents); `[]` if none |
 | `price.goods_price` | integer | Goods subtotal (cents) |
