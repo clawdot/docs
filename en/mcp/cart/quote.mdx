@@ -45,9 +45,11 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `payable_price` | integer | Payable amount (cents) |
 | `minimum_order_gap` | integer \| null | Amount short of the order minimum (cents); `null` when not applicable |
 | `items` | array | Priced item details |
+| `items[].item_id` | string | Item ID |
 | `items[].name` | string | Item name |
 | `items[].quantity` | integer | Quantity |
 | `items[].price` | integer | Item price (cents) |
+| `items[].image_url` | string \| null | Item image URL; `null` if none |
 | `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
 | `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents); `[]` if none |
 
