@@ -1,15 +1,15 @@
 ---
 title: "get_item_options"
-description: "MCP tool get_item_options — fetch one item's full sku / ingredient option candidates, with the effective order selection marked (selected)"
+description: "MCP tool get_item_options — fetch one item's full sku candidates, each nesting its own ingredient options, with the effective order selection marked (selected)"
 ---
 
 ## get_item_options
 
-Fetches the **full** candidate lists of one item — specs (`sku_options`) and ingredients / preparations (`ingredient_options`) — with `selected: true` on every entry that would actually ride along on the order under the current selection. Read-only, mutates nothing, and fully decoupled from `preview_order`.
+Fetches the **full** spec candidates of one item (`sku_options`), **each sku entry nesting its own ingredient / preparation candidates** (`sku_options[].ingredient_options`), with `selected: true` on every entry that would actually ride along on the order under the current selection. Read-only, mutates nothing, and fully decoupled from `preview_order`.
 
 Typical scenarios:
 
-- **Adjusting an order at preview time**: after `preview_order`, the user wants a different cup size or topping — call this tool to see all candidates and the current selection, swap IDs, then simply re-run `preview_order` (`quote_cart` is optional).
+- **Adjusting an order at preview time**: after `preview_order`, the user wants a different cup size or topping — one call returns every sku along with each sku's own ingredient candidates; swap IDs, then simply re-run `preview_order` (`quote_cart` is optional).
 - **Checking an item's options before adding to cart**, without re-reading the whole menu response.
 - **Recovering options after menu paging / filtering**: when the menu response has been pushed out of the conversation context, one call with `item_id` brings back every option and ID for that item.
 
@@ -38,7 +38,7 @@ Typical scenarios:
 </Note>
 
 <Note>
-  **Ingredients are per-sku.** `ingredient_options` is the candidate set of the **selected sku** (ingredients are bound to a specific sku; different cup sizes may offer different options). After switching sku, call again with the new `sku_id` to get that sku's candidates — same per-sku rule as `get_shop_menu`'s `sku_options[].ingredient_options`.
+  **Ingredients are per-sku and nested per sku.** Ingredients are bound to a specific sku (different cup sizes may offer different options), so every `sku_options[]` entry nests **that sku's own** `ingredient_options` — to switch sku, just read the target sku's nested list; no second call needed. `selected: true` only appears inside the **selected sku's** list (`sku_options[].selected: true`); other skus' candidates carry `selected_by_default` / `available` only and are always `selected: false`, since that sku would not be ordered. For **items with no sku dimension** (`sku_options` is an empty array), the single candidate set is returned as a top-level `ingredient_options` field — present only in that case.
 </Note>
 
 | Field | Type | Description |
@@ -53,14 +53,15 @@ Typical scenarios:
 | `sku_options[].available` | boolean | Whether this sku can be purchased |
 | `sku_options[].specs` | array | Spec detail `[{name, value}]`, e.g. `[{"name": "Cup size", "value": "Large"}]` |
 | `sku_options[].selected` | boolean | The sku the order would actually use; the default sku is marked when `sku_id` is omitted |
-| `ingredient_options` | array | Full ingredient / preparation candidates of the **selected sku** |
-| `ingredient_options[].option_id` | string | Option ID (`opt_`), usable directly in the order's `ingredient_option_ids` |
-| `ingredient_options[].group_name` | string \| null | Option group name (e.g. "Temperature", "Sugar") |
-| `ingredient_options[].name` | string | Option name |
-| `ingredient_options[].price_delta` | integer | Price delta of this option (cents) |
-| `ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
-| `ingredient_options[].available` | boolean | Whether this option can be picked |
-| `ingredient_options[].selected` | boolean | Whether the order would actually carry this option |
+| `sku_options[].ingredient_options` | array | Full ingredient / preparation candidates of **this sku**; entry fields below |
+| `sku_options[].ingredient_options[].option_id` | string | Option ID (`opt_`), usable directly in the order's `ingredient_option_ids` |
+| `sku_options[].ingredient_options[].group_name` | string \| null | Option group name (e.g. "Temperature", "Sugar") |
+| `sku_options[].ingredient_options[].name` | string | Option name |
+| `sku_options[].ingredient_options[].price_delta` | integer | Price delta of this option (cents) |
+| `sku_options[].ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
+| `sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked |
+| `sku_options[].ingredient_options[].selected` | boolean | Whether the order would actually carry this option; can only be `true` inside the selected sku's list |
+| `ingredient_options` | array | **Only for items with no sku dimension** (`sku_options` empty): the item's single candidate set, same entry structure as above |
 
 ### Errors
 
@@ -95,15 +96,21 @@ Response (excerpt):
   "available": true,
   "sku_options": [
     {"sku_id": "sku_a", "name": "Medium", "price": 1600, "available": true,
-     "specs": [{"name": "Cup size", "value": "Medium"}], "selected": false},
+     "specs": [{"name": "Cup size", "value": "Medium"}], "selected": false,
+     "ingredient_options": [
+       {"option_id": "opt_1", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
+        "selected_by_default": true, "available": true, "selected": false},
+       {"option_id": "opt_2", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
+        "selected_by_default": false, "available": true, "selected": false}
+     ]},
     {"sku_id": "sku_b", "name": "Large", "price": 1900, "available": true,
-     "specs": [{"name": "Cup size", "value": "Large"}], "selected": true}
-  ],
-  "ingredient_options": [
-    {"option_id": "opt_1", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
-     "selected_by_default": true, "available": true, "selected": true},
-    {"option_id": "opt_2", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
-     "selected_by_default": false, "available": true, "selected": false}
+     "specs": [{"name": "Cup size", "value": "Large"}], "selected": true,
+     "ingredient_options": [
+       {"option_id": "opt_3", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
+        "selected_by_default": true, "available": true, "selected": true},
+       {"option_id": "opt_4", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
+        "selected_by_default": false, "available": true, "selected": false}
+     ]}
   ]
 }
 ```

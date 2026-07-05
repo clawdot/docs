@@ -1,15 +1,15 @@
 ---
 title: "get_item_options"
-description: "MCP 工具 get_item_options — 按商品拉取全量规格 / 配料候选，并标记当前选择下单实际生效的项（selected）"
+description: "MCP 工具 get_item_options — 按商品拉取全量规格候选（每个规格内嵌自己的配料候选），并标记当前选择下单实际生效的项（selected）"
 ---
 
 ## get_item_options
 
-按单个商品拉取**全量**规格（`sku_options`）与配料 / 做法（`ingredient_options`）候选，并对「按当前选择下单实际会生效」的项标 `selected: true`。只读、不改任何状态，与 `preview_order` 解耦。
+按单个商品拉取**全量**规格候选（`sku_options`），**每个规格条目内嵌自己的配料 / 做法候选**（`sku_options[].ingredient_options`），并对「按当前选择下单实际会生效」的项标 `selected: true`。只读、不改任何状态，与 `preview_order` 解耦。
 
 典型场景：
 
-- **预订单阶段修改规格 / 配料**：`preview_order` 之后用户想换杯型 / 换配料——先调本工具拿全量候选与当前选中，换好 ID 后直接重新 `preview_order`（`quote_cart` 可选）。
+- **预订单阶段修改规格 / 配料**：`preview_order` 之后用户想换杯型 / 换配料——调本工具一次拿到所有规格及各自的配料候选，换好 ID 后直接重新 `preview_order`（`quote_cart` 可选）。
 - **加购前查看单品可选项**：不必回翻整个菜单响应。
 - **菜单被分页 / 过滤后按单品回查**：对话上下文里菜单被挤掉时，凭 `item_id` 一次找回该商品的全部可选项和 ID。
 
@@ -38,7 +38,7 @@ description: "MCP 工具 get_item_options — 按商品拉取全量规格 / 配�
 </Note>
 
 <Note>
-  **配料按规格区分。** `ingredient_options` 返回的是**选中规格**的候选集（配料与 SKU 绑定，不同杯型可选项可能不同）。换规格后请带新的 `sku_id` 再调一次，获取该规格的配料候选——与 `get_shop_menu` 的 `sku_options[].ingredient_options` per-SKU 规则一致。
+  **配料按规格区分、随规格内嵌。** 配料与 SKU 绑定（不同杯型可选项可能不同），因此每个 `sku_options[]` 条目内嵌**该规格自己的** `ingredient_options`——换规格直接读目标规格的内嵌列表，无需再调一次。`selected: true` 只会出现在**选中规格**（`sku_options[].selected: true`）的配料候选里；其余规格的候选只标 `selected_by_default` / `available`（那个规格不会随单，故一律 `selected: false`）。**无规格商品**（`sku_options` 为空数组）的配料候选放在顶层 `ingredient_options` 字段，仅此时出现。
 </Note>
 
 | 字段 | 类型 | 说明 |
@@ -53,14 +53,15 @@ description: "MCP 工具 get_item_options — 按商品拉取全量规格 / 配�
 | `sku_options[].available` | boolean | 该规格是否可购买 |
 | `sku_options[].specs` | array | 规格明细 `[{name, value}]`，如 `[{"name": "杯型", "value": "大杯"}]` |
 | `sku_options[].selected` | boolean | 当前选择下实际生效的规格；不传 `sku_id` 时标默认规格 |
-| `ingredient_options` | array | **选中规格**的全量配料 / 做法候选 |
-| `ingredient_options[].option_id` | string | 选项 ID（`opt_`），可直接回传下单的 `ingredient_option_ids` |
-| `ingredient_options[].group_name` | string \| null | 选项组名（如「温度」「糖度」）|
-| `ingredient_options[].name` | string | 选项名 |
-| `ingredient_options[].price_delta` | integer | 该选项加价（分）|
-| `ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
-| `ingredient_options[].available` | boolean | 该选项是否可选 |
-| `ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项 |
+| `sku_options[].ingredient_options` | array | **该规格**的全量配料 / 做法候选，字段结构见下 |
+| `sku_options[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），可直接回传下单的 `ingredient_option_ids` |
+| `sku_options[].ingredient_options[].group_name` | string \| null | 选项组名（如「温度」「糖度」）|
+| `sku_options[].ingredient_options[].name` | string | 选项名 |
+| `sku_options[].ingredient_options[].price_delta` | integer | 该选项加价（分）|
+| `sku_options[].ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
+| `sku_options[].ingredient_options[].available` | boolean | 该选项是否可选 |
+| `sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
+| `ingredient_options` | array | **仅无规格商品**（`sku_options` 为空）返回：该商品唯一形态的配料候选，条目结构同上 |
 
 ### 错误
 
@@ -95,15 +96,21 @@ description: "MCP 工具 get_item_options — 按商品拉取全量规格 / 配�
   "available": true,
   "sku_options": [
     {"sku_id": "sku_a", "name": "中杯", "price": 1600, "available": true,
-     "specs": [{"name": "杯型", "value": "中杯"}], "selected": false},
+     "specs": [{"name": "杯型", "value": "中杯"}], "selected": false,
+     "ingredient_options": [
+       {"option_id": "opt_1", "group_name": "温度", "name": "冰", "price_delta": 0,
+        "selected_by_default": true, "available": true, "selected": false},
+       {"option_id": "opt_2", "group_name": "温度", "name": "热", "price_delta": 0,
+        "selected_by_default": false, "available": true, "selected": false}
+     ]},
     {"sku_id": "sku_b", "name": "大杯", "price": 1900, "available": true,
-     "specs": [{"name": "杯型", "value": "大杯"}], "selected": true}
-  ],
-  "ingredient_options": [
-    {"option_id": "opt_1", "group_name": "温度", "name": "冰", "price_delta": 0,
-     "selected_by_default": true, "available": true, "selected": true},
-    {"option_id": "opt_2", "group_name": "温度", "name": "热", "price_delta": 0,
-     "selected_by_default": false, "available": true, "selected": false}
+     "specs": [{"name": "杯型", "value": "大杯"}], "selected": true,
+     "ingredient_options": [
+       {"option_id": "opt_3", "group_name": "温度", "name": "冰", "price_delta": 0,
+        "selected_by_default": true, "available": true, "selected": true},
+       {"option_id": "opt_4", "group_name": "温度", "name": "热", "price_delta": 0,
+        "selected_by_default": false, "available": true, "selected": false}
+     ]}
   ]
 }
 ```
