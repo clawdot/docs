@@ -1,17 +1,17 @@
 ---
 title: "get_item_options"
-description: "MCP 工具 get_item_options — 按商品拉取全量规格候选（每个规格内嵌自己的配料候选），并标记当前选择下单实际生效的项（selected）"
+description: "MCP 工具 get_item_options — 一次批量拉取多个商品的全量规格候选（每个规格内嵌自己的配料候选），并标记当前选择下单实际生效的项（selected）"
 ---
 
 ## get_item_options
 
-按单个商品拉取**全量**规格候选（`sku_options`），**每个规格条目内嵌自己的配料 / 做法候选**（`sku_options[].ingredient_options`），并对「按当前选择下单实际会生效」的项标 `selected: true`。只读、不改任何状态，与 `preview_order` 解耦。
+一次**批量**拉取多个商品的**全量**规格候选（`sku_options`），**每个规格条目内嵌自己的配料 / 做法候选**（`sku_options[].ingredient_options`），并对「按当前选择下单实际会生效」的项标 `selected: true`。只读、不改任何状态，与 `preview_order` 解耦。**一次调用里的所有商品必须属于同一个 `cart_id`**（多个店铺 / 购物车请分别调用）。
 
 典型场景：
 
-- **预订单阶段修改规格 / 配料**：`preview_order` 之后用户想换杯型 / 换配料——调本工具一次拿到所有规格及各自的配料候选，换好 ID 后直接重新 `preview_order`（`quote_cart` 可选）。
-- **加购前查看单品可选项**：不必回翻整个菜单响应。
-- **菜单被分页 / 过滤后按单品回查**：对话上下文里菜单被挤掉时，凭 `item_id` 一次找回该商品的全部可选项和 ID。
+- **预订单阶段批量修改规格 / 配料**：`preview_order` 之后用户想给车里若干商品换杯型 / 换配料——一次调本工具拿到这些商品各自的全部规格及配料候选，换好 ID 后直接重新 `preview_order`（`quote_cart` 可选）。
+- **一次查看整车多个单品的可选项**：不必逐个调用、也不必回翻整个菜单响应（编排里少接多个节点）。
+- **菜单被分页 / 过滤后按单品回查**：对话上下文里菜单被挤掉时，凭 `item_id` 一次找回多个商品的全部可选项和 ID。
 
 <Note>
   **修改闭环**：本工具返回的所有 `sku_id` / `option_id` 与 `get_shop_menu` 为该 cart 生成的 ID **完全相同**（不重新生成），任意一项可直接回传 `quote_cart` / `preview_order` 修改选择；修改后重新调用 `preview_order` 获取**新的** `preview_id` + `confirmation_token` 再下单（旧令牌 10 分钟有效且一次性）。
@@ -22,12 +22,19 @@ description: "MCP 工具 get_item_options — 按商品拉取全量规格候选�
 | 参数 | 类型 | 必填 | 默认 | 说明 |
 |------|------|------|------|------|
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
-| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`）|
-| `item_id` | string | 是 | — | 商品 ID（来自同一 cart 的 `get_shop_menu`）|
-| `sku_id` | string \| null | 否 | `null` | 当前选择的规格 ID，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认规格**计算 |
-| `ingredient_option_ids` | array \| null | 否 | `null` | 当前选择的配料选项 ID 列表，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认选择**计算 |
+| `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`）；本次所有商品都属于它 |
+| `items` | array | 是 | — | 要查询的商品列表，每项一个对象，字段见下；传空数组返回 `{"items": []}` |
+| `items[].item_id` | string | 是 | — | 商品 ID（来自同一 cart 的 `get_shop_menu`）|
+| `items[].sku_id` | string \| null | 否 | `null` | 该商品当前选择的规格 ID，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认规格**计算 |
+| `items[].ingredient_option_ids` | array | 否 | `[]` | 该商品当前选择的配料选项 ID 列表，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认选择**计算 |
 
 ### 返回
+
+顶层返回 `{ "items": [...] }`，`items` 与请求的 `items` **一一对应、顺序一致**（第 i 个结果对应第 i 个请求项）。每个结果要么是**成功项**（完整规格 / 配料候选），要么是**失败项**（`{item_id, error}`）——**靠有没有 `error` 字段区分**。
+
+<Note>
+  **部分失败不影响其余商品。** 某个商品的 `item_id` 不属于该 cart，或它的 `ingredient_option_ids` 把同一单选必选组选了两次，**只有那一项**返回 `{item_id, error: {code, message}}`，其余商品照常返回，整个调用**仍算成功**（不报错）。但 `cart_id` / 授权本身无效时整次调用失败（见错误）。
+</Note>
 
 <Warning>
   所有金额字段（`price` / `price_delta`）单位为**分（整数）**，不是元。例如 `price: 1600` 表示 ¥16.00。
@@ -38,41 +45,52 @@ description: "MCP 工具 get_item_options — 按商品拉取全量规格候选�
 </Note>
 
 <Note>
-  **配料按规格区分、随规格内嵌。** 配料与 SKU 绑定（不同杯型可选项可能不同），因此每个 `sku_options[]` 条目内嵌**该规格自己的** `ingredient_options`——换规格直接读目标规格的内嵌列表，无需再调一次。`selected: true` 只会出现在**选中规格**（`sku_options[].selected: true`）的配料候选里；其余规格的候选只标 `selected_by_default` / `available`（那个规格不会随单，故一律 `selected: false`）。**无规格商品**（`sku_options` 为空数组）的配料候选放在顶层 `ingredient_options` 字段，仅此时出现。
+  **配料按规格区分、随规格内嵌。** 配料与 SKU 绑定（不同杯型可选项可能不同），因此每个 `sku_options[]` 条目内嵌**该规格自己的** `ingredient_options`——换规格直接读目标规格的内嵌列表，无需再调一次。`selected: true` 只会出现在**选中规格**（`sku_options[].selected: true`）的配料候选里；其余规格的候选只标 `selected_by_default` / `available`（那个规格不会随单，故一律 `selected: false`）。**无规格商品**（`sku_options` 为空数组）的配料候选放在该结果项的顶层 `ingredient_options` 字段，仅此时出现。
 </Note>
+
+**成功项字段**（与请求单个商品时的结果结构一致）：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `item_id` | string | 原样回传请求中的 `item_id` |
-| `name` | string | 商品名称 |
-| `available` | boolean | 商品是否有货 |
-| `sku_options` | array | 全量规格候选；单规格商品为空数组 |
-| `sku_options[].sku_id` | string | 规格 ID（`sku_`），可直接作为下单入参 |
-| `sku_options[].name` | string | 规格名（如「大杯」）|
-| `sku_options[].price` | integer | 该规格售价（分）|
-| `sku_options[].available` | boolean | 该规格是否可购买 |
-| `sku_options[].specs` | array | 规格明细 `[{name, value}]`，如 `[{"name": "杯型", "value": "大杯"}]` |
-| `sku_options[].selected` | boolean | 当前选择下实际生效的规格；不传 `sku_id` 时标默认规格 |
-| `sku_options[].ingredient_options` | array | **该规格**的全量配料 / 做法候选，字段结构见下 |
-| `sku_options[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），可直接回传下单的 `ingredient_option_ids` |
-| `sku_options[].ingredient_options[].group_name` | string \| null | 选项组名（如「温度」「糖度」）|
-| `sku_options[].ingredient_options[].name` | string | 选项名 |
-| `sku_options[].ingredient_options[].price_delta` | integer | 该选项加价（分）|
-| `sku_options[].ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
-| `sku_options[].ingredient_options[].available` | boolean | 该选项是否可选 |
-| `sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
-| `ingredient_options` | array | **仅无规格商品**（`sku_options` 为空）返回：该商品唯一形态的配料候选，条目结构同上 |
+| `items[].item_id` | string | 原样回传该请求项的 `item_id` |
+| `items[].name` | string | 商品名称 |
+| `items[].available` | boolean | 商品是否有货 |
+| `items[].sku_options` | array | 全量规格候选；单规格商品为空数组 |
+| `items[].sku_options[].sku_id` | string | 规格 ID（`sku_`），可直接作为下单入参 |
+| `items[].sku_options[].name` | string | 规格名（如「大杯」）|
+| `items[].sku_options[].price` | integer | 该规格售价（分）|
+| `items[].sku_options[].available` | boolean | 该规格是否可购买 |
+| `items[].sku_options[].specs` | array | 规格明细 `[{name, value}]`，如 `[{"name": "杯型", "value": "大杯"}]` |
+| `items[].sku_options[].selected` | boolean | 当前选择下实际生效的规格；不传 `sku_id` 时标默认规格 |
+| `items[].sku_options[].ingredient_options` | array | **该规格**的全量配料 / 做法候选，字段结构见下 |
+| `items[].sku_options[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），可直接回传下单的 `ingredient_option_ids` |
+| `items[].sku_options[].ingredient_options[].group_name` | string \| null | 选项组名（如「温度」「糖度」）|
+| `items[].sku_options[].ingredient_options[].name` | string | 选项名 |
+| `items[].sku_options[].ingredient_options[].price_delta` | integer | 该选项加价（分）|
+| `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
+| `items[].sku_options[].ingredient_options[].available` | boolean | 该选项是否可选 |
+| `items[].sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
+| `items[].ingredient_options` | array | **仅无规格商品**（`sku_options` 为空）返回：该商品唯一形态的配料候选，条目结构同上 |
+
+**失败项字段**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `items[].item_id` | string | 原样回传该请求项的 `item_id` |
+| `items[].error.code` | string | 错误码（如 `PUBLIC_REFERENCE_INVALID` / `CART_PRICE_INVALID`）|
+| `items[].error.message` | string | 人类可读的错误说明 |
 
 ### 错误
 
-| 场景 | 错误 |
+| 场景 | 表现 |
 |------|------|
-| 同一单选必选组传入两个选项 | HTTP 400 `CART_PRICE_INVALID`（与 `quote_cart` / `preview_order` 同款校验）|
-| `item_id` 不属于该 `cart_id`，或 cart 已过期 | HTTP 400 `PUBLIC_REFERENCE_INVALID` |
+| 某个商品的 `item_id` 不属于该 `cart_id` | **该项**返回 `{item_id, error}`（`PUBLIC_REFERENCE_INVALID`），不影响其余商品 |
+| 某个商品同一单选必选组传入两个选项 | **该项**返回 `{item_id, error}`（`CART_PRICE_INVALID`，与 `quote_cart` / `preview_order` 同款校验），不影响其余商品 |
+| `cart_id` 不存在 / 已过期，或授权无效 | **整次调用失败** HTTP 400 `PUBLIC_REFERENCE_INVALID` |
 
 ### 示例
 
-请求（用户已在 preview 选了大杯，想看还能换什么）：
+请求（用户已在 preview 选了大杯，想看这个商品以及另一个商品还能换什么）：
 
 ```json
 {
@@ -80,37 +98,46 @@ description: "MCP 工具 get_item_options — 按商品拉取全量规格候选�
   "arguments": {
     "consent_grant_id": "<consent_grant_id>",
     "cart_id": "<cart_id>",
-    "item_id": "<item_id>",
-    "sku_id": "<当前选择的 sku_id>",
-    "ingredient_option_ids": ["<当前选择的 option_id>"]
+    "items": [
+      {"item_id": "<item_id_1>", "sku_id": "<当前选择的 sku_id>", "ingredient_option_ids": ["<当前选择的 option_id>"]},
+      {"item_id": "<item_id_2>"}
+    ]
   }
 }
 ```
 
-响应（节选）：
+响应（节选：第一个商品成功、第二个 `item_id` 无效）：
 
 ```json
 {
-  "item_id": "item_xxx",
-  "name": "生椰拿铁",
-  "available": true,
-  "sku_options": [
-    {"sku_id": "sku_a", "name": "中杯", "price": 1600, "available": true,
-     "specs": [{"name": "杯型", "value": "中杯"}], "selected": false,
-     "ingredient_options": [
-       {"option_id": "opt_1", "group_name": "温度", "name": "冰", "price_delta": 0,
-        "selected_by_default": true, "available": true, "selected": false},
-       {"option_id": "opt_2", "group_name": "温度", "name": "热", "price_delta": 0,
-        "selected_by_default": false, "available": true, "selected": false}
-     ]},
-    {"sku_id": "sku_b", "name": "大杯", "price": 1900, "available": true,
-     "specs": [{"name": "杯型", "value": "大杯"}], "selected": true,
-     "ingredient_options": [
-       {"option_id": "opt_3", "group_name": "温度", "name": "冰", "price_delta": 0,
-        "selected_by_default": true, "available": true, "selected": true},
-       {"option_id": "opt_4", "group_name": "温度", "name": "热", "price_delta": 0,
-        "selected_by_default": false, "available": true, "selected": false}
-     ]}
+  "items": [
+    {
+      "item_id": "item_xxx",
+      "name": "生椰拿铁",
+      "available": true,
+      "sku_options": [
+        {"sku_id": "sku_a", "name": "中杯", "price": 1600, "available": true,
+         "specs": [{"name": "杯型", "value": "中杯"}], "selected": false,
+         "ingredient_options": [
+           {"option_id": "opt_1", "group_name": "温度", "name": "冰", "price_delta": 0,
+            "selected_by_default": true, "available": true, "selected": false},
+           {"option_id": "opt_2", "group_name": "温度", "name": "热", "price_delta": 0,
+            "selected_by_default": false, "available": true, "selected": false}
+         ]},
+        {"sku_id": "sku_b", "name": "大杯", "price": 1900, "available": true,
+         "specs": [{"name": "杯型", "value": "大杯"}], "selected": true,
+         "ingredient_options": [
+           {"option_id": "opt_3", "group_name": "温度", "name": "冰", "price_delta": 0,
+            "selected_by_default": true, "available": true, "selected": true},
+           {"option_id": "opt_4", "group_name": "温度", "name": "热", "price_delta": 0,
+            "selected_by_default": false, "available": true, "selected": false}
+         ]}
+      ]
+    },
+    {
+      "item_id": "item_bad",
+      "error": {"code": "PUBLIC_REFERENCE_INVALID", "message": "item_id is invalid for cart_id"}
+    }
   ]
 }
 ```
