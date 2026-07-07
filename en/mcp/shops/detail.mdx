@@ -72,6 +72,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].available` | boolean | Whether in stock |
 | `items[].unavailable_reason` | string \| null | Reason if unavailable; `"sold_out"` when out of stock, otherwise `null` |
 | `items[].min_purchase` | integer | Minimum purchase quantity, ≥ 1; `1` means no minimum. If `quantity` is below it, `quote_cart` returns `can_checkout=false` and `preview_order` fails with `BELOW_MIN_PURCHASE` |
+| `items[].available_quantity` | integer \| null | Remaining stock (units): a positive integer is what's left to buy, `0` means sold out, `null` means ample or unknown. **A menu-time snapshot, for display only** — actual availability is enforced at order time (over-stock carts are rejected at `quote_cart` / `preview_order`) |
 | `items[].sku_options` | array | SKU options (e.g. cup size); pass the chosen `sku_id` as `items[].sku_id` when ordering |
 | `items[].sku_options[].sku_id` | string | SKU ID (`sku_`), passed back as-is to the order `sku_id` |
 | `items[].sku_options[].name` | string | SKU name (e.g. "Large") |

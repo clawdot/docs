@@ -50,6 +50,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].quantity` | integer | Quantity |
 | `items[].price` | integer | Item price (cents) |
 | `items[].min_purchase` | integer \| null | Minimum purchase echo (≥ 1, `1` = no minimum) so you can check it against `quantity`; `null` on rare fallback paths where it can't be resolved |
+| `items[].available_quantity` | integer \| null | Remaining stock echo (units, menu-time snapshot): positive = units left, `0` = sold out, `null` = ample or unknown; display only — actual availability is enforced at order time |
 | `items[].image_url` | string \| null | Item image URL; `null` if none |
 | `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
 | `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents); `[]` if none |
