@@ -54,6 +54,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `items[].quantity` | integer | 数量 |
 | `items[].price` | integer | 单品价（分）|
 | `items[].min_purchase` | integer \| null | 起购份数回显；同 `quote_cart` 的 `items[].min_purchase` |
+| `items[].available_quantity` | integer \| null | 库存余量回显；同 `quote_cart` 的 `items[].available_quantity` |
 | `items[].image_url` | string \| null | 商品图 URL，无图为 `null` |
 | `items[].specs` | array | 该项已选规格，`[{name, value}]`（如 `{"name":"规格","value":"大杯"}`）；无规格时为 `[]` |
 | `items[].selected_ingredients` | array | 该项已选配料/做法，`[{group_name, name, price_delta}]`；`group_name` 可为 `null`，`price_delta` 为加价（分）；无则为 `[]` |

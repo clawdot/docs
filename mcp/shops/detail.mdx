@@ -72,6 +72,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].available` | boolean | 是否有货 |
 | `items[].unavailable_reason` | string \| null | 不可用原因；售罄时为 `"sold_out"`，否则 `null` |
 | `items[].min_purchase` | integer | 起购份数，≥ 1；`1` 表示无起购约束。`quantity` 低于它时 `quote_cart` 返回 `can_checkout=false`，`preview_order` 报 `BELOW_MIN_PURCHASE` |
+| `items[].available_quantity` | integer \| null | 库存余量（份）：正整数=当前剩余可购份数，`0` 售罄，`null` 库存充足或未知。**菜单快照、仅供展示参考**，实际可购以下单时校验为准（超库存会在 `quote_cart` / `preview_order` 阶段被拦截） |
 | `items[].sku_options` | array | 规格选项（如杯型）；下单时在 `items[].sku_id` 传所选 `sku_id` |
 | `items[].sku_options[].sku_id` | string | SKU ID（`sku_`），原样回传到下单的 `sku_id` |
 | `items[].sku_options[].name` | string | 规格名（如「大杯」）|
