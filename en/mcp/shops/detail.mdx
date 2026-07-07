@@ -71,6 +71,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].recommend_reasons` | array | Recommendation copy (e.g. `["7天内15人下单"]` = 15 orders in 7 days); `[]` when absent. Display-only |
 | `items[].available` | boolean | Whether in stock |
 | `items[].unavailable_reason` | string \| null | Reason if unavailable; `"sold_out"` when out of stock, otherwise `null` |
+| `items[].min_purchase` | integer | Minimum purchase quantity, ≥ 1; `1` means no minimum. If `quantity` is below it, `quote_cart` returns `can_checkout=false` and `preview_order` fails with `BELOW_MIN_PURCHASE` |
 | `items[].sku_options` | array | SKU options (e.g. cup size); pass the chosen `sku_id` as `items[].sku_id` when ordering |
 | `items[].sku_options[].sku_id` | string | SKU ID (`sku_`), passed back as-is to the order `sku_id` |
 | `items[].sku_options[].name` | string | SKU name (e.g. "Large") |
