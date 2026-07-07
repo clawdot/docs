@@ -35,7 +35,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | Field | Type | Description |
 |-------|------|-------------|
 | `quote_id` | string | Quote ID (`qt_`), passed to `preview_order` to validate the quote context |
-| `can_checkout` | boolean | Whether the cart is checkout-ready (`false` if any item is not checkout-able, a store-level required group is unmet, or upstream blocks checkout) |
+| `can_checkout` | boolean | Whether the cart is checkout-ready (`false` if any item is not checkout-able, a store-level required group is unmet, an item's quantity is below its minimum purchase, or upstream blocks checkout) |
 | `blocking_reason` | string \| null | Why checkout is blocked (`null` when `can_checkout` is `true`); e.g. "pick a required item from 'Required Soup' before ordering (at least 1 per group)" or below the minimum order. For missing required groups see `required_groups` in the `get_shop_menu` response |
 | `goods_price` | integer | Goods subtotal (cents) |
 | `delivery_fee` | integer | Delivery fee (cents) |
@@ -49,6 +49,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].name` | string | Item name |
 | `items[].quantity` | integer | Quantity |
 | `items[].price` | integer | Item price (cents) |
+| `items[].min_purchase` | integer \| null | Minimum purchase echo (≥ 1, `1` = no minimum) so you can check it against `quantity`; `null` on rare fallback paths where it can't be resolved |
 | `items[].image_url` | string \| null | Item image URL; `null` if none |
 | `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
 | `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents); `[]` if none |
