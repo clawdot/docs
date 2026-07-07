@@ -45,6 +45,8 @@ description: "MCP 工具，对已选商品的购物车算价，返回价格明�
 | `discount` | integer | 优惠金额（分）|
 | `payable_price` | integer | 应付金额（分）|
 | `minimum_order_gap` | integer \| null | 距起送差额（分）；不适用时为 `null` |
+| `shop.lat` | number \| null | 店铺纬度，与 `get_shop_menu` 的 `shop.lat` 同源同值（取自菜单阶段随 `cart_id` 保存的店铺坐标）；坐标系同请求 `lat` / `lng`（高德 GCJ-02）；菜单阶段未取到坐标、或 `get_shop_menu` 上线本字段前铸的 `cart_id` 时为 `null` |
+| `shop.lng` | number \| null | 店铺经度，其余同 `shop.lat` |
 | `items` | array | 算价商品明细 |
 | `items[].item_id` | string | 商品 ID |
 | `items[].name` | string | 商品名 |

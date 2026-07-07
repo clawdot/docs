@@ -46,6 +46,8 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `preview_id` | string | 预览 ID（`prv_`），传给 `create_order`；有效期约 10 分钟 |
 | `confirmation_token` | string | 确认令牌（`cf_`），与 `preview_id` 一起传给 `create_order` |
 | `shop.name` | string | 店铺名称 |
+| `shop.lat` | number \| null | 店铺纬度，与 `get_shop_menu` 的 `shop.lat` 同源同值；坐标系同请求 `lat` / `lng`（高德 GCJ-02）；菜单阶段未取到坐标时为 `null` |
+| `shop.lng` | number \| null | 店铺经度，其余同 `shop.lat` |
 | `address.display_name` | string | 地址显示名 |
 | `address.address_detail` | string | 门牌等详情 |
 | `address.city` | string | 城市（当前恒为空串）|
