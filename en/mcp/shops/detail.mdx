@@ -50,6 +50,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `shop.name` | string | Shop name |
 | `shop.logo_url` | string \| null | Shop logo URL, same source as `shops[].logo_url` from `search_shops` (the menu upstream returns no logo; the value comes from the context saved with the `cart_id` at search time); `null` for a `cart_id` minted before this field shipped |
 | `shop.min_order_amount` | integer \| null | Minimum order amount in **cents**, same value as `shops[].min_order_amount` from `search_shops` (the menu upstream returns no minimum; the value is the snapshot saved with the `cart_id` at search time) — use it to tell whether the cart clears the shop's minimum; `null` for a `cart_id` minted before this field shipped |
+| `shop.lat` | number \| null | Shop latitude, in the same coordinate system as the request `lat` / `lng` (AMap GCJ-02) — directly comparable with the delivery location / usable on the same map. Sourced from the menu upstream `shopDetails` (`search_shops` returns no shop coordinates, so the earliest it appears is `get_shop_menu`); `null` for a `cart_id` minted before this field shipped or when the upstream returns no coordinates |
+| `shop.lng` | number \| null | Shop longitude, otherwise same as `shop.lat` |
 | `shop.available` | boolean | Whether the shop is orderable (currently always `true`) |
 | `categories` | array | Lightweight index of this page's items by category |
 | `categories[].name` | string | Category name |

@@ -46,6 +46,8 @@ Previews an order before creation: validates the shop / address / items, applies
 | `preview_id` | string | Preview ID (`prv_`), passed to `create_order`; valid for ~10 minutes |
 | `confirmation_token` | string | Confirmation token (`cf_`), passed with `preview_id` to `create_order` |
 | `shop.name` | string | Shop name |
+| `shop.lat` | number \| null | Shop latitude, same source and value as `shop.lat` from `get_shop_menu`; same coordinate system as the request `lat` / `lng` (AMap GCJ-02); `null` when the menu step captured no coordinates |
+| `shop.lng` | number \| null | Shop longitude, otherwise same as `shop.lat` |
 | `address.display_name` | string | Address display name |
 | `address.address_detail` | string | Door number / details |
 | `address.city` | string | City (currently always an empty string) |

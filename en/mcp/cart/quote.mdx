@@ -45,6 +45,8 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `discount` | integer | Discount amount (cents) |
 | `payable_price` | integer | Payable amount (cents) |
 | `minimum_order_gap` | integer \| null | Amount short of the order minimum (cents); `null` when not applicable |
+| `shop.lat` | number \| null | Shop latitude, same source and value as `shop.lat` from `get_shop_menu` (the shop coordinates saved with the `cart_id` at menu time); same coordinate system as the request `lat` / `lng` (AMap GCJ-02); `null` when the menu step captured no coordinates, or for a `cart_id` minted before this field shipped |
+| `shop.lng` | number \| null | Shop longitude, otherwise same as `shop.lat` |
 | `items` | array | Priced item details |
 | `items[].item_id` | string | Item ID |
 | `items[].name` | string | Item name |
