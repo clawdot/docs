@@ -35,8 +35,9 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | Field | Type | Description |
 |-------|------|-------------|
 | `quote_id` | string | Quote ID (`qt_`), passed to `preview_order` to validate the quote context |
-| `can_checkout` | boolean | Whether the cart is checkout-ready (`false` if any item is not checkout-able, a store-level required group is unmet, an item's quantity is below its minimum purchase, or upstream blocks checkout) |
+| `can_checkout` | boolean | Whether the cart is checkout-ready (`false` if any item is not checkout-able, a store-level required group is unmet, an item's quantity is below its minimum purchase, every item in the cart is marked "cannot be ordered alone", or upstream blocks checkout) |
 | `blocking_reason` | string \| null | Why checkout is blocked (`null` when `can_checkout` is `true`); e.g. "pick a required item from 'Required Soup' before ordering (at least 1 per group)" or below the minimum order. For missing required groups see `required_groups` in the `get_shop_menu` response |
+| `blocking_code` | integer | Machine-readable failure code: `1` = the cart cannot be delivered on its own (every item is a "cannot be ordered alone" item, e.g. toppings; `blocking_reason` is typically "单点不配送" or "商品不可单独下单" — add a regular item and re-quote); `0` = everything else (including checkout-ready). Derived from upstream copy on a best-effort basis; treat `can_checkout` as the source of truth |
 | `goods_price` | integer | Goods subtotal (cents) |
 | `delivery_fee` | integer | Delivery fee (cents) |
 | `packing_fee` | integer | Packing fee (cents) |
