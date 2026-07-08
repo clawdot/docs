@@ -37,7 +37,7 @@ description: "MCP 工具，对已选商品的购物车算价，返回价格明�
 | `quote_id` | string | 报价 ID（`qt_`），传给 `preview_order` 校验报价上下文 |
 | `can_checkout` | boolean | 是否可结算（有不可结算商品、缺店铺必选组、商品数量低于起购份数、购物车内商品均为「单点不送」商品、或上游禁止结算时为 `false`）|
 | `blocking_reason` | string \| null | 不可结算原因（`can_checkout` 为 `true` 时为 `null`）；例如「需从『必选好汤』补选必选项再下单（每组至少选 1 项）」或未达起送价。缺店铺必选组见 `get_shop_menu` 响应的 `required_groups` |
-| `blocking_code` | integer | 机器可读失败码：`1` = 单点不配送（购物车内商品均为「单点不送」商品，商家不接受单独配送；此时 `blocking_reason` 通常为「单点不配送」或「商品不可单独下单」，建议搭配正常商品重新算价）；`0` = 其余所有情况（含可结算）。基于上游文案识别、仅供程序化分流，是否可下单以 `can_checkout` 为准 |
+| `blocking_code` | integer | 机器可读失败码：`1` = 单点不配送（购物车内商品均为「单点不送」商品，商家不接受单独配送；此时 `blocking_reason` 通常为「单点不配送」或「商品不可单独下单」，建议搭配正常商品重新算价；基于上游文案 best-effort 识别）；`2` = 未选满店铺必选组（缺该店必选商品组，需按 `get_shop_menu` 响应的 `required_groups` 补选后再下单；`blocking_reason` 形如「需从『必选好汤』补选必选项再下单」）；`0` = 其余所有情况（含可结算）。仅供程序化分流，是否可下单以 `can_checkout` 为准 |
 | `goods_price` | integer | 商品小计（分）|
 | `delivery_fee` | integer | 配送费（分）|
 | `packing_fee` | integer | 打包费（分）|
