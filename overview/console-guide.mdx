@@ -1,0 +1,276 @@
+---
+title: "控制台操作指南"
+description: "从注册到下单：手把手带你用好 Clawdot 虾点开发者控制台"
+icon: "layout-dashboard"
+---
+
+[Clawdot 控制台](https://console.hicaspian.com) 是你管理 API 接入的自助后台。本指南带你从注册账号开始，一步步创建 Agent、拿到 API Key、绑定终端用户，再到管理专属渠道与升级套餐。
+
+控制台左侧共四个板块：
+
+| 板块 | 用途 |
+| --- | --- |
+| **Dashboard** | 查看当日配额用量与近 7 天调用历史 |
+| **Agents** | 创建/管理 Agent、API Key、绑定终端用户 |
+| **Channels** | 管理专属饿了么渠道（superagent / platform 套餐专属） |
+| **Settings** | 修改账号资料、查看套餐、申请升级 |
+
+<Frame caption="登录后的控制台首页，左侧是四个导航板块">
+  <img src="/images/console/dashboard.png" alt="Clawdot 控制台全景" />
+</Frame>
+
+## 1. 注册与登录
+
+打开控制台地址，两种方式二选一注册：
+
+- **Google 一键注册**：点击 **Continue with Google**，用 Google 账号授权即可，无需设置密码。
+- **邮箱注册**：填写 Name 和 Email，点击 **Get code** 获取邮箱验证码（60 秒内可重发一次），填入验证码并设置密码（至少 6 位）后，点击 **Create account**。
+
+<Frame caption="邮箱注册表单：填好信息后点 Get code 获取验证码">
+  <img src="/images/console/register.png" alt="注册表单" />
+</Frame>
+
+<Note>
+  注册成功后页面会展示为你自动创建的 API Key，建议点 **Copy to Clipboard** 保存。即使当时没保存也不要紧——之后可以在 Agents 页找到对应 Agent，点卡片上 Key 前缀旁的复制按钮，随时复制完整 API Key。
+</Note>
+
+已有账号则在登录页用 Google 或邮箱 + 密码登录。
+
+<Frame caption="登录页">
+  <img src="/images/console/login.png" alt="登录页" />
+</Frame>
+
+## 2. Dashboard：用量监控
+
+进入控制台默认落在 Dashboard，用于日常观察调用量与健康度：
+
+- **Requests Today**：今日已用请求数 / 每日请求上限
+- **Orders Today**：今日已下单数 / 每日订单上限
+- **Rate Limit**：当前套餐的每分钟限速
+- **Usage History**：近 7 天每日请求数、错误数、平均延迟
+
+卡片下方的进度条会随用量变色——超过 50% 转黄、超过 80% 转红。接近上限时，建议提前在 Settings 申请升级，避免触顶被限流。
+
+配额上限由套餐档位决定，详见[第 6 节](#6-settings：账号资料与套餐升级)。
+
+## 3. Agents：创建 Agent 与管理 API Key
+
+一个 **Agent** 对应你的一个接入方（一个应用、一个机器人、一条业务线），每个 Agent 持有独立的 API Key。可创建数量由套餐决定。
+
+<Frame caption="Agents 列表：每张卡片是一个 Agent">
+  <img src="/images/console/agents-list.png" alt="Agents 列表" />
+</Frame>
+
+### 3.1 创建 Agent
+
+<Steps>
+  <Step title="点击 New Agent">
+    在 Agents 页右上角点击 **New Agent**。
+  </Step>
+  <Step title="填写信息">
+    填写 Agent 名称（必填）和描述（可选）。
+    <Frame caption="创建 Agent 表单">
+      <img src="/images/console/create-agent.png" alt="创建 Agent 表单" />
+    </Frame>
+  </Step>
+  <Step title="保存 API Key">
+    点击 **Create** 后，页面顶部出现橙色横幅展示该 Agent 的完整 API Key，点 **Copy** 复制。横幅关闭后卡片上只显示 Key 前缀（如 `clw_xxxx••••••••`），但点前缀旁的复制按钮仍可随时复制完整 API Key。
+    <Frame caption="新建成功后一次性展示的 API Key 横幅">
+      <img src="/images/console/key-banner.png" alt="API Key 横幅" />
+    </Frame>
+  </Step>
+</Steps>
+
+<Note>
+  横幅上的「Save this now」是一次性提示，但 Key 本身不会丢失——之后随时能在卡片上点复制按钮拿到完整 Key。只有想主动更换 Key 时才用 **Rotate Key**（会作废旧 Key）。
+</Note>
+
+### 3.2 卡片上的日常操作
+
+<Frame caption="一张 Agent 卡片：包含 Rotate Key、Delete、绑定用户数、Key 前缀">
+  <img src="/images/console/agent-card.png" alt="Agent 卡片" />
+</Frame>
+
+| 操作 | 说明 |
+| --- | --- |
+| **Rotate Key** | 生成新 Key 并**立即作废旧 Key**。会弹二次确认；执行前请确认线上服务已准备好换 Key，避免调用中断。新 Key 生成后同样可在卡片上复制。 |
+| **Delete** | 永久删除该 Agent 及其 Key，不可恢复，会弹二次确认。 |
+| **Bind User** | 绑定终端用户手机号（见 3.3）。 |
+| Key 前缀 / 复制 | 卡片显示掩码前缀用于识别；点前缀旁的复制按钮可**复制完整 API Key**，随时可复制、不限次数。 |
+
+<Frame caption="Rotate Key 的二次确认弹窗">
+  <img src="/images/console/rotate-confirm.png" alt="Rotate Key 确认弹窗" />
+</Frame>
+
+### 3.3 绑定用户（Bind User）
+
+Agent 代表用户下单前，需要先完成一次用户授权绑定。点击卡片上的 **Bind User**，流程共三步：
+
+<Steps>
+  <Step title="输入手机号">
+    填写用户的手机号，点击 **Send Code**，系统向该手机发送短信验证码。
+    <Frame caption="绑定第一步：输入手机号">
+      <img src="/images/console/bind-phone.png" alt="绑定用户 - 手机号" />
+    </Frame>
+  </Step>
+  <Step title="输入验证码">
+    填入收到的 6 位验证码，点击 **Bind**（60 秒后可重发，也可返回改号）。
+  </Step>
+  <Step title="保存 Consent Grant ID">
+    绑定成功后页面展示该用户的授权凭证 **Consent Grant ID**。调用 API 时通过请求参数 `consent_grant_id`（或请求头 `X-Consent-Grant-Id`）携带该凭证，即代表以该用户身份操作。
+  </Step>
+</Steps>
+
+<Warning>
+  **Consent Grant ID 仅展示一次**，服务端只存哈希，请立即复制保存。对同一手机号重新走一遍绑定流程会签发新的 Consent Grant ID，**旧的随即失效**——请以最新一次下发的为准，并同步更新你的服务配置。
+</Warning>
+
+卡片上的「N users」可展开已绑定用户列表：手机号与授权 ID 均以掩码显示；用户超过 6 个时提供搜索框，可按手机号或授权 ID 片段过滤；右上角 **+ Bind** 可继续绑定新用户。
+
+<Frame caption="展开已绑定用户列表，手机号与授权 ID 均掩码显示">
+  <img src="/images/console/bound-users.png" alt="已绑定用户列表" />
+</Frame>
+
+### 3.4 为 Agent 指派专属渠道
+
+若你的套餐开通了渠道功能，Agent 卡片下方会出现**渠道带**，显示该 Agent 当前使用的下单渠道：默认显示「默认渠道（平台默认）」，点击 **指派渠道 / 更换渠道** 可从渠道池中**已验证**的渠道里选择，即刻生效；已指派的 Agent 可选择「恢复默认渠道」切回平台默认。
+
+<Frame caption="展开渠道带，从已验证的渠道池中选择">
+  <img src="/images/console/channel-dropdown.png" alt="渠道指派下拉" />
+</Frame>
+
+渠道的添加与验证见[第 5 节](#5-channels：专属渠道池)。
+
+## 4. Settings 之前：先看套餐能力
+
+在展开渠道功能之前，先了解一下不同套餐能做什么——渠道功能仅对 SUPERAGENT 与 PLATFORM 开放。套餐详情见[第 6 节](#6-settings：账号资料与套餐升级)。
+
+## 5. Channels：专属渠道池
+
+<Note>
+  非 superagent / platform 套餐进入该页会提示「渠道功能未开放」，请先在 Settings 申请升级。
+</Note>
+
+**渠道池是账户级的**：一条渠道验证通过后，可指派给你名下任意多个 Agent 复用，也可随时切换。获得渠道有两条路径。
+
+<Frame caption="Channels 页：账户级渠道池 + 申请记录">
+  <img src="/images/console/channels-overview.png" alt="Channels 页概览" />
+</Frame>
+
+### 5.1 已有饿了么渠道 → 「添加渠道」
+
+如果你已经从饿了么获得了自己的渠道凭证，点击右上角 **添加渠道** 直接录入：
+
+| 字段 | 说明 |
+| --- | --- |
+| 备注名（label） | 选填，便于识别，如「Acme 外卖」 |
+| 渠道号（channel_no）✱ | 形如 `mobile.xxxx` |
+| 登录 source（channel_source） | 不带 `mobile.` 前缀的 opensite source |
+| 签名密钥（channel_secret）✱ | 联登 JWT 签名密钥；**加密存储，提交后永不回显明文** |
+| welfare_3pp | 选填，支付码，如有则填 |
+
+提交后渠道进入「**待验证**」状态；平台核验凭证有效后转为「**已验证**」，方可指派给 Agent（避免错误凭证导致订单归因错误）。
+
+<Frame caption="添加渠道表单">
+  <img src="/images/console/add-channel.png" alt="添加渠道表单" />
+</Frame>
+
+### 5.2 还没有渠道 → 「申请渠道」（平台代办）
+
+没有饿了么渠道也可以点击 **申请渠道**，由平台代你向饿了么申请：
+
+<Steps>
+  <Step title="填写基本信息">
+    填写 **渠道平台名称** 和 **三方合作 logo URL**（展示给用户的合作方 logo，建议 200×200 像素）。
+  </Step>
+  <Step title="（可选）接入三方收银">
+    若需要接入三方收银台，勾选 **同时接入三方收银**，补充展开的六项支付信息（测试/生产支付接口、RSA2 公钥、客服电话、isv 代扣 PID / 账号）。
+    <Frame caption="勾选三方收银后展开的附件字段">
+      <img src="/images/console/apply-channel.png" alt="申请渠道表单" />
+    </Frame>
+  </Step>
+  <Step title="不会填？看填写指引">
+    点击表单右上角 **填写指引**，右侧抽屉有逐项说明（含 RSA2 公钥生成方法、支付宝 PID 查询方法等）。
+    <Frame caption="填写指引抽屉：逐项说明">
+      <img src="/images/console/guide-drawer.png" alt="填写指引抽屉" />
+    </Frame>
+  </Step>
+  <Step title="提交并跟踪进度">
+    点击 **提交申请**。页面下方「申请记录」跟踪进度：**处理中**（平台正在开通）、**已通过**（凭证已存入上方渠道池，直接指派即可）、**未通过**（显示驳回原因，修正后可重新申请）。
+    <Frame caption="申请记录：不同状态一目了然">
+      <img src="/images/console/applications.png" alt="申请记录列表" />
+    </Frame>
+  </Step>
+</Steps>
+
+### 5.3 渠道卡片与指派
+
+池中每条渠道以卡片展示：状态徽章（**待验证 / 已验证 / 已停用**）、渠道号、登录 source 可一键复制；**secret 恒为掩码**，出于安全不可见明文。已验证的渠道底部提供「指派给 Agent」下拉，选择 Agent 后点击 **指派**；已指派的 Agent 可随时取消指派（回落到平台默认渠道）。
+
+<Frame caption="一张已验证渠道卡片，含状态徽章、字段行与指派区">
+  <img src="/images/console/channel-card.png" alt="渠道卡片" />
+</Frame>
+
+## 6. Settings：账号资料与套餐升级
+
+### 6.1 Profile
+
+修改显示名称（Name）与公司（Company）后点击 **Save Changes**。邮箱不可修改，旁边的绿色 **Verified** 表示邮箱已验证。
+
+<Frame caption="Profile 区块">
+  <img src="/images/console/settings-profile.png" alt="Settings Profile" />
+</Frame>
+
+### 6.2 套餐档位
+
+Plan 区块展示四档套餐，当前档位有高亮边框和 **Current** 徽章：
+
+| 档位 | Agent 数 | 限速 | 每日请求 | 每日订单 |
+| --- | --- | --- | --- | --- |
+| FREE | 3 | 30/min | 1K | 10 |
+| PRO | 3 | 120/min | 50K | 500 |
+| SUPERAGENT | 100 | 600/min | 500K | 5K |
+| PLATFORM | 不限 | 600/min | 500K | 5K |
+
+专属渠道功能（Channels）仅对 SUPERAGENT 与 PLATFORM 开放。
+
+<Frame caption="四档套餐卡片，当前档高亮">
+  <img src="/images/console/plan-tiers.png" alt="套餐档位" />
+</Frame>
+
+### 6.3 申请升级
+
+<Steps>
+  <Step title="点击 Request Upgrade">
+    在高于当前档位的套餐卡片上点击 **Request Upgrade**（只能向上申请）。
+  </Step>
+  <Step title="填写申请信息">
+    填写 **业务理由 / 用途**（必填）、**预估量**（必填，如「预估日请求 30 万 / 日单 3000」）、联系方式（选填，便于沟通），点击 **提交申请**。
+    <Frame caption="升级申请弹窗">
+      <img src="/images/console/upgrade-dialog.png" alt="升级申请弹窗" />
+    </Frame>
+  </Step>
+  <Step title="等待审核">
+    同一时间只能有一个处理中的申请。下方「申请历史」可查看每次申请的状态；审核通过后套餐自动生效。
+  </Step>
+</Steps>
+
+## 常见问题
+
+<AccordionGroup>
+  <Accordion title="API Key 忘记保存了怎么办？">
+    不用担心。到 Agents 页找到对应 Agent，点卡片上 Key 前缀旁的复制按钮即可复制完整 API Key，无需 Rotate。只有当你想主动更换 Key 时才用 **Rotate Key**（会立即作废旧 Key，请先做好服务切换准备）。
+  </Accordion>
+  <Accordion title="Consent Grant ID 丢了怎么办？">
+    对该手机号重新执行一次 **Bind User** 流程即可获得新凭证；旧凭证会随之失效，记得同步更新到你的服务。
+  </Accordion>
+  <Accordion title="为什么我看不到 Channels 功能？">
+    专属渠道仅对 SUPERAGENT / PLATFORM 套餐开放。到 Settings → Plan 申请升级。
+  </Accordion>
+  <Accordion title="渠道添加后为什么不能立刻指派？">
+    新录入的渠道需平台先验证凭证有效性（「待验证」→「已验证」），验证通过后才可指派，避免错误凭证导致订单归因错误。
+  </Accordion>
+  <Accordion title="配额不够用了怎么办？">
+    Dashboard 进度条接近红色时，建议提前在 Settings 申请升级套餐，避免触顶后请求被限流。
+  </Accordion>
+</AccordionGroup>

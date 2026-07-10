@@ -44,6 +44,7 @@
                                 "pages": [
                                     "overview/architecture",
                                     "quickstart",
+                                    "overview/console-guide",
                                     "overview/roadmap"
                                 ]
                             }
@@ -181,6 +182,7 @@
                                 "pages": [
                                     "en/overview/architecture",
                                     "en/quickstart",
+                                    "en/overview/console-guide",
                                     "en/overview/roadmap"
                                 ]
                             }
