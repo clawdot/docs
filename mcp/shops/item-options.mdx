@@ -12,6 +12,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 - **预订单阶段批量修改规格 / 配料**：`preview_order` 之后用户想给车里若干商品换杯型 / 换配料——一次调本工具拿到这些商品各自的全部规格及配料候选，换好 ID 后直接重新 `preview_order`（`quote_cart` 可选）。
 - **一次查看整车多个单品的可选项**：不必逐个调用、也不必回翻整个菜单响应（编排里少接多个节点）。
 - **菜单被分页 / 过滤后按单品回查**：对话上下文里菜单被挤掉时，凭 `item_id` 一次找回多个商品的全部可选项和 ID。
+- **富化菜单大纲商品**：`get_shop_menu` 传 `full_menu=true` 拿到的大纲商品（无规格 / 配料、不可直接下单）——把目标 `item_id` 传入本工具即完成按需富化，返回全部规格 / 配料且同一 id 随后可直接下单。
 
 <Note>
   **修改闭环**：本工具返回的所有 `sku_id` / `option_id` 与 `get_shop_menu` 为该 cart 生成的 ID **完全相同**（不重新生成），任意一项可直接回传 `quote_cart` / `preview_order` 修改选择；修改后重新调用 `preview_order` 获取**新的** `preview_id` + `confirmation_token` 再下单（旧令牌 10 分钟有效且一次性）。

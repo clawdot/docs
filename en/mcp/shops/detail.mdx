@@ -1,6 +1,6 @@
 ---
 title: "get_shop_menu"
-description: "MCP tool get_shop_menu — fetch a shop's orderable menu, returning the item_id / sku_id used to place orders, with keyword filtering and paging"
+description: "MCP tool get_shop_menu — fetch a shop's orderable menu, returning the item_id / sku_id used to place orders, with keyword filtering, paging and a full-menu outline (full_menu)"
 ---
 
 ## get_shop_menu
@@ -24,9 +24,14 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `keyword` | string \| null | No | `null` | Keyword filter, matched against item name / category / description (case-insensitive) |
 | `limit` | integer \| null | No | `null` | Items per page, ≥ 1; returns all (filtered) items when omitted |
 | `offset` | integer | No | `0` | Paging offset, ≥ 0; pair with the previous response's `next_offset` to page |
+| `full_menu` | boolean | No | `false` | Menu outline mode: `true` returns ALL categories with ALL item cards in one call, **without specs / ingredients and not directly orderable** (see below); explicitly passing `keyword` / `limit` / `offset` overrides this parameter |
 
 <Note>
   `address_id` / `lat` / `lng` resolve the delivery coordinates and are usually unnecessary: the `cart_id` already carries the coordinates from search. When all three are omitted, the `cart_id` coordinates are used.
+</Note>
+
+<Note>
+  **Menu outline (`full_menu=true`)**: returns **every category with all its item cards** (`item_id` / `name` / `price` / `available` / `image_url` plus marketing fields) in a single call, with **`sku_options` / `ingredient_options` always empty arrays** — a fast way to skim a large menu without fetching per-item specs. Outline `item_id`s are stable (same id as the enriched view within the same `cart_id`) but **NOT directly orderable**: outline ids are not written to the cart, so passing them to `quote_cart` / `preview_order` / `create_order` fails with `PUBLIC_REFERENCE_INVALID`. To order, first enrich the target items — call `get_shop_menu` again with `keyword` / `limit` to locate them, or batch-fetch specs via [`get_item_options`](/en/mcp/shops/item-options) — then order with the same `item_id`. Explicitly passing any of `keyword` / `limit` / `offset` **overrides `full_menu`**: even with `full_menu=true` the call returns the enriched, paged view.
 </Note>
 
 ### Returns
@@ -58,7 +63,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `categories[].items` | array | Items in this category with card essentials: `item_id`/`name`/`price`/`available`/`image_url` — clients can render category nav + card pages directly from categories; specs are looked up locally in this response's `items[]` by `item_id` |
 | `categories[].required` | boolean | Whether this category is a store-level required group (returned for required categories only) |
 | `categories[].min_select` | integer | Minimum items to pick from a required category (returned for required categories only) |
-| `items` | array | Full item list for this page (see below) |
+| `items` | array | Full item list for this page (see below); with `full_menu=true`, all item cards (`sku_options` / `ingredient_options` are empty arrays, not directly orderable) |
 | `items[].item_id` | string | Item ID (`item_`), **required to order**; pass as `items[].item_id` to `quote_cart` and `preview_order` |
 | `items[].name` | string | Item name |
 | `items[].category_name` | string \| null | Category this item belongs to |
@@ -99,7 +104,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `required_groups[].candidates` | array | Candidate details `[{item_id, name, price, available}]`, one-to-one with `candidate_item_ids` and **always complete** (decoupled from `keyword`/paging); agent renders candidates directly without re-checking `items[]` |
 
 <Tip>
-  **Progressive disclosure**: use `keyword` to narrow results, or `limit` + `offset` to page. While `has_more` is `true`, keep calling with `offset=next_offset` until `has_more` is `false`. Item IDs returned by earlier calls on the same `cart_id` stay orderable for the cart's lifetime.
+  **Progressive disclosure**: use `keyword` to narrow results, or `limit` + `offset` to page. While `has_more` is `true`, keep calling with `offset=next_offset` until `has_more` is `false`. Item IDs returned by earlier calls on the same `cart_id` stay orderable for the cart's lifetime. For a large menu you can also skim it first with `full_menu=true`, then enrich the target items (`keyword` / `limit` or `get_item_options`).
 </Tip>
 
 ### Error Codes

@@ -1,6 +1,6 @@
 ---
 title: "get_shop_menu"
-description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返回下单用的 item_id / sku_id，支持关键词过滤与分页"
+description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返回下单用的 item_id / sku_id，支持关键词过滤、分页与菜单大纲（full_menu）"
 ---
 
 ## get_shop_menu
@@ -24,9 +24,14 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `keyword` | string \| null | 否 | `null` | 关键词过滤，按商品名 / 分类名 / 描述匹配（大小写不敏感）|
 | `limit` | integer \| null | 否 | `null` | 本页返回数量，≥ 1；不传则返回（过滤后的）全部 |
 | `offset` | integer | 否 | `0` | 分页偏移，≥ 0；与上一次响应的 `next_offset` 配合翻页 |
+| `full_menu` | boolean | 否 | `false` | 菜单大纲模式：`true` 时一次返回全部分类的全部商品卡片，**不含规格 / 配料且不可直接下单**（见下方说明）；显式传 `keyword` / `limit` / `offset` 时优先于本参数 |
 
 <Note>
   `address_id` / `lat` / `lng` 三者用于解析配送坐标，通常无需传：`cart_id` 已封装搜索时的坐标。三者同时不传时使用 `cart_id` 内坐标。
+</Note>
+
+<Note>
+  **菜单大纲（`full_menu=true`）**：一次返回**全部分类的全部商品卡片**（`item_id` / `name` / `price` / `available` / `image_url` 及营销字段），**`sku_options` / `ingredient_options` 恒为空数组**——适合大菜单先速览全貌（不逐品拉规格，响应快）。大纲商品的 `item_id` 稳定（同一 `cart_id` 内与富化后相同），但**不可直接下单**：大纲 id 未写入购物车，直接传给 `quote_cart` / `preview_order` / `create_order` 会报 `PUBLIC_REFERENCE_INVALID`。要下单先富化目标商品——再调 `get_shop_menu`（用 `keyword` / `limit` 定位该商品）或用 [`get_item_options`](/mcp/shops/item-options) 按需批量拉取规格，随后用同一 `item_id` 下单。显式传 `keyword` / `limit` / `offset` 任一时**优先于 `full_menu`**：即便 `full_menu=true` 也按富化分页返回。
 </Note>
 
 ### 返回
@@ -58,7 +63,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `categories[].items` | array | 该分类下的商品，带卡片四要素：`item_id`/`name`/`price`/`available`/`image_url`——客户端可直接用 categories 渲染分类导航+卡片页，规格从本响应 `items[]` 按 `item_id` 查 |
 | `categories[].required` | boolean | 该分类是否为店铺级必选组（仅必选分类返回）|
 | `categories[].min_select` | integer | 必选分类至少需选的商品数（仅必选分类返回）|
-| `items` | array | 本页完整商品列表（见下）|
+| `items` | array | 本页完整商品列表（见下）；`full_menu=true` 时为全量商品卡片（`sku_options` / `ingredient_options` 为空数组、不可直接下单）|
 | `items[].item_id` | string | 商品 ID（`item_`），**下单必需**；传给 `quote_cart`、`preview_order` 的 `items[].item_id` |
 | `items[].name` | string | 商品名 |
 | `items[].category_name` | string \| null | 所属分类名 |
@@ -99,7 +104,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `required_groups[].candidates` | array | 候选商品详情 `[{item_id, name, price, available}]`，与 `candidate_item_ids` 一一对应且**始终完整**（与 `keyword`/分页解耦）；agent 直接据此展示候选，无需回查 `items[]` |
 
 <Tip>
-  **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。
+  **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。大菜单也可先 `full_menu=true` 一次速览全貌，再对目标商品富化（`keyword` / `limit` 或 `get_item_options`）。
 </Tip>
 
 ### 错误码
