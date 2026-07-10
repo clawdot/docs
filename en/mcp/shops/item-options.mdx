@@ -12,6 +12,7 @@ Typical scenarios:
 - **Adjusting an order at preview time, in bulk**: after `preview_order`, the user wants a different cup size or topping on several items in the cart — one call returns every item's skus along with each sku's own ingredient candidates; swap IDs, then simply re-run `preview_order` (`quote_cart` is optional).
 - **Checking the options of several cart items at once**, without calling per-item or re-reading the whole menu response (fewer nodes to wire in an orchestration).
 - **Recovering options after menu paging / filtering**: when the menu response has been pushed out of the conversation context, one call with `item_id`s brings back every option and ID for those items.
+- **Enriching menu-outline items**: items from `get_shop_menu` with `full_menu=true` come without specs / ingredients and are not directly orderable — pass their `item_id`s to this tool to enrich on demand; it returns the full specs / ingredients and the same ids become orderable right away.
 
 <Note>
   **Modification loop**: every `sku_id` / `option_id` returned here is **identical** to the IDs `get_shop_menu` minted for this cart (never re-minted), so any entry can be passed straight back into `quote_cart` / `preview_order`. After changing the selection, call `preview_order` again for a **fresh** `preview_id` + `confirmation_token` before ordering (the old tokens are single-use with a 10-minute TTL).
