@@ -55,6 +55,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 |-------|------|-------------|
 | `items[].item_id` | string | The requested `item_id`, echoed back |
 | `items[].name` | string | Item name |
+| `items[].image_url` | string \| null | Item image URL, same source and value as the `get_shop_menu` / `quote_cart` / `preview_order` echoes; `null` when a cart minted before this field shipped has no cached image |
 | `items[].available` | boolean | Whether the item is in stock |
 | `items[].min_purchase` | integer | Minimum purchase quantity, ≥ 1; `1` means no minimum |
 | `items[].available_quantity` | integer \| null | Remaining stock (units): positive = units left, `0` = sold out, `null` = ample or unknown; menu-time snapshot, display only |
@@ -117,6 +118,7 @@ Response (excerpt: the first item succeeds, the second `item_id` is invalid):
     {
       "item_id": "item_xxx",
       "name": "Coconut Latte",
+      "image_url": "https://cube.elemecdn.com/8/be/57a834efd750f506fb634dd3f6700jpg.jpg",
       "available": true,
       "sku_options": [
         {"sku_id": "sku_a", "name": "Medium", "price": 1600, "available": true,
