@@ -78,6 +78,29 @@ Previews an order before creation: validates the shop / address / items, applies
 | `available_coupons[].available` | boolean | Whether usable |
 | `available_coupons[].unavailable_reason` | string \| null | Reason if unusable |
 | `selected_coupons` | array | Coupons applied this time (with `coupon_id` / `name` / `amount`) |
+| `shop_activities` | object | Shop-level activities (store discount / first-visit discount / spend-and-return red packet), auto-applied by the upstream server; not in `available_coupons` and outside the coupon-selection flow. When absent, `total_discount` is `0` and `activities` is `[]` |
+| `shop_activities.total_discount` | number | Total this-order instant discount from shop activities (**in yuan**, not cents); sums only `type=discount` activities |
+| `shop_activities.activities[].name` | string | Activity name, e.g. "店铺满70减3", "首次光顾立减" |
+| `shop_activities.activities[].type` | string | `discount` = this-order instant discount (applied to this order, counted in `total_discount`); `return` = spend-and-return red packet (usable on the NEXT order, not this one) |
+| `shop_activities.activities[].amount` | number \| null | This-order discount amount (**in yuan**, not cents); the discount value when `type=discount`, `null` when `type=return` |
+| `shop_activities.activities[].desc` | string | Display text, e.g. "-¥3", "实付0元返2元店铺专享红包" |
+| `shop_activities.activities[].tag` | string \| null | Activity badge text, e.g. "减" / "新" / "返"; `null` if none |
+
+<Warning>
+  `shop_activities.total_discount` / `activities[].amount` are in **yuan** (float, e.g. `3.0`) — the **only exception** to this response's "all amounts in cents" rule. A `type=discount` activity is normally already reflected in `price.payable_price`; `total_discount` is display-only, do not subtract it from the payable amount again.
+</Warning>
+
+Example `shop_activities` shape (a shop with activities):
+
+```json
+{
+  "total_discount": 4.0,
+  "activities": [
+    {"name": "店铺满70减3", "type": "discount", "amount": 3.0, "desc": "-¥3", "tag": "减"},
+    {"name": "满返红包", "type": "return", "amount": null, "desc": "实付0元返2元店铺专享红包", "tag": "返"}
+  ]
+}
+```
 
 ### Error Codes
 
