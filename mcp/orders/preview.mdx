@@ -78,6 +78,29 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `available_coupons[].available` | boolean | 是否可用 |
 | `available_coupons[].unavailable_reason` | string \| null | 不可用原因 |
 | `selected_coupons` | array | 本次已应用的券（含 `coupon_id` / `name` / `amount`）|
+| `shop_activities` | object | 店铺活动（店铺满减 / 首次光顾立减 / 满返红包），上游服务端自动应用、不在 `available_coupons`、不走选券链路；无活动时 `total_discount` 为 `0`、`activities` 为 `[]` |
+| `shop_activities.total_discount` | number | 本单店铺活动立减合计（**单位元**，非分）；只累加 `type=discount` 的活动 |
+| `shop_activities.activities[].name` | string | 活动名称，如「店铺满70减3」「首次光顾立减」|
+| `shop_activities.activities[].type` | string | `discount`=本单立减（本次订单立即抵扣，计入 `total_discount`）；`return`=满返红包（返到下一单使用，不抵本单）|
+| `shop_activities.activities[].amount` | number \| null | 本单立减金额（**单位元**，非分）；`type=discount` 时为立减额，`type=return` 时为 `null` |
+| `shop_activities.activities[].desc` | string | 展示文案，如「-¥3」「实付0元返2元店铺专享红包」|
+| `shop_activities.activities[].tag` | string \| null | 活动角标，如「减」「新」「返」；无则 `null` |
+
+<Warning>
+  `shop_activities.total_discount` / `activities[].amount` 单位为**元**（浮点，如 `3.0`），是本响应「金额单位为分」规则的**唯一例外**。本单立减（`type=discount`）通常已体现在 `price.payable_price` 中，`total_discount` 仅供展示，勿再从应付额扣减。
+</Warning>
+
+`shop_activities` 形态示例（带店铺活动的店铺）：
+
+```json
+{
+  "total_discount": 4.0,
+  "activities": [
+    {"name": "店铺满70减3", "type": "discount", "amount": 3.0, "desc": "-¥3", "tag": "减"},
+    {"name": "满返红包", "type": "return", "amount": null, "desc": "实付0元返2元店铺专享红包", "tag": "返"}
+  ]
+}
+```
 
 ### 错误码
 
