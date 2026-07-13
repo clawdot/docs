@@ -56,6 +56,8 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].item_id` | string | 原样回传该请求项的 `item_id` |
 | `items[].name` | string | 商品名称 |
 | `items[].image_url` | string \| null | 商品图 URL，与 `get_shop_menu` / `quote_cart` / `preview_order` 回显同源同值；铸于该字段上线前的老购物车缓存无图时为 `null` |
+| `items[].price` | integer | 商品展示价（分）；多规格商品为默认 / 起始价，各规格精确价见 `items[].sku_options[].price` |
+| `items[].original_price` | integer \| null | 商品划线原价（分）；无原价活动（不打折）时为 `null` |
 | `items[].available` | boolean | 商品是否有货 |
 | `items[].min_purchase` | integer | 起购份数，≥ 1；`1` 表示无起购约束 |
 | `items[].available_quantity` | integer \| null | 库存余量（份）：正整数=剩余可购，`0` 售罄，`null` 充足或未知；菜单快照、仅供展示参考 |
@@ -119,6 +121,8 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
       "item_id": "item_xxx",
       "name": "生椰拿铁",
       "image_url": "https://cube.elemecdn.com/8/be/57a834efd750f506fb634dd3f6700jpg.jpg",
+      "price": 1600,
+      "original_price": null,
       "available": true,
       "sku_options": [
         {"sku_id": "sku_a", "name": "中杯", "price": 1600, "available": true,
