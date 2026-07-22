@@ -11,7 +11,7 @@ import { Info, Warning, Check } from '/components/Callout';
 
 **Takeout Assistant** gets a takeout order done for the user: search nearby shops, browse the menu and pick dishes, preview and place the order, and track delivery—the whole flow in one place.
 
-It is an **installable skill pack built on top of the Gateway**, installed on your Agent (Claude Code / OpenClaw / Codex). Once installed, the Agent places orders by calling the **actions** exposed by the skill script—it **never touches the Gateway API directly**. The interaction flow, wording conventions, and recovery guidance are all packaged into the skill, ready to use out of the box.
+It is an **installable skill pack built on top of the Gateway**, installed on your Agent (Claude Code / OpenClaw / Codex). Once installed, the Agent places orders by calling the CLI **subcommands** exposed by the skill (mapping 1:1 to the Gateway's MCP tools)—it **never touches the Gateway API directly**. The interaction flow, wording conventions, and recovery guidance are all packaged into the skill, ready to use out of the box.
 
 <Info>
 Want to orchestrate the underlying capabilities with raw APIs yourself? Behind the skill are the Gateway's 18 MCP tools. For fine-grained control, see the [MCP Overview](/en/mcp/overview); this page is about the "install and go" packaging.
@@ -37,13 +37,13 @@ The install script downloads from the latest Release, verifies sha256, and extra
 After installing, drop a `.env` into the skill root:
 
 ```bash
-API_KEY=clw_your_api_key                          # Required: Agent identity
-GATEWAY_URL=https://eleme-gateway.hicaspian.com   # Gateway URL (this is the default; the script appends /api/v1)
-CONSENT_GRANT_ID=                                  # Leave empty; written back automatically after the user binds (cg_)
-# Optional: REDIS_URL (share authorizations across processes for multi-user), DEFAULT_LAT / DEFAULT_LNG (personal cold-start fallback location)
+API_KEY=clw_your_api_key                                    # Required: Agent identity
+GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP endpoint (this is the default; may be omitted)
+# CONSENT_GRANT_ID=                                          # Read-only pre-injection (optional); normally the credential lives in the shared cache ~/.clawdot/
+# Optional: CLAWDOT_HOME (shared credential cache dir), DEFAULT_LAT / DEFAULT_LNG (cold-start fallback location)
 ```
 
-`API_KEY` is required; `GATEWAY_URL` can stay at its default. Create an Agent and enable the takeout capability in the [console](https://console.hicaspian.com/agents) to get an API Key starting with `clw_`.
+`API_KEY` is required; `GATEWAY_MCP_URL` can stay at its default. Create an Agent and enable the takeout capability in the [console](https://console.hicaspian.com/agents) to get an API Key starting with `clw_`.
 
 ## Authentication
 
@@ -55,35 +55,38 @@ The skill uses **two-layer identity**, but you **only need to inject one value**
 Binding takes two steps (SMS by default, H5 link also supported):
 
 <Check>
-`request_code` (step 1, sends an SMS / returns an authorization link) → `verify_code` (step 2, verify code / poll) → on success the script **writes the `cg_` back to `CONSENT_GRANT_ID` in `.env` automatically**.
+`request_user_bind` (step 1, sends an SMS / returns an authorization link) → `verify_user_bind` (step 2, verify code / poll) → on success the credential is written to the **shared cache** (`~/.clawdot/credentials.json`, isolated per API_KEY + phone, and it survives skill upgrades).
 </Check>
 
 - **Single user:** after binding once, business calls **need no `--phone`**.
-- **Multi-user:** one `API_KEY` can serve multiple users, each bound once; business calls pass `--phone <11-digit phone>` to say who (authorization is cached by phone number, optionally shared across processes via `REDIS_URL`).
+- **Multi-user:** one `API_KEY` can serve multiple users, each bound once; business calls pass `--phone <11-digit phone>` to say who (authorization is stored in the shared cache, keyed by phone number).
 
 <Warning>
 **No admin silent binding.** Every user must authorize in person once—there is no backend secret that can skip this step for them.
 </Warning>
 
-## The 9 actions
+## The 12 commands
 
-The Agent invokes actions through the script: `python3 scripts/takeout.py [--phone <phone>] --action <action>`.
+The Agent invokes CLI subcommands (mapping 1:1 to the Gateway's MCP tool names): `python3 scripts/clawdot.py <command> [--phone <phone>]`.
 
-| action | Purpose | Key parameters |
+| command | Purpose | Key parameters |
 |--------|---------|----------------|
-| `addresses` | Query / search / create a delivery address | `--address-keyword? --city? --select-token? --contact-name? --contact-phone? --address-detail? --address-tag?` |
-| `search` | Search nearby shops | `--shop-keyword? --lat? --lng?` |
-| `recommend` | **Search shops + fetch the top N menus in parallel, in one step** | `--shop-keyword? --lat? --lng? --top-n?` (default 3, max 5) |
-| `menu` | Drill into a menu (overview → category → item detail) | `--shop-id --category? --item-id? --shop-keyword?` |
-| `preview` | Preview an order → `preview_id` + `confirmation_token` | `--shop-id --address-id --items (JSON array) --note?` |
-| `order` | Confirm and place the order → `order_id` + `payment_link` | `--preview-id --confirmation-token` |
-| `order_status` | Query order delivery status | `--order-id` |
-| `request_code` | Binding step 1 (sends an SMS by default; `--auth-type h5` returns an authorization link) | `--phone --auth-type?(sms/h5)` |
-| `verify_code` | Binding step 2 (SMS verify / H5 poll); caches the authorization on success | sms: `--phone --bind-id --code`; h5: `--phone --auth-type h5 --request-id` |
+| `search_addresses` | List saved addresses; search new ones with `--keyword` | `--keyword? --city? --lat? --lng?` |
+| `select_address` | Save an address (a `--sug-ref` candidate or a saved `--address-id`) | `--sug-ref? --address-id? --contact-name --contact-phone --address-detail? --tag?` |
+| `search_shops` | Search nearby shops | `--keyword? --lat? --lng? --city?` |
+| `recommend` | **Search shops + fetch the top N menus in parallel, in one step (composite command)** | `--keyword? --lat? --lng? --top-n?` (default 3, max 5) |
+| `get_shop_menu` | Drill into a menu (overview → category → item detail) | `--shop-id --category? --item-id? --keyword?` |
+| `get_item_options` | Batch-fetch full specs / add-ons for items (with selection marks) | `--shop-id --items (JSON array)` |
+| `preview_order` | Preview an order → `preview_id` + `confirmation_token` | `--shop-id --address-id --items (JSON array) --note?` |
+| `create_order` | Confirm and place the order → `order_id` + `payment_link` | `--preview-id --confirmation-token` |
+| `get_order_status` | Query order delivery status | `--order-id` |
+| `get_user_auth_status` | Check the user's authorization status (liveness of the grant) | `--phone?` |
+| `request_user_bind` | Binding step 1 (sends an SMS by default; `--auth-type h5` returns an authorization link) | `--phone --auth-type?(sms/h5)` |
+| `verify_user_bind` | Binding step 2 (SMS verify / H5 poll); writes the shared credential cache on success | sms: `--phone --bind-id --code`; h5: `--phone --auth-type h5 --request-id` |
 
 ## Order item model
 
-The `--items` of `preview` is a JSON array; each element describes one item:
+The `--items` of `preview_order` is a JSON array; each element describes one item:
 
 ```json
 [
@@ -99,7 +102,7 @@ The `--items` of `preview` is a JSON array; each element describes one item:
 
 - **`item_id` and `quantity`** are required; **`sku_id`, `ingredient_option_ids`, `remark`** are optional.
 - `sku_id` comes from the item's `sku_options[].sku_id` (omit it to use the default spec); `ingredient_option_ids` come from `ingredient_options[].option_id`.
-- All ids come from the **current shop's `menu` output**—never reuse them across shops, and never use a dish name as an id.
+- All ids come from the **current shop's `get_shop_menu` output**—never reuse them across shops, and never use a dish name as an id.
 - All amount fields are in **cents**.
 
 ## Interaction model
@@ -109,7 +112,7 @@ The "soul" of the skill is a set of shared interaction conventions, so the Agent
 **Success / failure signals:**
 
 - **Success** = the script returns JSON on stdout.
-- **Failure** = the script prints an error + `RECOVERY[CODE]: <next step>` on stderr, with a non-zero exit code. The Agent picks the next action from the RECOVERY hint—for example `USER_NOT_BOUND_NEEDS_SMS` → run `request_code` / `verify_code` to bind; a stale reference (e.g. `REFERENCE_STALE`) → redo `search` → `menu` to get fresh ids.
+- **Failure** = the script prints an error + `RECOVERY[CODE]: <next step>` on stderr, with a non-zero exit code. The Agent picks the next action from the RECOVERY hint—for example `USER_NOT_BOUND_NEEDS_SMS` → run `request_user_bind` / `verify_user_bind` to bind; a stale reference (e.g. `REFERENCE_STALE`) → redo `search_shops` → `get_shop_menu` to get fresh ids.
 
 **Execution rules:**
 
