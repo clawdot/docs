@@ -11,7 +11,7 @@ import { Info, Warning, Check } from '/components/Callout';
 
 **Takeout 外卖助手** 帮用户把一顿外卖点完：搜附近店铺、看菜单选菜、预览下单、追踪订单——全流程一站搞定。
 
-它是一个**建立在网关之上、可安装的技能包**，装在你的 Agent（Claude Code / OpenClaw / Codex）上。装好后，Agent 通过调用技能脚本暴露的 **action** 来完成点单，**不直接接触网关接口**——交互流程、措辞规范、纠错引导都已封装在技能里，开箱即用。
+它是一个**建立在网关之上、可安装的技能包**，装在你的 Agent（Claude Code / OpenClaw / Codex）上。装好后，Agent 通过调用技能 CLI 暴露的**子命令**（1:1 对应网关 MCP 工具名）来完成点单，**不直接接触网关接口**——交互流程、措辞规范、纠错引导都已封装在技能里，开箱即用。
 
 <Info>
 想自己用裸接口编排底层能力？技能背后是网关的 18 个 MCP 工具。需要细粒度控制时看 [MCP 概览](/mcp/overview)；本页讲的是"装上即用"的封装。
@@ -37,13 +37,13 @@ curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/
 装完后，在技能根目录放一个 `.env`：
 
 ```bash
-API_KEY=clw_your_api_key                          # 必填：Agent 身份
-GATEWAY_URL=https://eleme-gateway.hicaspian.com   # 网关地址（默认即此，脚本自动追加 /api/v1）
-CONSENT_GRANT_ID=                                  # 留空；用户绑定后自动回写（cg_）
-# 可选：REDIS_URL（多用户跨进程共享授权）、DEFAULT_LAT / DEFAULT_LNG（个人冷启动兜底定位）
+API_KEY=clw_your_api_key                                    # 必填：Agent 身份
+GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP 端点（默认即此，可不填）
+# CONSENT_GRANT_ID=                                          # 只读预注入（可选）；正常流程绑定后凭证存共享缓存 ~/.clawdot/
+# 可选：CLAWDOT_HOME（共享凭证缓存目录）、DEFAULT_LAT / DEFAULT_LNG（冷启动兜底定位）
 ```
 
-其中 `API_KEY` 必填，`GATEWAY_URL` 用默认值即可。到[控制台](https://console.hicaspian.com/agents)创建 Agent、开通外卖能力，拿到 `clw_` 开头的 API Key。
+其中 `API_KEY` 必填，`GATEWAY_MCP_URL` 用默认值即可。到[控制台](https://console.hicaspian.com/agents)创建 Agent、开通外卖能力，拿到 `clw_` 开头的 API Key。
 
 ## 鉴权
 
@@ -55,35 +55,38 @@ CONSENT_GRANT_ID=                                  # 留空；用户绑定后自
 绑定走两步（SMS 默认，也支持 H5 链接）：
 
 <Check>
-`request_code`（第 1 步，发短信 / 返回授权链接）→ `verify_code`（第 2 步，验码 / 轮询）→ 成功后脚本**自动把 `cg_` 回写 `.env` 的 `CONSENT_GRANT_ID`**。
+`request_user_bind`（第 1 步，发短信 / 返回授权链接）→ `verify_user_bind`（第 2 步，验码 / 轮询）→ 成功后凭证写入**共享缓存**（`~/.clawdot/credentials.json`，按 API_KEY + 手机号隔离，skill 升级重装不丢）。
 </Check>
 
 - **单用户：** 绑定一次后，业务调用**无需 `--phone`**。
-- **多用户：** 一个 `API_KEY` 可服务多个用户，各自绑定一次；业务调用带 `--phone <11位手机号>` 指定是谁（按手机号缓存授权，可选 `REDIS_URL` 跨进程共享）。
+- **多用户：** 一个 `API_KEY` 可服务多个用户，各自绑定一次；业务调用带 `--phone <11位手机号>` 指定是谁（按手机号存共享缓存）。
 
 <Warning>
 **无 admin 静默绑定。** 每个用户必须本人授权一次——没有任何后台密钥能替用户跳过这一步。
 </Warning>
 
-## 9 个 action
+## 12 个命令
 
-Agent 通过脚本调用 action：`python3 scripts/takeout.py [--phone <手机号>] --action <action>`。
+Agent 通过 CLI 子命令调用（子命令 1:1 对应网关 MCP 工具名）：`python3 scripts/clawdot.py <command> [--phone <手机号>]`。
 
-| action | 用途 | 关键参数 |
+| command | 用途 | 关键参数 |
 |--------|------|----------|
-| `addresses` | 查询 / 搜索 / 新建收货地址 | `--address-keyword? --city? --select-token? --contact-name? --contact-phone? --address-detail? --address-tag?` |
-| `search` | 搜索附近店铺 | `--shop-keyword? --lat? --lng?` |
-| `recommend` | **搜店 + 并行取 top N 家菜单一步到位** | `--shop-keyword? --lat? --lng? --top-n?`（默认 3，最多 5）|
-| `menu` | 菜单钻取（概览 → 分类 → 商品详情） | `--shop-id --category? --item-id? --shop-keyword?` |
-| `preview` | 预览订单 → `preview_id` + `confirmation_token` | `--shop-id --address-id --items（JSON 数组） --note?` |
-| `order` | 确认下单 → `order_id` + `payment_link`（付款链接） | `--preview-id --confirmation-token` |
-| `order_status` | 查询订单配送状态 | `--order-id` |
-| `request_code` | 绑定第 1 步（默认发短信；`--auth-type h5` 返回授权链接） | `--phone --auth-type?(sms/h5)` |
-| `verify_code` | 绑定第 2 步（SMS 验码 / H5 轮询），成功缓存授权 | sms：`--phone --bind-id --code`；h5：`--phone --auth-type h5 --request-id` |
+| `search_addresses` | 列出已存地址；带 `--keyword` 搜索新地址 | `--keyword? --city? --lat? --lng?` |
+| `select_address` | 保存地址（候选 `--sug-ref` 或已存 `--address-id`） | `--sug-ref? --address-id? --contact-name --contact-phone --address-detail? --tag?` |
+| `search_shops` | 搜索附近店铺 | `--keyword? --lat? --lng? --city?` |
+| `recommend` | **搜店 + 并行取 top N 家菜单一步到位（复合命令）** | `--keyword? --lat? --lng? --top-n?`（默认 3，最多 5）|
+| `get_shop_menu` | 菜单钻取（概览 → 分类 → 商品详情） | `--shop-id --category? --item-id? --keyword?` |
+| `get_item_options` | 批量查商品完整规格 / 加料（含选中标记） | `--shop-id --items（JSON 数组）` |
+| `preview_order` | 预览订单 → `preview_id` + `confirmation_token` | `--shop-id --address-id --items（JSON 数组） --note?` |
+| `create_order` | 确认下单 → `order_id` + `payment_link`（付款链接） | `--preview-id --confirmation-token` |
+| `get_order_status` | 查询订单配送状态 | `--order-id` |
+| `get_user_auth_status` | 查询用户授权状态（验活凭证） | `--phone?` |
+| `request_user_bind` | 绑定第 1 步（默认发短信；`--auth-type h5` 返回授权链接） | `--phone --auth-type?(sms/h5)` |
+| `verify_user_bind` | 绑定第 2 步（SMS 验码 / H5 轮询），成功写共享缓存 | sms：`--phone --bind-id --code`；h5：`--phone --auth-type h5 --request-id` |
 
 ## 下单 item 模型
 
-`preview` 的 `--items` 是一个 JSON 数组，每个元素描述一个商品：
+`preview_order` 的 `--items` 是一个 JSON 数组，每个元素描述一个商品：
 
 ```json
 [
@@ -99,7 +102,7 @@ Agent 通过脚本调用 action：`python3 scripts/takeout.py [--phone <手机�
 
 - **`item_id`、`quantity`** 必填；**`sku_id`、`ingredient_option_ids`、`remark`** 可选。
 - `sku_id` 取自商品的 `sku_options[].sku_id`（不传用默认规格）；`ingredient_option_ids` 取自 `ingredient_options[].option_id`。
-- 所有 id 都来自**当前店的 `menu` 输出**——禁止跨店复用，禁止把中文菜名当 id。
+- 所有 id 都来自**当前店的 `get_shop_menu` 输出**——禁止跨店复用，禁止把中文菜名当 id。
 - 金额字段单位均为**分**。
 
 ## 交互范式
@@ -109,7 +112,7 @@ Agent 通过脚本调用 action：`python3 scripts/takeout.py [--phone <手机�
 **成功 / 失败信号：**
 
 - **成功** = 脚本 stdout 返回 JSON。
-- **失败** = stderr 输出中文错误 + `RECOVERY[CODE]: <下一步>`，非零退出码。Agent 按 RECOVERY 提示挑下一个 action——例如 `USER_NOT_BOUND_NEEDS_SMS` → 走 `request_code` / `verify_code` 绑定；引用过期（如 `REFERENCE_STALE`）→ 重新 `search` → `menu` 拿新 id。
+- **失败** = stderr 输出中文错误 + `RECOVERY[CODE]: <下一步>`，非零退出码。Agent 按 RECOVERY 提示挑下一个 action——例如 `USER_NOT_BOUND_NEEDS_SMS` → 走 `request_user_bind` / `verify_user_bind` 绑定；引用过期（如 `REFERENCE_STALE`）→ 重新 `search_shops` → `get_shop_menu` 拿新 id。
 
 **执行铁律：**
 

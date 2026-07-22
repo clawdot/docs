@@ -13,7 +13,7 @@ import { Tabs, Tab } from '/components/Tabs';
 
 <CardGroup cols={3}>
   <Card title="Claude Code" icon="terminal">
-    解压到 skills 目录，含 SKILL.md + scripts/takeout.py，靠技能 description 自动触发。
+    解压到 skills 目录，含 SKILL.md + scripts/clawdot.py，靠技能 description 自动触发。
   </Card>
 
   <Card title="OpenClaw" icon="bot">
@@ -42,8 +42,8 @@ import { Tabs, Tab } from '/components/Tabs';
     ```
 
     - **装到哪**：解压到 Claude Code 的 skills 目录。
-    - **包含什么**：`SKILL.md`（技能说明）+ `scripts/takeout.py`（执行脚本）。
-    - **怎么触发**：Claude Code 读取技能的 `description`，当你提到点外卖、想吃什么、饿了等需求时**自动触发**该技能，再由它调用 `scripts/takeout.py` 完成各个动作。
+    - **包含什么**：`SKILL.md`（技能说明）+ `scripts/clawdot.py`（MCP CLI 执行脚本）。
+    - **怎么触发**：Claude Code 读取技能的 `description`，当你提到点外卖、想吃什么、饿了等需求时**自动触发**该技能，再由它调用 `scripts/clawdot.py` 完成各个命令。
   </Tab>
 
   <Tab title="OpenClaw">
@@ -74,16 +74,16 @@ import { Tabs, Tab } from '/components/Tabs';
 
 ## 装完配置 `.env`
 
-三个平台装完后，都在技能根目录放一个 `.env`。**唯一必填的是 `API_KEY`**（你的 Agent 身份，`clw_` 前缀）；`GATEWAY_URL` 用默认即可。
+三个平台装完后，都在技能根目录放一个 `.env`。**唯一必填的是 `API_KEY`**（你的 Agent 身份，`clw_` 前缀）；`GATEWAY_MCP_URL` 用默认即可（可不填）。
 
 ```bash
-GATEWAY_URL=https://eleme-gateway.hicaspian.com   # 网关地址（脚本自动追加 /api/v1，留默认即可）
-API_KEY=clw_your_api_key                          # 唯一必填：Agent 身份
-CONSENT_GRANT_ID=                                  # 留空；用户首次绑定后自动回写（cg_ 前缀）
+GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP 端点（留默认即可，可不填）
+API_KEY=clw_your_api_key                                    # 唯一必填：Agent 身份
+# CONSENT_GRANT_ID=                                          # 只读预注入（可选）；正常流程绑定后凭证存共享缓存 ~/.clawdot/
 ```
 
 - `clw_` 开头的 **API Key** 在 [控制台 → Agents](https://console.hicaspian.com/agents) 创建 Agent、开通外卖能力时获取。
-- `CONSENT_GRANT_ID`（用户授权，`cg_` 前缀）**开局留空**：用户首次走一次短信或 H5 绑定后，脚本会自动把它回写进 `.env`。授权与绑定的细节见 [安全模型](/skills/security-model)。
+- 用户授权（`cg_` 前缀）**无需配置**：用户首次走一次短信或 H5 绑定后，凭证写入共享缓存（`~/.clawdot/credentials.json`，按 API_KEY + 手机号隔离）；`CONSENT_GRANT_ID` 仅作无状态部署的只读预注入项。授权与绑定的细节见 [安全模型](/skills/security-model)。
 
 ---
 
@@ -98,7 +98,7 @@ CONSENT_GRANT_ID=                                  # 留空；用户首次绑定
 <details>
 <summary>三个平台用的是同一个技能包吗？</summary>
 
-是的，同一个 `takeout` 技能包，区别只在**适配层**：Claude Code 用 `SKILL.md` + `scripts/takeout.py`，OpenClaw 用 `SKILL.md`，Codex 用 `AGENTS.md`。核心的执行脚本与交互指南（GUIDE）三平台共用。
+是的，同一个 `takeout` 技能包，区别只在**适配层**：Claude Code 用 `SKILL.md` + `scripts/clawdot.py`，OpenClaw 用 `SKILL.md`，Codex 用 `AGENTS.md`。核心的执行脚本与交互指南（GUIDE）三平台共用。
 
 </details>
 

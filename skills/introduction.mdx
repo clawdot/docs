@@ -60,7 +60,7 @@ import Mermaid from '/components/Mermaid';
 | 上手 | 灵活，但要自己定义交互 | 开箱即用，装上即具备能力 |
 | 适合 | 想精细控制底层、自建 Agent 逻辑 | 想让 Agent 直接会"点外卖" |
 
-简单说：**MCP 给你零件，Skill 给你成品。** 如果你想自己编排底层的 18 个工具、做更精细的控制，看 [MCP 概览](/mcp/overview)。
+简单说：**MCP 给你零件，Skill 给你成品**——且 Skill 的 CLI 底层调用的就是同一套 MCP 工具（`tools/call`，子命令 1:1 对应工具名），两条路径的能力与行为完全一致。 如果你想自己编排底层的 18 个工具、做更精细的控制，看 [MCP 概览](/mcp/overview)。
 
 ## Skill 的组成
 
@@ -70,7 +70,7 @@ import Mermaid from '/components/Mermaid';
 |---------|------|
 | **skill.yaml** | 技能元信息：名称、版本、鉴权模型、环境依赖（`requires`）、动作列表（`actions`）、支持平台（`platforms`） |
 | **GUIDE.md** | 交互指南，技能的"灵魂"——平台无关地规定 Agent 何时调用哪个动作、如何对用户说话、成功/失败如何处置 |
-| **scripts/** | 执行脚本：实际调用网关的逻辑代码（如 `takeout.py`，内含 open-gateway 客户端与各个 action） |
+| **scripts/** | 执行脚本：实际调用网关的逻辑代码（如 `clawdot.py`，MCP 客户端——每个子命令 = 一次网关 MCP `tools/call`） |
 | **platforms/** | 平台适配层：针对 Claude Code（SKILL.md）、OpenClaw（SKILL.md）、Codex（AGENTS.md）各一份 |
 
 ## 已开放的技能
@@ -91,13 +91,13 @@ import Mermaid from '/components/Mermaid';
 curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
 ```
 
-装完在 skill 根目录放一个 `.env`，填入你的 `API_KEY`（agent 身份，`clw_` 前缀，在[控制台](https://console.hicaspian.com/agents)创建 Agent 时拿到）；`GATEWAY_URL` 用默认的 `https://eleme-gateway.hicaspian.com` 即可。三个平台各自的安装与触发方式见[安装与平台](/skills/supported-platforms)。
+装完在 skill 根目录放一个 `.env`，填入你的 `API_KEY`（agent 身份，`clw_` 前缀，在[控制台](https://console.hicaspian.com/agents)创建 Agent 时拿到）；`GATEWAY_MCP_URL` 用默认的 `https://eleme-gateway.hicaspian.com/mcp/v1` 即可（可不填）。三个平台各自的安装与触发方式见[安装与平台](/skills/supported-platforms)。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="takeout 外卖助手" href="/skills/takeout" icon="utensils">
-    一句话定位、鉴权、9 个 action、下单模型与交互范式。
+    一句话定位、鉴权、12 个命令、下单模型与交互范式。
   </Card>
 
   <Card title="安装与平台" href="/skills/supported-platforms" icon="layout-grid">

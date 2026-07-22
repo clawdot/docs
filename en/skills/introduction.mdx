@@ -60,7 +60,7 @@ The two target different integration styles and complement each other:
 | Ramp-up | Flexible, but you define the interaction | Works out of the box—install and the capability is there |
 | Best for | Fine-grained control over the lower layer, building your own Agent logic | Letting an Agent simply know how to "order takeout" |
 
-In short: **MCP gives you the parts, a Skill gives you the finished product.** If you want to orchestrate the 18 underlying tools yourself for finer control, see the [MCP Overview](/en/mcp/overview).
+In short: **MCP gives you the parts, a Skill gives you the finished product** — and under the hood the Skill's CLI speaks the very same MCP tools (`tools/call`, subcommands mapping 1:1 to tool names), so both paths behave identically. If you want to orchestrate the 18 underlying tools yourself for finer control, see the [MCP Overview](/en/mcp/overview).
 
 ## Anatomy of a Skill
 
@@ -70,7 +70,7 @@ Each Skill is a standardized directory with the following main parts:
 |---------|------|
 | **skill.yaml** | Skill metadata: name, version, auth model, environment dependencies (`requires`), action list (`actions`), supported platforms (`platforms`) |
 | **GUIDE.md** | The interaction guide, the "soul" of the skill—platform-agnostic rules for when the Agent calls which action, how it talks to the user, and how it handles success/failure |
-| **scripts/** | Execution scripts: the logic that actually calls the gateway (e.g. `takeout.py`, containing the open-gateway client and each action) |
+| **scripts/** | Execution scripts: the logic that actually calls the gateway (e.g. `clawdot.py`, an MCP client — each subcommand is one gateway MCP `tools/call`) |
 | **platforms/** | Platform adaptation layer: one each for Claude Code (SKILL.md), OpenClaw (SKILL.md), and Codex (AGENTS.md) |
 
 ## Open Skills
@@ -91,13 +91,13 @@ Skills are hosted on GitHub Releases; the install script downloads, verifies the
 curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
 ```
 
-After installing, drop a `.env` in the skill root with your `API_KEY` (the agent identity, `clw_` prefix, obtained when you create an Agent in the [console](https://console.hicaspian.com/agents)); `GATEWAY_URL` can stay at the default `https://eleme-gateway.hicaspian.com`. See [Installation & Platforms](/en/skills/supported-platforms) for the install and trigger details of each platform.
+After installing, drop a `.env` in the skill root with your `API_KEY` (the agent identity, `clw_` prefix, obtained when you create an Agent in the [console](https://console.hicaspian.com/agents)); `GATEWAY_MCP_URL` can stay at the default `https://eleme-gateway.hicaspian.com/mcp/v1` (or be omitted). See [Installation & Platforms](/en/skills/supported-platforms) for the install and trigger details of each platform.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="takeout delivery assistant" href="/en/skills/takeout" icon="utensils">
-    One-line positioning, auth, the 9 actions, the ordering model, and the interaction patterns.
+    One-line positioning, auth, the 12 commands, the ordering model, and the interaction patterns.
   </Card>
 
   <Card title="Installation & Platforms" href="/en/skills/supported-platforms" icon="layout-grid">

@@ -13,7 +13,7 @@ import { Tabs, Tab } from '/components/Tabs';
 
 <CardGroup cols={3}>
   <Card title="Claude Code" icon="terminal">
-    Unpacked into the skills directory, with SKILL.md + scripts/takeout.py; triggered automatically by the skill description.
+    Unpacked into the skills directory, with SKILL.md + scripts/clawdot.py; triggered automatically by the skill description.
   </Card>
 
   <Card title="OpenClaw" icon="bot">
@@ -42,8 +42,8 @@ The install script downloads the skill package from the latest [Release](https:/
     ```
 
     - **Where it lands**: unpacked into Claude Code's skills directory.
-    - **What's inside**: `SKILL.md` (the skill instructions) + `scripts/takeout.py` (the executor script).
-    - **How it triggers**: Claude Code reads the skill's `description` and **triggers it automatically** when you mention ordering food, what you'd like to eat, being hungry, etc.; the skill then calls `scripts/takeout.py` to carry out each action.
+    - **What's inside**: `SKILL.md` (the skill instructions) + `scripts/clawdot.py` (the MCP CLI executor).
+    - **How it triggers**: Claude Code reads the skill's `description` and **triggers it automatically** when you mention ordering food, what you'd like to eat, being hungry, etc.; the skill then calls `scripts/clawdot.py` to carry out each command.
   </Tab>
 
   <Tab title="OpenClaw">
@@ -74,12 +74,12 @@ The latest version is installed by default. To pin a version, append the version
 
 ## Configure `.env` after installing
 
-On all three platforms, after installing you drop a `.env` in the skill root. **The only required field is `API_KEY`** (your Agent identity, `clw_` prefix); `GATEWAY_URL` can stay at its default.
+On all three platforms, after installing you drop a `.env` in the skill root. **The only required field is `API_KEY`** (your Agent identity, `clw_` prefix); `GATEWAY_MCP_URL` can stay at its default (or be omitted).
 
 ```bash
-GATEWAY_URL=https://eleme-gateway.hicaspian.com   # Gateway URL (the script appends /api/v1; leave as default)
+GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP endpoint (leave as default; may be omitted)
 API_KEY=clw_your_api_key                          # Required: Agent identity
-CONSENT_GRANT_ID=                                  # Leave empty; written back automatically after a user binds (cg_ prefix)
+# CONSENT_GRANT_ID=                                          # Read-only pre-injection (optional); normally the credential lives in the shared cache ~/.clawdot/
 ```
 
 - The `clw_` **API Key** is obtained when you create an Agent and enable food-delivery in the [Console → Agents](https://console.hicaspian.com/agents).
@@ -98,7 +98,7 @@ Once installed with `API_KEY` filled in, your Agent can drive `takeout` through 
 <details>
 <summary>Do all three platforms use the same skill package?</summary>
 
-Yes — it's the same `takeout` package; the only difference is the **adapter layer**: Claude Code uses `SKILL.md` + `scripts/takeout.py`, OpenClaw uses `SKILL.md`, and Codex uses `AGENTS.md`. The core executor script and interaction guide (GUIDE) are shared across all three.
+Yes — it's the same `takeout` package; the only difference is the **adapter layer**: Claude Code uses `SKILL.md` + `scripts/clawdot.py`, OpenClaw uses `SKILL.md`, and Codex uses `AGENTS.md`. The core executor script and interaction guide (GUIDE) are shared across all three.
 
 </details>
 
