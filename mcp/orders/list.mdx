@@ -1,0 +1,107 @@
+---
+title: "list_orders"
+description: "MCP 工具，分页查询当前授权用户的历史订单列表（本地快照，新单在前）"
+---
+
+## list_orders
+
+分页查询当前授权用户的历史订单列表，按创建时间倒序（新单在前）。返回的是网关**本地快照**，不回源上游——每条订单的 `status` 是最近一次刷新（支付回调或 `get_order_status` 查询）时的状态。
+
+<Note>
+  **实时状态以 `get_order_status` 为准。** `list_orders` 用于列出历史订单概览（状态 / 店铺 / 应付金额 / 时间）；需要商品明细、配送状态、支付/完成时间等完整信息时，用列表里的 `order_id` 调 `get_order_status`。
+</Note>
+
+<Note>
+  **授权轮换不影响可见范围。** 订单挂在用户授权关系上（而非某一个 `consent_grant_id`）：用户重新绑定 / 授权轮换后换发的新 `consent_grant_id` 仍能看到该用户的**全部历史订单**。列表按当前授权用户维度隔离，不会返回他人订单。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `limit` | integer | 否 | `20` | 单页返回条数，最大 50（超过按 50 截断，小于 1 按 1）|
+| `offset` | integer | 否 | `0` | 翻页偏移量，从 0 开始；传上一次响应的 `next_offset` 取下一页。上限 1000000，超过按上限截断，负数按 0 |
+
+### 返回
+
+```json
+{
+  "orders": [
+    {
+      "order_id": "ord_c47fb84108b74404aa1abd01310c8b8f",
+      "status": "completed",
+      "status_text": "已完成",
+      "shop_name": "茶百道(星光大道24h店)",
+      "payable_price": 2300,
+      "created_at": "2026-07-20T11:27:06",
+      "updated_at": "2026-07-20T11:52:31"
+    }
+  ],
+  "next_offset": null
+}
+```
+
+<Warning>
+  金额字段 `payable_price` 单位为**分（整数）**，不是元。例如 `payable_price: 2300` 表示 ¥23.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `orders` | array | 订单列表，按创建时间倒序（新单在前）|
+| `orders[].order_id` | string | 平台订单 ID（`ord_` 前缀），可直接用于 `get_order_status` |
+| `orders[].status` | string | 订单状态快照，归一化后的平台状态枚举（见下表）|
+| `orders[].status_text` | string | 状态的中文文案（与 `status` 一一对应）|
+| `orders[].shop_name` | string | 店铺名称 |
+| `orders[].payable_price` | integer | 应付金额（分）|
+| `orders[].created_at` | string | 下单时间（ISO 8601）|
+| `orders[].updated_at` | string | 订单快照最近更新时间（ISO 8601）；未更新时等于 `created_at` |
+| `next_offset` | integer \| null | 下一页游标，作为下次请求的 `offset`；无更多时为 `null` |
+
+**`status` 枚举与 `status_text` 对照：**
+
+| `status` | `status_text` |
+|------|------|
+| `created` | 订单已创建 |
+| `pending_payment` | 待支付 |
+| `paid` | 已支付 |
+| `preparing` | 商家备餐中 |
+| `delivering` | 配送中 |
+| `completed` | 已完成 |
+| `cancelled` | 已取消 |
+| `failed` | 下单或履约失败 |
+| `refunded` | 已退款 |
+
+<Note>
+  `status` 为快照值，可能滞后于真实状态（例如订单已进入配送、但快照仍为 `paid`）——快照只在下单、支付回调、`get_order_status` 查询等时刻刷新，不代表实时。对时效敏感的场景以 `get_order_status` 为准。无法识别的上游状态会安全回落为 `created`，不会向调用方泄露渠道原始状态码。
+</Note>
+
+### 分页
+
+- 首次调用不传 `offset`（或传 `0`）取第一页。
+- 响应里的 `next_offset` 非 `null` 时，作为下一次调用的 `offset` 取下一页；为 `null` 表示已到末页。
+- `orders` 为空数组表示该用户暂无订单。
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "list_orders",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "limit": 20
+  }
+}
+```

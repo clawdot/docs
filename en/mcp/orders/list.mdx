@@ -1,0 +1,107 @@
+---
+title: "list_orders"
+description: "MCP tool that paginates the consenting user's order history (local snapshot, newest first)"
+---
+
+## list_orders
+
+Paginates the consenting user's order history, sorted by creation time in descending order (newest first). The result is the gateway's **local snapshot** — it does not call upstream, so each order's `status` reflects the state at the last refresh (payment callback or a `get_order_status` query).
+
+<Note>
+  **Use `get_order_status` for real-time state.** `list_orders` is for listing an overview of past orders (status / shop / payable amount / time). When you need full details — item breakdown, delivery status, paid/completed times — call `get_order_status` with an `order_id` from the list.
+</Note>
+
+<Note>
+  **Consent rotation does not affect visibility.** Orders are attached to the user's consent relationship (not to a single `consent_grant_id`): after the user re-binds or the grant rotates, the newly issued `consent_grant_id` can still see **all of that user's order history**. The list is scoped to the current consenting user and never returns another user's orders.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `limit` | integer | No | `20` | Page size, max 50 (values above 50 are clamped to 50, below 1 to 1) |
+| `offset` | integer | No | `0` | Pagination offset, starting at 0; pass the previous response's `next_offset` for the next page. Capped at 1000000 (above is clamped, negatives become 0) |
+
+### Returns
+
+```json
+{
+  "orders": [
+    {
+      "order_id": "ord_c47fb84108b74404aa1abd01310c8b8f",
+      "status": "completed",
+      "status_text": "已完成",
+      "shop_name": "茶百道(星光大道24h店)",
+      "payable_price": 2300,
+      "created_at": "2026-07-20T11:27:06",
+      "updated_at": "2026-07-20T11:52:31"
+    }
+  ],
+  "next_offset": null
+}
+```
+
+<Warning>
+  The amount field `payable_price` is in **cents (integer)**, not yuan. e.g. `payable_price: 2300` means ¥23.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `orders` | array | Order list, sorted by creation time descending (newest first) |
+| `orders[].order_id` | string | Platform order ID (`ord_` prefix), usable directly with `get_order_status` |
+| `orders[].status` | string | Order status snapshot, normalized platform status enum (see table below) |
+| `orders[].status_text` | string | Localized (Chinese) status label, one-to-one with `status` |
+| `orders[].shop_name` | string | Shop name |
+| `orders[].payable_price` | integer | Payable amount (cents) |
+| `orders[].created_at` | string | Order creation time (ISO 8601) |
+| `orders[].updated_at` | string | Order snapshot's last-update time (ISO 8601); equals `created_at` when never updated |
+| `next_offset` | integer \| null | Next-page cursor, used as the `offset` of the next request; `null` when there are no more |
+
+**`status` enum vs `status_text`:**
+
+| `status` | `status_text` |
+|------|------|
+| `created` | 订单已创建 |
+| `pending_payment` | 待支付 |
+| `paid` | 已支付 |
+| `preparing` | 商家备餐中 |
+| `delivering` | 配送中 |
+| `completed` | 已完成 |
+| `cancelled` | 已取消 |
+| `failed` | 下单或履约失败 |
+| `refunded` | 已退款 |
+
+<Note>
+  `status` is a snapshot and may lag the true state (e.g. the order is already out for delivery but the snapshot still reads `paid`) — the snapshot only refreshes at ordering, payment callback, `get_order_status` queries, etc., and is not real-time. For time-sensitive cases, rely on `get_order_status`. Unrecognized upstream statuses safely fall back to `created` and never leak the channel's raw status code to the caller.
+</Note>
+
+### Pagination
+
+- On the first call, omit `offset` (or pass `0`) to get the first page.
+- When the response's `next_offset` is non-`null`, use it as the `offset` of the next call; `null` means you've reached the last page.
+- An empty `orders` array means the user has no orders.
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Example Call
+
+```json
+{
+  "name": "list_orders",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "limit": 20
+  }
+}
+```
