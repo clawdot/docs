@@ -146,7 +146,8 @@
                                     "mcp/coupons/list",
                                     "mcp/orders/preview",
                                     "mcp/orders/create",
-                                    "mcp/orders/get"
+                                    "mcp/orders/get",
+                                    "mcp/orders/list"
                                 ]
                             },
                             {
@@ -284,7 +285,8 @@
                                     "en/mcp/coupons/list",
                                     "en/mcp/orders/preview",
                                     "en/mcp/orders/create",
-                                    "en/mcp/orders/get"
+                                    "en/mcp/orders/get",
+                                    "en/mcp/orders/list"
                                 ]
                             },
                             {
