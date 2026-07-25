@@ -38,7 +38,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 </Note>
 
 <Warning>
-  All money fields (`price` / `price_delta`) are in **cents (integer)**, not yuan. For example `price: 1600` means ¥16.00.
+  All money fields (`price` / `original_price` / `price_delta`) are in **cents (integer)**, not yuan. For example `price: 1600` means ¥16.00.
 </Warning>
 
 <Note>
@@ -64,7 +64,8 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options` | array | Full spec candidates; empty array for single-spec items |
 | `items[].sku_options[].sku_id` | string | Sku ID (`sku_`), usable directly as an order input |
 | `items[].sku_options[].name` | string | Spec name (e.g. "Large") |
-| `items[].sku_options[].price` | integer | Price of this sku (cents) |
+| `items[].sku_options[].price` | integer | Price of this sku (cents, after discount) |
+| `items[].sku_options[].original_price` | integer \| null | Strike-through original price for this sku (cents, before discount); **`null` when this sku has no discount**. Discounts can differ across specs of the same item — read it per sku, do not reuse `items[].original_price` |
 | `items[].sku_options[].available` | boolean | Whether this sku can be purchased |
 | `items[].sku_options[].specs` | array | Spec detail `[{name, value}]`, e.g. `[{"name": "Cup size", "value": "Large"}]` |
 | `items[].sku_options[].selected` | boolean | The sku the order would actually use; the default sku is marked when `sku_id` is omitted |
@@ -125,7 +126,7 @@ Response (excerpt: the first item succeeds, the second `item_id` is invalid):
       "original_price": null,
       "available": true,
       "sku_options": [
-        {"sku_id": "sku_a", "name": "Medium", "price": 1600, "available": true,
+        {"sku_id": "sku_a", "name": "Medium", "price": 1600, "original_price": null, "available": true,
          "specs": [{"name": "Cup size", "value": "Medium"}], "selected": false,
          "ingredient_options": [
            {"option_id": "opt_1", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
@@ -133,7 +134,7 @@ Response (excerpt: the first item succeeds, the second `item_id` is invalid):
            {"option_id": "opt_2", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
             "selected_by_default": false, "available": true, "selected": false}
          ]},
-        {"sku_id": "sku_b", "name": "Large", "price": 1900, "available": true,
+        {"sku_id": "sku_b", "name": "Large", "price": 1900, "original_price": 2100, "available": true,
          "specs": [{"name": "Cup size", "value": "Large"}], "selected": true,
          "ingredient_options": [
            {"option_id": "opt_3", "group_name": "Temperature", "name": "Iced", "price_delta": 0,

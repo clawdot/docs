@@ -83,7 +83,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].sku_options` | array | SKU options (e.g. cup size); pass the chosen `sku_id` as `items[].sku_id` when ordering |
 | `items[].sku_options[].sku_id` | string | SKU ID (`sku_`), passed back as-is to the order `sku_id` |
 | `items[].sku_options[].name` | string | SKU name (e.g. "Large") |
-| `items[].sku_options[].price` | integer | Price for this SKU (cents) |
+| `items[].sku_options[].price` | integer | Price for this SKU (cents, after discount) |
+| `items[].sku_options[].original_price` | integer \| null | Strike-through original price for this sku (cents, before discount); **`null` when this sku has no discount**. Discounts can differ across specs of the same item — read it per sku, do not reuse `items[].original_price` |
 | `items[].sku_options[].available` | boolean | Whether this SKU is selectable |
 | `items[].sku_options[].ingredient_options` | array | This SKU's **own** ingredient/option choices (same fields as `items[].ingredient_options`); **returned for non-default SKUs only**. Ingredients vary by SKU (e.g. different cup sizes allow different "temperature"); use these `option_id`s when ordering this SKU. |
 | `items[].ingredient_options` | array | Ingredient / option choices (e.g. temperature, sugar) for the **default SKU**; for other SKUs see `items[].sku_options[].ingredient_options` |
