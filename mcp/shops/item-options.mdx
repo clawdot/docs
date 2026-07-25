@@ -38,7 +38,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 </Note>
 
 <Warning>
-  所有金额字段（`price` / `price_delta`）单位为**分（整数）**，不是元。例如 `price: 1600` 表示 ¥16.00。
+  所有金额字段（`price` / `original_price` / `price_delta`）单位为**分（整数）**，不是元。例如 `price: 1600` 表示 ¥16.00。
 </Warning>
 
 <Note>
@@ -64,7 +64,8 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options` | array | 全量规格候选；单规格商品为空数组 |
 | `items[].sku_options[].sku_id` | string | 规格 ID（`sku_`），可直接作为下单入参 |
 | `items[].sku_options[].name` | string | 规格名（如「大杯」）|
-| `items[].sku_options[].price` | integer | 该规格售价（分）|
+| `items[].sku_options[].price` | integer | 该规格售价（折后现价，分）|
+| `items[].sku_options[].original_price` | integer \| null | 该规格划线原价（优惠前，分）；该规格**无折扣时为 `null`**。同一商品各规格折扣可不同，请逐规格取用，勿套用 `items[].original_price` |
 | `items[].sku_options[].available` | boolean | 该规格是否可购买 |
 | `items[].sku_options[].specs` | array | 规格明细 `[{name, value}]`，如 `[{"name": "杯型", "value": "大杯"}]` |
 | `items[].sku_options[].selected` | boolean | 当前选择下实际生效的规格；不传 `sku_id` 时标默认规格 |
@@ -125,7 +126,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
       "original_price": null,
       "available": true,
       "sku_options": [
-        {"sku_id": "sku_a", "name": "中杯", "price": 1600, "available": true,
+        {"sku_id": "sku_a", "name": "中杯", "price": 1600, "original_price": null, "available": true,
          "specs": [{"name": "杯型", "value": "中杯"}], "selected": false,
          "ingredient_options": [
            {"option_id": "opt_1", "group_name": "温度", "name": "冰", "price_delta": 0,
@@ -133,7 +134,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
            {"option_id": "opt_2", "group_name": "温度", "name": "热", "price_delta": 0,
             "selected_by_default": false, "available": true, "selected": false}
          ]},
-        {"sku_id": "sku_b", "name": "大杯", "price": 1900, "available": true,
+        {"sku_id": "sku_b", "name": "大杯", "price": 1900, "original_price": 2100, "available": true,
          "specs": [{"name": "杯型", "value": "大杯"}], "selected": true,
          "ingredient_options": [
            {"option_id": "opt_3", "group_name": "温度", "name": "冰", "price_delta": 0,
