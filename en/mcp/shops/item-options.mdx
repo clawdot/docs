@@ -61,6 +61,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].available` | boolean | Whether the item is in stock |
 | `items[].min_purchase` | integer | Minimum purchase quantity, ≥ 1; `1` means no minimum |
 | `items[].available_quantity` | integer \| null | Remaining stock (units): positive = units left, `0` = sold out, `null` = ample or unknown; menu-time snapshot, display only |
+| `items[].promo_labels` | array | Promotion / discount labels `[{text, sub_texts}]`, e.g. `[{"text": "8.52折", "sub_texts": ["限1份"]}]`; empty array when there are none. **Purchase restrictions such as 「单点不送」 (not delivered on its own) or 「限N份」 (limit N per order) appear only in this label text** — show them before ordering. Display only, never a pricing input |
 | `items[].sku_options` | array | Full spec candidates; empty array for single-spec items |
 | `items[].sku_options[].sku_id` | string | Sku ID (`sku_`), usable directly as an order input |
 | `items[].sku_options[].name` | string | Spec name (e.g. "Large") |
@@ -125,6 +126,7 @@ Response (excerpt: the first item succeeds, the second `item_id` is invalid):
       "price": 1600,
       "original_price": null,
       "available": true,
+      "promo_labels": [{"text": "第2份0元", "sub_texts": ["限1份"]}],
       "sku_options": [
         {"sku_id": "sku_a", "name": "Medium", "price": 1600, "original_price": null, "available": true,
          "specs": [{"name": "Cup size", "value": "Medium"}], "selected": false,
