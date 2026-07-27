@@ -61,6 +61,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].available` | boolean | 商品是否有货 |
 | `items[].min_purchase` | integer | 起购份数，≥ 1；`1` 表示无起购约束 |
 | `items[].available_quantity` | integer \| null | 库存余量（份）：正整数=剩余可购，`0` 售罄，`null` 充足或未知；菜单快照、仅供展示参考 |
+| `items[].promo_labels` | array | 折扣 / 促销标签 `[{text, sub_texts}]`，如 `[{"text": "8.52折", "sub_texts": ["限1份"]}]`；无则为空数组。**「单点不送」「限N份」这类购买限制只出现在标签文案里**，下单前建议一并展示。仅供展示，不参与价格计算 |
 | `items[].sku_options` | array | 全量规格候选；单规格商品为空数组 |
 | `items[].sku_options[].sku_id` | string | 规格 ID（`sku_`），可直接作为下单入参 |
 | `items[].sku_options[].name` | string | 规格名（如「大杯」）|
@@ -125,6 +126,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
       "price": 1600,
       "original_price": null,
       "available": true,
+      "promo_labels": [{"text": "第2份0元", "sub_texts": ["限1份"]}],
       "sku_options": [
         {"sku_id": "sku_a", "name": "中杯", "price": 1600, "original_price": null, "available": true,
          "specs": [{"name": "杯型", "value": "中杯"}], "selected": false,
