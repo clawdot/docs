@@ -85,6 +85,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].sku_options[].name` | string | 规格名（如「大杯」）|
 | `items[].sku_options[].price` | integer | 该规格价（折后现价，分）|
 | `items[].sku_options[].original_price` | integer \| null | 该规格划线原价（优惠前，分）；该规格**无折扣时为 `null`**。同一商品各规格折扣可不同，请逐规格取用，勿套用 `items[].original_price` |
+| `items[].sku_options[].promo_labels` | array | 该规格自己的折扣 / 促销标签 `[{text, sub_texts}]`，如 `[{"text": "9.2折", "sub_texts": ["限1份"]}]`；无则为空数组。**多规格商品请以本字段为准**——`items[].promo_labels` 是商品卡片文案，多规格时可能只写「8.59折起」这类**最低档**说法，看不出所选规格的实际折扣。仅供展示，不参与价格计算 |
 | `items[].sku_options[].available` | boolean | 该规格是否可选 |
 | `items[].sku_options[].ingredient_options` | array | 该规格**专属**的配料/做法选项（字段同 `items[].ingredient_options`）；**仅非默认规格返回**。配料随规格而变（如不同杯型可选「温度」不同），下单选该规格时用此处的 `option_id`。|
 | `items[].ingredient_options` | array | 配料 / 做法选项（如温度、糖度），对应**默认规格**；非默认规格见 `items[].sku_options[].ingredient_options` |
