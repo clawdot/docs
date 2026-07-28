@@ -1,14 +1,18 @@
 ---
 title: "list_orders"
-description: "MCP 工具，分页查询当前授权用户的历史订单列表（本地快照，新单在前）"
+description: "MCP 工具，分页查询当前授权用户的历史订单列表（未完结订单状态自动刷新，新单在前）"
 ---
 
 ## list_orders
 
-分页查询当前授权用户的历史订单列表，按创建时间倒序（新单在前）。返回的是网关**本地快照**，不回源上游——每条订单的 `status` 是最近一次刷新（支付回调或 `get_order_status` 查询）时的状态。
+分页查询当前授权用户的历史订单列表，按创建时间倒序（新单在前）。返回前会自动刷新本页里**未完结订单**的状态，因此列表里的 `status` 通常已经是当前状态，不必再逐单确认。
 
 <Note>
-  **实时状态以 `get_order_status` 为准。** `list_orders` 用于列出历史订单概览（状态 / 店铺 / 应付金额 / 时间）；需要商品明细、配送状态、支付/完成时间等完整信息时，用列表里的 `order_id` 调 `get_order_status`。
+  **已完成、已取消的订单不再刷新。** 这类订单已经收口，状态不会再变。少数例外是订单完成后才发生的售后退款——它不会反映到列表里，需要用 `get_order_status` 查询该单。
+</Note>
+
+<Note>
+  **需要订单详情时用 `get_order_status`。** `list_orders` 给的是概览（状态 / 店铺 / 应付金额 / 时间）；需要商品明细、骑手与配送信息、支付/完成时间时，用列表里的 `order_id` 调 `get_order_status`。
 </Note>
 
 <Note>
@@ -50,12 +54,12 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
 |------|------|------|
 | `orders` | array | 订单列表，按创建时间倒序（新单在前）|
 | `orders[].order_id` | string | 平台订单 ID（`ord_` 前缀），可直接用于 `get_order_status` |
-| `orders[].status` | string | 订单状态快照，归一化后的平台状态枚举（见下表）|
+| `orders[].status` | string | 订单状态，统一的平台状态枚举（见下表）|
 | `orders[].status_text` | string | 状态的中文文案（与 `status` 一一对应）|
 | `orders[].shop_name` | string | 店铺名称 |
 | `orders[].payable_price` | integer | 应付金额（分）|
 | `orders[].created_at` | string | 下单时间（ISO 8601）|
-| `orders[].updated_at` | string | 订单快照最近更新时间（ISO 8601）；未更新时等于 `created_at` |
+| `orders[].updated_at` | string | 订单状态最近变化的时间（ISO 8601）；状态从未变过时等于 `created_at` |
 | `next_offset` | integer \| null | 下一页游标，作为下次请求的 `offset`；无更多时为 `null` |
 
 **`status` 枚举与 `status_text` 对照：**
@@ -73,7 +77,7 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
 | `refunded` | 已退款 |
 
 <Note>
-  `status` 为快照值，可能滞后于真实状态（例如订单已进入配送、但快照仍为 `paid`）——快照只在下单、支付回调、`get_order_status` 查询等时刻刷新，不代表实时。对时效敏感的场景以 `get_order_status` 为准。无法识别的上游状态会安全回落为 `created`，不会向调用方泄露渠道原始状态码。
+  极少数情况下状态刷新会查询超时，该单会退回上一次已知状态、其余订单不受影响；对时效特别敏感的场景可用 `get_order_status` 复核该单。无法识别的状态会安全回落为 `created`，不会向调用方泄露渠道原始状态码。
 </Note>
 
 ### 分页

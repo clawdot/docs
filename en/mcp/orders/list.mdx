@@ -1,14 +1,18 @@
 ---
 title: "list_orders"
-description: "MCP tool that paginates the consenting user's order history (local snapshot, newest first)"
+description: "MCP tool that paginates the consenting user's order history (open orders auto-refreshed, newest first)"
 ---
 
 ## list_orders
 
-Paginates the consenting user's order history, sorted by creation time in descending order (newest first). The result is the gateway's **local snapshot** — it does not call upstream, so each order's `status` reflects the state at the last refresh (payment callback or a `get_order_status` query).
+Paginates the consenting user's order history, sorted by creation time in descending order (newest first). Before returning, the status of every **open order** on the page is refreshed automatically, so the `status` you get is normally the current one — no need to confirm order by order.
 
 <Note>
-  **Use `get_order_status` for real-time state.** `list_orders` is for listing an overview of past orders (status / shop / payable amount / time). When you need full details — item breakdown, delivery status, paid/completed times — call `get_order_status` with an `order_id` from the list.
+  **Completed and cancelled orders are not refreshed.** Those orders are already settled and their status will not change again. The one exception is a refund issued after an order completes — that will not show up in the list, so query the order with `get_order_status`.
+</Note>
+
+<Note>
+  **Use `get_order_status` when you need order details.** `list_orders` returns an overview (status / shop / payable amount / time). When you need the item breakdown, rider and delivery information, or paid/completed times, call `get_order_status` with an `order_id` from the list.
 </Note>
 
 <Note>
@@ -50,12 +54,12 @@ Paginates the consenting user's order history, sorted by creation time in descen
 |-------|------|-------------|
 | `orders` | array | Order list, sorted by creation time descending (newest first) |
 | `orders[].order_id` | string | Platform order ID (`ord_` prefix), usable directly with `get_order_status` |
-| `orders[].status` | string | Order status snapshot, normalized platform status enum (see table below) |
+| `orders[].status` | string | Order status, normalized platform status enum (see table below) |
 | `orders[].status_text` | string | Localized (Chinese) status label, one-to-one with `status` |
 | `orders[].shop_name` | string | Shop name |
 | `orders[].payable_price` | integer | Payable amount (cents) |
 | `orders[].created_at` | string | Order creation time (ISO 8601) |
-| `orders[].updated_at` | string | Order snapshot's last-update time (ISO 8601); equals `created_at` when never updated |
+| `orders[].updated_at` | string | Time the order status last changed (ISO 8601); equals `created_at` when it never changed |
 | `next_offset` | integer \| null | Next-page cursor, used as the `offset` of the next request; `null` when there are no more |
 
 **`status` enum vs `status_text`:**
@@ -73,7 +77,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `refunded` | 已退款 |
 
 <Note>
-  `status` is a snapshot and may lag the true state (e.g. the order is already out for delivery but the snapshot still reads `paid`) — the snapshot only refreshes at ordering, payment callback, `get_order_status` queries, etc., and is not real-time. For time-sensitive cases, rely on `get_order_status`. Unrecognized upstream statuses safely fall back to `created` and never leak the channel's raw status code to the caller.
+  In rare cases the status refresh times out; that order falls back to its last known status while the rest of the list is unaffected. For especially time-sensitive cases you can double-check that order with `get_order_status`. Unrecognized statuses safely fall back to `created` and never leak the channel's raw status code to the caller.
 </Note>
 
 ### Pagination
