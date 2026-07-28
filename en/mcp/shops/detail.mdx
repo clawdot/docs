@@ -85,6 +85,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].sku_options[].name` | string | SKU name (e.g. "Large") |
 | `items[].sku_options[].price` | integer | Price for this SKU (cents, after discount) |
 | `items[].sku_options[].original_price` | integer \| null | Strike-through original price for this sku (cents, before discount); **`null` when this sku has no discount**. Discounts can differ across specs of the same item — read it per sku, do not reuse `items[].original_price` |
+| `items[].sku_options[].promo_labels` | array | Promotion labels for THIS sku `[{text, sub_texts}]`, e.g. `[{"text": "9.2折", "sub_texts": ["限1份"]}]`; empty array when there are none. **For multi-spec items, read this one** — `items[].promo_labels` is the item card copy and may only say "from 8.59折" (the best tier), which does not tell you the discount of the spec you picked. Display only, never part of price calculation |
 | `items[].sku_options[].available` | boolean | Whether this SKU is selectable |
 | `items[].sku_options[].ingredient_options` | array | This SKU's **own** ingredient/option choices (same fields as `items[].ingredient_options`); **returned for non-default SKUs only**. Ingredients vary by SKU (e.g. different cup sizes allow different "temperature"); use these `option_id`s when ordering this SKU. |
 | `items[].ingredient_options` | array | Ingredient / option choices (e.g. temperature, sugar) for the **default SKU**; for other SKUs see `items[].sku_options[].ingredient_options` |
