@@ -24,6 +24,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].sku_id` | string | No | `null` | SKU ID (from the menu item's optional SKUs) |
 | `items[].quantity` | integer | Yes | — | Quantity, ≥ 1 |
 | `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options; for a non-default SKU use that SKU's `sku_options[].ingredient_options`) |
+| `items[].ingredient_quantities` | array | No | `[]` | Portion counts for specific options, e.g. "Espresso shots x3", shaped `[{option_id, quantity}]`; only options whose `max_quantity` exceeds 1 accept it, and exceeding it fails the order. Listing an option here **counts as selecting it**, so it need not repeat in `ingredient_option_ids`; omit for 1 portion each |
 | `items[].remark` | string | No | `""` | Per-item note |
 
 ### Returns
@@ -56,7 +57,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].available_quantity` | integer \| null | Remaining stock echo (units, menu-time snapshot): positive = units left, `0` = sold out, `null` = ample or unknown; display only — actual availability is enforced at order time |
 | `items[].image_url` | string \| null | Item image URL; `null` if none |
 | `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
-| `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents); `[]` if none |
+| `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta, quantity}]`; `group_name` may be `null`, `price_delta` is the **per-portion** surcharge (cents), `quantity` is the effective portion count (default `1`; the line's surcharge is `price_delta × quantity`); `[]` if none |
 
 ### Error Codes
 
