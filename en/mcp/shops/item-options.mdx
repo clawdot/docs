@@ -28,6 +28,7 @@ Typical scenarios:
 | `items[].item_id` | string | Yes | — | Item ID (from `get_shop_menu` on the same cart) |
 | `items[].sku_id` | string \| null | No | `null` | This item's currently chosen sku ID, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default sku** |
 | `items[].ingredient_option_ids` | array | No | `[]` | This item's currently chosen option ID list, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default selection** |
+| `items[].ingredient_quantities` | array | No | `[]` | This item's currently chosen portion counts, exactly as sent to `quote_cart` / `preview_order`; omit to compute 1 portion each |
 
 ### Returns
 
@@ -47,6 +48,16 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 
 <Note>
   **Ingredients are per-sku and nested per sku.** Ingredients are bound to a specific sku (different cup sizes may offer different options), so every `sku_options[]` entry nests **that sku's own** `ingredient_options` — to switch sku, just read the target sku's nested list; no second call needed. `selected: true` only appears inside the **selected sku's** list (`sku_options[].selected: true`); other skus' candidates carry `selected_by_default` / `available` only and are always `selected: false`, since that sku would not be ordered. For **items with no sku dimension** (`sku_options` is an empty array), the single candidate set is returned as a top-level `ingredient_options` field on that result entry — present only in that case.
+</Note>
+
+<Note>
+  **Options can exclude each other, and candidates narrow as you choose.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. Candidates that clash with a current selection come back as `available: false`, with `unavailable_reason` naming the option they clash with. Change the selection and call again; the selectable set follows.
+
+  **Just grey out entries with `available: false`** — you do not have to work out the compatible combinations yourself. If you do send a clashing pair to `quote_cart`, it returns `can_checkout: false` and names both sides in `blocking_reason`.
+</Note>
+
+<Note>
+  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app: you can add several portions, each charged at `price_delta`. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and every option is 1 portion. Some items include a number of free portions, so trust the quoted price for the actual difference.
 </Note>
 
 **Success entry fields** (same structure as a single-item result):
@@ -77,7 +88,10 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].name` | string | Option name |
 | `items[].sku_options[].ingredient_options[].price_delta` | integer | Price delta of this option (cents) |
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
-| `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked |
+| `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked **right now**; `false` when it conflicts with a current selection (see `unavailable_reason`) |
+| `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | Why it cannot be picked, naming the conflicting option; `null` when available |
+| `items[].sku_options[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only, no portions |
+| `items[].sku_options[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | Whether the order would actually carry this option; can only be `true` inside the selected sku's list |
 | `items[].ingredient_options` | array | **Only for items with no sku dimension** (`sku_options` empty): the item's single candidate set, same entry structure as above |
 
@@ -134,18 +148,18 @@ Response (excerpt: the first item succeeds, the second `item_id` is invalid):
          "specs": [{"name": "Cup size", "value": "Medium"}], "selected": false,
          "ingredient_options": [
            {"option_id": "opt_1", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
-            "selected_by_default": true, "available": true, "selected": false},
+            "selected_by_default": true, "max_quantity": 1, "default_quantity": 1, "available": true, "unavailable_reason": null, "selected": false},
            {"option_id": "opt_2", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
-            "selected_by_default": false, "available": true, "selected": false}
+            "selected_by_default": false, "max_quantity": 1, "default_quantity": 1, "available": true, "unavailable_reason": null, "selected": false}
          ]},
         {"sku_id": "sku_b", "name": "Large", "price": 1900, "original_price": 2100, "available": true,
          "promo_labels": [{"text": "9.05折", "sub_texts": ["限1份"]}],
          "specs": [{"name": "Cup size", "value": "Large"}], "selected": true,
          "ingredient_options": [
            {"option_id": "opt_3", "group_name": "Temperature", "name": "Iced", "price_delta": 0,
-            "selected_by_default": true, "available": true, "selected": true},
+            "selected_by_default": true, "max_quantity": 1, "default_quantity": 1, "available": true, "unavailable_reason": null, "selected": true},
            {"option_id": "opt_4", "group_name": "Temperature", "name": "Hot", "price_delta": 0,
-            "selected_by_default": false, "available": true, "selected": false}
+            "selected_by_default": false, "max_quantity": 1, "default_quantity": 1, "available": true, "unavailable_reason": null, "selected": false}
          ]}
       ]
     },
