@@ -94,10 +94,18 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].ingredient_options[].name` | string | 选项名（如「标准糖」）|
 | `items[].ingredient_options[].price_delta` | integer | 该选项加价（分），默认 `0` |
 | `items[].ingredient_options[].selected_by_default` | boolean | 是否为默认选项 |
-| `items[].ingredient_options[].available` | boolean | 该选项是否可选 |
+| `items[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份 |
+| `items[].ingredient_options[].default_quantity` | integer | 商家推荐份数，仅供展示；不传 `ingredient_quantities` 时按 **1 份**下单 |
+| `items[].ingredient_options[].available` | boolean | 该选项是否可选：只表示它本身有没有售罄 / 下架，**不含选项之间的互斥**（见下方提示）|
 | `total_items` | integer | 过滤（`keyword`）后的商品总数 |
 | `has_more` | boolean | 是否还有下一页 |
 | `next_offset` | integer \| null | 下一页的 `offset`；`has_more` 为 `false` 时为 `null` |
+<Note>
+  **菜单里的 `available` 不含互斥判定。** 有些商品的选项分层级——先选咖啡豆，再选萃取方式，能选的萃取只有那款豆对应的几种。这种可选性取决于「当前选了什么」，而本接口没有表达当前选择的入参，所以菜单只列出候选、`available` 只反映售罄 / 下架。
+
+  **要判断当前选择下某项能不能选，用 `get_item_options`**（它接收当前选择、能逐级收敛）。菜单里的 `option_id` 仍可直接用于下单。
+</Note>
+
 | `required_groups` | array | 店铺级必选商品组（如麻辣烫「必选好汤」）；整单须从每组 `candidate_item_ids` 至少选 `min_select` 个商品才能下单，无此约束时为 `[]` |
 | `required_groups[].name` | string | 必选组名（如「必选好汤」）|
 | `required_groups[].required` | boolean | 恒为 `true` |

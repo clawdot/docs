@@ -94,10 +94,18 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].ingredient_options[].name` | string | Option name (e.g. "Standard") |
 | `items[].ingredient_options[].price_delta` | integer | Surcharge for this option (cents), defaults to `0` |
 | `items[].ingredient_options[].selected_by_default` | boolean | Whether this is the default option |
-| `items[].ingredient_options[].available` | boolean | Whether this option is selectable |
+| `items[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only |
+| `items[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |
+| `items[].ingredient_options[].available` | boolean | Whether this option is selectable: reflects only whether it is sold out / delisted, **not option-to-option exclusions** (see the note below) |
 | `total_items` | integer | Total item count after `keyword` filtering |
 | `has_more` | boolean | Whether there is a next page |
 | `next_offset` | integer \| null | The `offset` for the next page; `null` when `has_more` is `false` |
+<Note>
+  **`available` in the menu does not account for exclusions.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. That kind of availability depends on what is currently selected, and this endpoint takes no parameter expressing a selection, so the menu just lists the candidates and `available` reflects only sold-out / delisted.
+
+  **To learn whether an option is selectable under the current selection, use `get_item_options`** (it accepts the current selection and narrows step by step). Option IDs from the menu remain directly usable for ordering.
+</Note>
+
 | `required_groups` | array | Store-level required item groups (e.g. a malatang shop's "Required Soup"); the order must include at least `min_select` item(s) from each group's `candidate_item_ids`. `[]` when the shop has no such constraint |
 | `required_groups[].name` | string | Required-group name (e.g. "Required Soup") |
 | `required_groups[].required` | boolean | Always `true` |

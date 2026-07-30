@@ -53,7 +53,19 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 <Note>
   **Options can exclude each other, and candidates narrow as you choose.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. Candidates that clash with a current selection come back as `available: false`, with `unavailable_reason` naming the option they clash with. Change the selection and call again; the selectable set follows.
 
-  **Just grey out entries with `available: false`** — you do not have to work out the compatible combinations yourself. If you do send a clashing pair to `quote_cart`, it returns `can_checkout: false` and names both sides in `blocking_reason`.
+  **Just grey out entries with `available: false`** — you do not have to work out the compatible combinations yourself. Each sku is judged against **its own** selection, so switching sku only means reading that sku's list.
+</Note>
+
+<Note>
+  **To narrow step by step, resend the current selection every time.** Availability is computed from the `sku_id` / `ingredient_option_ids` / `ingredient_quantities` supplied on **this** call; nothing is remembered between calls. Pick an option, then call again carrying it, to see the narrowed candidate set.
+
+  **⚠️ Same name, different option**: a group often holds several identically-named entries (e.g. three "Signature Espresso" entries, one per coffee bean), so **always distinguish by `option_id`**. Comparing by name leads to the wrong conclusion that "the upper choice changed but the candidates did not" — measured across three beans, the selectable extraction methods were three completely disjoint sets of `option_id` with identical names.
+</Note>
+
+<Note>
+  **Quoting only errors when you yourself pick a clashing pair.** Send two mutually exclusive options together and `quote_cart` returns `can_checkout: false`, naming both sides in `blocking_reason`.
+
+  But sending just **one** option that clashes with a default **succeeds**: your explicit pick is honoured, while the groups you did **not** specify get swapped for options compatible with it. To confirm what the order actually carries, read `items[].selected_ingredients` from `quote_cart` / `preview_order` — never assume "what I sent is what I get".
 </Note>
 
 <Note>

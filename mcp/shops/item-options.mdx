@@ -53,7 +53,19 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 <Note>
   **选项之间可能互相排斥，候选会跟着当前选择收敛。** 有些商品的选项分层级——比如先选咖啡豆，再选萃取方式，能选的萃取方式只有那款咖啡豆对应的几种。与当前已选项冲突的候选返回 `available: false`，并在 `unavailable_reason` 里指明和哪一项冲突。改了选择再调一次，可选集会跟着变。
 
-  **直接把 `available: false` 的项置灰即可**，不必自己推算哪些能共存。若仍把互斥的两项一起发给 `quote_cart`，会返回 `can_checkout: false` 并在 `blocking_reason` 里点名冲突双方。
+  **直接把 `available: false` 的项置灰即可**，不必自己推算哪些能共存。每个规格都按**它自己的**选择判定，换规格直接读目标规格的列表即可。
+</Note>
+
+<Note>
+  **要逐级收敛，每次都得把当前选择回传。** 本接口按**本次传入**的 `sku_id` / `ingredient_option_ids` / `ingredient_quantities` 计算可选性，不记住上一次。选了一项就带着它重新调一次，才能看到收敛后的候选集。
+
+  **⚠️ 同名不同项**：同一组里常有多个重名选项（如 3 组「原萃浓缩」分别属于 3 款咖啡豆），**务必按 `option_id` 区分**。按名称比较会得出「换了上层选择、候选没变」的错误结论——实测换三款咖啡豆，可选萃取是三组完全不重叠的 `option_id`，而三组名字完全相同。
+</Note>
+
+<Note>
+  **算价只在你自己选出互斥对时报错。** 同时传入互相排斥的两项，`quote_cart` 返回 `can_checkout: false` 并在 `blocking_reason` 里点名双方。
+
+  但只传**一个**与默认项冲突的选项时，算价会**成功**：你显式选的那项会保留，而你**没指定**的组会被换成能与它共存的选项。要确认实际下单的组合，看 `quote_cart` / `preview_order` 的 `items[].selected_ingredients` 回显，不要假设「传什么就是什么」。
 </Note>
 
 <Note>
