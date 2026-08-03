@@ -37,7 +37,7 @@ Materializes an address search suggestion (`suggestion_token`) together with rec
 | `address_id` | string | **Gateway address ID (`addr_` prefix, string)**; pass it as-is to `search_shops`, `preview_order`, etc. Stays the same on re-select |
 | `display_name` | string | Address display name (the POI name chosen in the suggestion) |
 | `address_detail` | string | Apartment / floor / room number |
-| `city` | string | City (always an empty string when re-selecting a saved address) |
+| `city` | string | City name (e.g. "武汉"). Older addresses may return an empty string, meaning unknown — not a different city. |
 | `lat` | number \| null | Latitude |
 | `lng` | number \| null | Longitude |
 | `contact_name` | string \| null | Recipient name |

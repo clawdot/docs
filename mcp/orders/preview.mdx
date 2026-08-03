@@ -52,7 +52,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `shop.lng` | number \| null | 店铺经度，其余同 `shop.lat` |
 | `address.display_name` | string | 地址显示名 |
 | `address.address_detail` | string | 门牌等详情 |
-| `address.city` | string | 城市（当前恒为空串）|
+| `address.city` | string | 城市名（如「武汉」）。早期创建的地址为空串，表示未知，不代表在其他城市。|
 | `items[].item_id` | string | 商品 ID |
 | `items[].name` | string | 商品名 |
 | `items[].quantity` | integer | 数量 |

@@ -37,7 +37,7 @@ description: "MCP 工具 select_address — 把一条地址搜索建议落库为
 | `address_id` | string | **网关地址 ID（`addr_` 前缀，字符串）**，原样回传给 `search_shops`、`preview_order` 等；重选时同一地址保持不变 |
 | `display_name` | string | 地址显示名（建议中选中的 POI 名称）|
 | `address_detail` | string | 门牌 / 楼层 / 房间号 |
-| `city` | string | 城市（重选已存地址时恒为空串）|
+| `city` | string | 城市名（如「武汉」）。早期创建的地址为空串，表示未知，不代表在其他城市。|
 | `lat` | number \| null | 纬度 |
 | `lng` | number \| null | 经度 |
 | `contact_name` | string \| null | 收货人姓名 |

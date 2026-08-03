@@ -34,7 +34,7 @@ Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`)
       "address_id": "addr_8f3c...",
       "display_name": "武汉市洪山区光谷世界城",
       "address_detail": "Building 3, Room 101",
-      "city": "",
+      "city": "武汉",
       "lat": 30.5,
       "lng": 114.4,
       "contact_name": "张三",
@@ -47,7 +47,7 @@ Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`)
       "token": "sug_1a2b...",
       "display_name": "光谷世界城",
       "address": "武汉市洪山区珞喻路",
-      "city": "",
+      "city": "武汉",
       "lat": 30.5,
       "lng": 114.4
     }
@@ -62,7 +62,7 @@ Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`)
 | `saved_addresses[].address_id` | string | Gateway address ID (`addr_` prefix); pass as-is to `select_address` or `preview_order` |
 | `saved_addresses[].display_name` | string | Address display name |
 | `saved_addresses[].address_detail` | string | Door number / floor details |
-| `saved_addresses[].city` | string | City (currently always an empty string) |
+| `saved_addresses[].city` | string | City name (e.g. "武汉"). Older addresses may return an empty string, meaning unknown — not a different city. |
 | `saved_addresses[].lat` | number \| null | Latitude (GCJ-02) |
 | `saved_addresses[].lng` | number \| null | Longitude (GCJ-02) |
 | `saved_addresses[].contact_name` | string \| null | Recipient name |
@@ -72,7 +72,7 @@ Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`)
 | `suggestions[].token` | string | Single-use suggestion token; pass to `select_address` as `suggestion_token` to materialise it into a saved address |
 | `suggestions[].display_name` | string | POI name |
 | `suggestions[].address` | string | POI full address text |
-| `suggestions[].city` | string | City (currently always an empty string) |
+| `suggestions[].city` | string | City the POI is in (e.g. "武汉") |
 | `suggestions[].lat` | number \| null | POI latitude (GCJ-02) |
 | `suggestions[].lng` | number \| null | POI longitude (GCJ-02) |
 | `nearest_address_id` | string \| null | ID of the saved address closest to the request coords; `null` when no coords were sent or no address is comparable |
