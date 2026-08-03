@@ -34,7 +34,7 @@ description: "MCP 工具 search_addresses — 列出用户已保存的收货地�
       "address_id": "addr_8f3c...",
       "display_name": "武汉市洪山区光谷世界城",
       "address_detail": "3 号楼 101",
-      "city": "",
+      "city": "武汉",
       "lat": 30.5,
       "lng": 114.4,
       "contact_name": "张三",
@@ -47,7 +47,7 @@ description: "MCP 工具 search_addresses — 列出用户已保存的收货地�
       "token": "sug_1a2b...",
       "display_name": "光谷世界城",
       "address": "武汉市洪山区珞喻路",
-      "city": "",
+      "city": "武汉",
       "lat": 30.5,
       "lng": 114.4
     }
@@ -62,7 +62,7 @@ description: "MCP 工具 search_addresses — 列出用户已保存的收货地�
 | `saved_addresses[].address_id` | string | 网关地址 ID（`addr_` 前缀），原样传给 `select_address` 或 `preview_order` |
 | `saved_addresses[].display_name` | string | 地址显示名 |
 | `saved_addresses[].address_detail` | string | 门牌 / 楼层等详情 |
-| `saved_addresses[].city` | string | 城市（当前恒为空串）|
+| `saved_addresses[].city` | string | 城市名（如「武汉」）。早期创建的地址为空串，表示未知，不代表在其他城市。|
 | `saved_addresses[].lat` | number \| null | 纬度（GCJ-02）|
 | `saved_addresses[].lng` | number \| null | 经度（GCJ-02）|
 | `saved_addresses[].contact_name` | string \| null | 收货人姓名 |
@@ -72,7 +72,7 @@ description: "MCP 工具 search_addresses — 列出用户已保存的收货地�
 | `suggestions[].token` | string | 单次有效的建议 token，传给 `select_address` 的 `suggestion_token` 以落地为已保存地址 |
 | `suggestions[].display_name` | string | POI 名称 |
 | `suggestions[].address` | string | POI 详细地址文案 |
-| `suggestions[].city` | string | 城市（当前恒为空串）|
+| `suggestions[].city` | string | POI 所在城市名（如「武汉」）|
 | `suggestions[].lat` | number \| null | POI 纬度（GCJ-02）|
 | `suggestions[].lng` | number \| null | POI 经度（GCJ-02）|
 | `nearest_address_id` | string \| null | 距请求坐标最近的已保存地址 ID；未传坐标或无可比对地址时为 `null` |

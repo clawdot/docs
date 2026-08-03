@@ -33,7 +33,7 @@ description: "MCP 工具 update_address — 编辑一个已保存地址：仅改
 | `address_id` | string | 网关地址 ID（`addr_` 前缀）；更新后保持不变，可直接传给 `preview_order` 等 |
 | `display_name` | string | 地址显示名（重新注册后为新选中 POI 的名称）|
 | `address_detail` | string | 门牌 / 楼层等详情 |
-| `city` | string | 城市（当前恒为空串）|
+| `city` | string | 城市名（如「武汉」）。早期创建的地址为空串，表示未知，不代表在其他城市。|
 | `lat` | number \| null | 纬度 |
 | `lng` | number \| null | 经度 |
 | `contact_name` | string \| null | 收货人姓名（此工具不可改，沿用原值）|

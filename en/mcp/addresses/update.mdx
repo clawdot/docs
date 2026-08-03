@@ -33,7 +33,7 @@ Edits one of the user's saved addresses. Only two kinds of edit are allowed: **c
 | `address_id` | string | Gateway address ID (`addr_` prefix); unchanged after the update, can be passed directly to `preview_order` etc. |
 | `display_name` | string | Address display name (the newly selected POI's name after a re-registration) |
 | `address_detail` | string | Door number / floor details |
-| `city` | string | City (currently always an empty string) |
+| `city` | string | City name (e.g. "武汉"). Older addresses may return an empty string, meaning unknown — not a different city. |
 | `lat` | number \| null | Latitude |
 | `lng` | number \| null | Longitude |
 | `contact_name` | string \| null | Recipient name (not editable here; carried over from the original) |

@@ -52,7 +52,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | `shop.lng` | number \| null | Shop longitude, otherwise same as `shop.lat` |
 | `address.display_name` | string | Address display name |
 | `address.address_detail` | string | Door number / details |
-| `address.city` | string | City (currently always an empty string) |
+| `address.city` | string | City name (e.g. "武汉"). Older addresses may return an empty string, meaning unknown — not a different city. |
 | `items[].item_id` | string | Item ID |
 | `items[].name` | string | Item name |
 | `items[].quantity` | integer | Quantity |
