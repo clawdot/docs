@@ -32,6 +32,7 @@ description: "MCP 工具，按平台订单 ID 查询订单的实时状态、店�
     "status": "DELIVERING",
     "estimated_time_text": null
   },
+  "detail_url": "https://g.clawdot.ai/xk2IP",
   "created_at": "2026-06-16T10:20:00+00:00",
   "paid_at": null,
   "completed_at": null
@@ -53,6 +54,7 @@ description: "MCP 工具，按平台订单 ID 查询订单的实时状态、店�
 | `delivery` | object \| null | 配送信息；上游无实时配送数据、或实时查询失败回落本地快照时为 `null` |
 | `delivery.status` | string \| null | 上游配送状态原值 |
 | `delivery.estimated_time_text` | string \| null | 预计送达文案（当前恒为 `null`，上游暂不返回该字段）|
+| `detail_url` | string \| null | 订单详情页链接，可直接发给用户查看订单进度；未支付的订单打开后可继续支付。每次调用返回的链接可能不同，但都可用——不要用作订单标识或做前后比对。链接有效期 30 天 |
 | `created_at` | string \| null | 下单时间（ISO 8601）|
 | `paid_at` | string \| null | 支付时间（当前恒为 `null`，上游暂不返回该字段）|
 | `completed_at` | string \| null | 完成时间（当前恒为 `null`，上游暂不返回该字段）|
