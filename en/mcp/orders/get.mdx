@@ -32,6 +32,7 @@ Queries the current status of a single order by its platform order ID. The gatew
     "status": "DELIVERING",
     "estimated_time_text": null
   },
+  "detail_url": "https://g.clawdot.ai/xk2IP",
   "created_at": "2026-06-16T10:20:00+00:00",
   "paid_at": null,
   "completed_at": null
@@ -53,6 +54,7 @@ Queries the current status of a single order by its platform order ID. The gatew
 | `delivery` | object \| null | Delivery info; `null` when no real-time delivery data is available upstream, or when the real-time lookup fails and falls back to the local snapshot |
 | `delivery.status` | string \| null | Raw upstream delivery status |
 | `delivery.estimated_time_text` | string \| null | Estimated delivery text (currently always `null`; upstream does not return this field yet) |
+| `detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days |
 | `created_at` | string \| null | Order creation time (ISO 8601) |
 | `paid_at` | string \| null | Payment time (currently always `null`; upstream does not return this field yet) |
 | `completed_at` | string \| null | Completion time (currently always `null`; upstream does not return this field yet) |
