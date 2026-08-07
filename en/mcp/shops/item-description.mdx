@@ -1,0 +1,113 @@
+---
+title: "get_item_description"
+description: "MCP tool get_item_description — read one item's product-detail card (merchant-written ingredients, portion size, flavour, caffeine and more), returned in the merchant's own order"
+---
+
+## get_item_description
+
+Reads one item's **product-detail card** — the panel that opens behind the product photo in the delivery app: ingredients, portion size, flavour, preparation method, whether it contains caffeine, and so on. Every row is **written by the merchant**. Read-only, mutates nothing.
+
+`get_shop_menu` tells you a dish exists and what it costs. This tool tells you **what it actually is**.
+
+Typical scenarios:
+
+- **Dietary restrictions and allergies**: the user says "no beef" or "I'm allergic to nuts" — check the ingredients before ordering.
+- **Portion size**: "how big is this cup", "is it enough for two".
+- **Flavour and preparation**: how spicy, how it is cooked, served hot or iced.
+- **Caffeine, sugar and other health questions**: coffee and tea shops commonly fill these in.
+
+<Note>
+  **Every merchant fills in different rows.** The row label (`label`) is chosen by the merchant and is **not a fixed schema**: a coffee shop may return "是否含咖啡因" (contains caffeine), "咖啡豆烘培程度" (roast level) and "咖啡豆品种" (bean variety), while a noodle shop returns "荤素" (meat/vegetarian), "凉热" (hot/cold) and "制作方法" (preparation). **Render whatever comes back, as it comes back** — never assume a given row is present, and never read values off a fixed list of labels.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|------|------|------|------|------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`) |
+| `cart_id` | string | Yes | — | Cart context ID (from `search_shops`) |
+| `item_id` | string | Yes | — | Item ID, from `get_shop_menu` on the **same cart** |
+
+<Note>
+  **This tool is item-level and takes no `sku_id`.** One call covers an item however many skus it has. If a row genuinely differs per sku, the values are merged into a single row — see "Portion size on multi-sku items" below.
+</Note>
+
+### Response
+
+| Field | Type | Description |
+|------|------|------|
+| `item_id` | string | Echoes the requested `item_id` |
+| `name` | string | Item name |
+| `details` | array | Card rows `[{label, text}]`, **in the same order the merchant wrote them**; empty array when the merchant filled nothing in |
+| `details[].label` | string | Row label, e.g. "原料" (ingredients), "份量" (portion), "口味" (flavour). **Merchant-defined, not a fixed set** |
+| `details[].text` | string | Row content, e.g. "水,浓缩咖啡". Never empty |
+
+<Note>
+  **An empty `details` is a real answer, not an error.** It means this merchant wrote no description for this item. Tell the user so; do not retry.
+</Note>
+
+<Warning>
+  **Portion size on multi-sku items is a merged value.** When a row varies by sku — most often "份量" (portion size) — the values are merged into one row, e.g. `"约473毫升、约592毫升"` ("about 473 ml, about 592 ml"), **without saying which value belongs to which sku**. Present both values to the user (e.g. "the large and extra-large are around 473 and 592 ml") rather than guessing the mapping. Ingredients, flavour, preparation and the other rows describe the whole item anyway and are unaffected.
+</Warning>
+
+<Note>
+  **One row overlaps `get_shop_menu`'s `description`.** The "商品描述" (product description) row carries the same text as that item's `description` in the menu, so this tool alone gives you the complete write-up. If you have already shown the menu blurb, you can skip this row to avoid repeating yourself.
+</Note>
+
+### Errors
+
+| Scenario | Behaviour |
+|------|------|
+| `item_id` does not belong to this `cart_id` | HTTP 400 `PUBLIC_REFERENCE_INVALID` |
+| `cart_id` missing / expired, or consent invalid | HTTP 400 `PUBLIC_REFERENCE_INVALID` |
+
+### Example
+
+Request:
+
+```json
+{
+  "name": "get_item_description",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>",
+    "cart_id": "<cart_id>",
+    "item_id": "<item_id>"
+  }
+}
+```
+
+Response (Luckin "标准美式" / Standard Americano):
+
+```json
+{
+  "item_id": "item_xxx",
+  "name": "标准美式",
+  "details": [
+    {"label": "商品描述", "text": "【意式经典之作 标准美式】臻选浓醇 Espresso 与水的黄金配比"},
+    {"label": "原料", "text": "水,浓缩咖啡"},
+    {"label": "份量", "text": "1人份"},
+    {"label": "是否含咖啡因", "text": "是"},
+    {"label": "咖啡豆烘培程度", "text": "中深度"},
+    {"label": "咖啡类型", "text": "美式"},
+    {"label": "咖啡豆品种", "text": "阿拉比卡"}
+  ]
+}
+```
+
+A different shop (Shaxian snacks, braised chicken-leg rice) — **completely different labels**:
+
+```json
+{
+  "item_id": "item_yyy",
+  "name": "卤香·鸡腿饭（半个卤蛋+豆干+时蔬）",
+  "details": [
+    {"label": "原料", "text": "大米,鸡腿"},
+    {"label": "份量", "text": "1人份"},
+    {"label": "荤素", "text": "荤菜"},
+    {"label": "制作方法", "text": "盖浇"},
+    {"label": "辅料", "text": "五香粉、生抽、盐、葱"},
+    {"label": "口味", "text": "咸香"},
+    {"label": "时段", "text": "午餐、晚餐"}
+  ]
+}
+```
