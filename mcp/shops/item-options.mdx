@@ -29,6 +29,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_id` | string \| null | 否 | `null` | 该商品当前选择的规格 ID，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认规格**计算 |
 | `items[].ingredient_option_ids` | array | 否 | `[]` | 该商品当前选择的配料选项 ID 列表，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认选择**计算 |
 | `items[].ingredient_quantities` | array | 否 | `[]` | 该商品当前选择的份数，与发给 `quote_cart` / `preview_order` 的一致；不传按每项 1 份计算 |
+| `grouped` | boolean | 否 | `false` | 配料是否按组返回。`false` / 不传：配料平铺在 `ingredient_options` 里，每条自带 `group_name`；`true`：改为按组返回 `ingredient_groups`，组信息只出现一次 |
 
 ### 返回
 
@@ -102,8 +103,11 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
 | `items[].sku_options[].ingredient_options[].available` | boolean | 该选项**当前**是否可选；与已选项互斥的返回 `false`（原因见 `unavailable_reason`）|
 | `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | 不可选的原因，会指明和哪一项冲突（如「与已选『经典浓缩(深烘)』冲突」）；可选时为 `null` |
-| `items[].sku_options[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份 |
+| `items[].sku_options[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份。**同组各选项的上限可能不同**，按每个选项自己的值为准 |
 | `items[].sku_options[].ingredient_options[].default_quantity` | integer | 商家推荐份数，仅供展示；不传 `ingredient_quantities` 时按 **1 份**下单 |
+| `items[].sku_options[].ingredient_options[].required` | boolean | 该选项所在的组是否必选；必选组你没选时会自动补上该组默认项 |
+| `items[].sku_options[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
+| `items[].sku_options[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类 |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
 | `items[].ingredient_options` | array | **仅无规格商品**（`sku_options` 为空）返回：该商品唯一形态的配料候选，条目结构同上 |
 
@@ -114,6 +118,25 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].item_id` | string | 原样回传该请求项的 `item_id` |
 | `items[].error.code` | string | 错误码（如 `PUBLIC_REFERENCE_INVALID` / `CART_PRICE_INVALID`）|
 | `items[].error.message` | string | 人类可读的错误说明 |
+
+
+<Note>
+  **`grouped=true` 时配料换一种形状返回。** 传 `grouped=true` 后，配料不再是平铺的 `ingredient_options`，而是按组返回 `ingredient_groups`：组信息（`group_name` / `required` / `multi_select` / `max_select`）只出现在组上一次，不再逐条重复；选项本身放在 `options[]` 里，字段与平铺形式逐字段一致。两种形式**二选一，不会同时出现**，内容完全相同。
+
+  ```json
+  "ingredient_groups": [
+    {"group_name": "温度", "required": true, "multi_select": false, "max_select": 1,
+     "options": [
+       {"option_id": "opt_1", "name": "冰", "price_delta": 0, "selected_by_default": true, "max_quantity": 1, "default_quantity": 1, "available": true},
+       {"option_id": "opt_2", "name": "热", "price_delta": 0, "selected_by_default": false, "max_quantity": 1, "default_quantity": 1, "available": true}
+     ]},
+    {"group_name": "加料", "required": false, "multi_select": true, "max_select": 5,
+     "options": [
+       {"option_id": "opt_5", "name": "珍珠", "price_delta": 200, "selected_by_default": false, "max_quantity": 3, "default_quantity": 1, "available": true}
+     ]}
+  ]
+  ```
+</Note>
 
 ### 错误
 

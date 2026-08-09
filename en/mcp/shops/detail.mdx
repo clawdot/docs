@@ -25,6 +25,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `limit` | integer \| null | No | `null` | Items per page, ≥ 1; returns all (filtered) items when omitted |
 | `offset` | integer | No | `0` | Paging offset, ≥ 0; pair with the previous response's `next_offset` to page |
 | `full_menu` | boolean | No | `false` | Menu outline mode: `true` returns ALL categories with ALL item cards in one call, **without specs / ingredients and not directly orderable** (see below); explicitly passing `keyword` / `limit` / `offset` overrides this parameter |
+| `grouped` | boolean | No | `false` | Whether ingredients come back grouped. `false` / omitted: flat `ingredient_options`, each carrying its own `group_name`; `true`: grouped `ingredient_groups` with group info stated once |
 
 <Note>
   `address_id` / `lat` / `lng` resolve the delivery coordinates and are usually unnecessary: the `cart_id` already carries the coordinates from search. When all three are omitted, the `cart_id` coordinates are used.
@@ -94,8 +95,11 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].ingredient_options[].name` | string | Option name (e.g. "Standard") |
 | `items[].ingredient_options[].price_delta` | integer | Surcharge for this option (cents), defaults to `0` |
 | `items[].ingredient_options[].selected_by_default` | boolean | Whether this is the default option |
-| `items[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only |
+| `items[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only. **Options in the same group can cap differently** — always read each option's own value |
 | `items[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |
+| `items[].ingredient_options[].required` | boolean | Whether this option's group is required; if you skip a required group, its default option is added for you |
+| `items[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
+| `items[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit |
 | `items[].ingredient_options[].available` | boolean | Whether this option is selectable: reflects only whether it is sold out / delisted, **not option-to-option exclusions** (see the note below) |
 | `total_items` | integer | Total item count after `keyword` filtering |
 | `has_more` | boolean | Whether there is a next page |
@@ -116,6 +120,25 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 <Tip>
   **Progressive disclosure**: use `keyword` to narrow results, or `limit` + `offset` to page. While `has_more` is `true`, keep calling with `offset=next_offset` until `has_more` is `false`. Item IDs returned by earlier calls on the same `cart_id` stay orderable for the cart's lifetime. For a large menu you can also skim it first with `full_menu=true`, then enrich the target items (`keyword` / `limit` or `get_item_options`).
 </Tip>
+
+
+<Note>
+  **`grouped=true` returns ingredients in a different shape.** With `grouped=true`, ingredients come back as `ingredient_groups` instead of the flat `ingredient_options`: group-level info (`group_name` / `required` / `multi_select` / `max_select`) appears once on the group rather than repeating on every option, and the options themselves sit in `options[]` with field-for-field identical values. The two shapes are **mutually exclusive** — you get one or the other, never both — and carry exactly the same content.
+
+  ```json
+  "ingredient_groups": [
+    {"group_name": "Temperature", "required": true, "multi_select": false, "max_select": 1,
+     "options": [
+       {"option_id": "opt_1", "name": "Iced", "price_delta": 0, "selected_by_default": true, "max_quantity": 1, "default_quantity": 1, "available": true},
+       {"option_id": "opt_2", "name": "Hot", "price_delta": 0, "selected_by_default": false, "max_quantity": 1, "default_quantity": 1, "available": true}
+     ]},
+    {"group_name": "Add-ons", "required": false, "multi_select": true, "max_select": 5,
+     "options": [
+       {"option_id": "opt_5", "name": "Boba", "price_delta": 200, "selected_by_default": false, "max_quantity": 3, "default_quantity": 1, "available": true}
+     ]}
+  ]
+  ```
+</Note>
 
 ### Error Codes
 
