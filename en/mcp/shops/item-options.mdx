@@ -29,6 +29,7 @@ Typical scenarios:
 | `items[].sku_id` | string \| null | No | `null` | This item's currently chosen sku ID, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default sku** |
 | `items[].ingredient_option_ids` | array | No | `[]` | This item's currently chosen option ID list, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default selection** |
 | `items[].ingredient_quantities` | array | No | `[]` | This item's currently chosen portion counts, exactly as sent to `quote_cart` / `preview_order`; omit to compute 1 portion each |
+| `grouped` | boolean | No | `false` | Whether ingredients come back grouped. `false` / omitted: flat `ingredient_options`, each carrying its own `group_name`; `true`: grouped `ingredient_groups` with group info stated once |
 
 ### Returns
 
@@ -102,8 +103,11 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
 | `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked **right now**; `false` when it conflicts with a current selection (see `unavailable_reason`) |
 | `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | Why it cannot be picked, naming the conflicting option; `null` when available |
-| `items[].sku_options[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only, no portions |
+| `items[].sku_options[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only, no portions. **Options in the same group can cap differently** — always read each option's own value |
 | `items[].sku_options[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |
+| `items[].sku_options[].ingredient_options[].required` | boolean | Whether this option's group is required; if you skip a required group, its default option is added for you |
+| `items[].sku_options[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
+| `items[].sku_options[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | Whether the order would actually carry this option; can only be `true` inside the selected sku's list |
 | `items[].ingredient_options` | array | **Only for items with no sku dimension** (`sku_options` empty): the item's single candidate set, same entry structure as above |
 
@@ -114,6 +118,25 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].item_id` | string | The request entry's `item_id`, echoed back |
 | `items[].error.code` | string | Error code (e.g. `PUBLIC_REFERENCE_INVALID` / `CART_PRICE_INVALID`) |
 | `items[].error.message` | string | Human-readable error description |
+
+
+<Note>
+  **`grouped=true` returns ingredients in a different shape.** With `grouped=true`, ingredients come back as `ingredient_groups` instead of the flat `ingredient_options`: group-level info (`group_name` / `required` / `multi_select` / `max_select`) appears once on the group rather than repeating on every option, and the options themselves sit in `options[]` with field-for-field identical values. The two shapes are **mutually exclusive** — you get one or the other, never both — and carry exactly the same content.
+
+  ```json
+  "ingredient_groups": [
+    {"group_name": "Temperature", "required": true, "multi_select": false, "max_select": 1,
+     "options": [
+       {"option_id": "opt_1", "name": "Iced", "price_delta": 0, "selected_by_default": true, "max_quantity": 1, "default_quantity": 1, "available": true},
+       {"option_id": "opt_2", "name": "Hot", "price_delta": 0, "selected_by_default": false, "max_quantity": 1, "default_quantity": 1, "available": true}
+     ]},
+    {"group_name": "Add-ons", "required": false, "multi_select": true, "max_select": 5,
+     "options": [
+       {"option_id": "opt_5", "name": "Boba", "price_delta": 200, "selected_by_default": false, "max_quantity": 3, "default_quantity": 1, "available": true}
+     ]}
+  ]
+  ```
+</Note>
 
 ### Errors
 
