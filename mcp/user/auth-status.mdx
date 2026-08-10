@@ -29,6 +29,7 @@ description: "查询某个 consent_grant_id 当前是否仍有效绑定，并返
 {
   "bound": true,
   "consent_grant_id": "cg_your_consent_grant",
+  "phone_encrypted": "STA0lFuTSuRK9SVotkY9hJiCwt1jsHcnlLfgJcNY+DQMgnf8d50L",
   "scopes": ["taobao_flash.delivery"],
   "expires_at": "2026-09-14T10:00:00+00:00",
   "next_action": null
@@ -41,6 +42,7 @@ description: "查询某个 consent_grant_id 当前是否仍有效绑定，并返
 {
   "bound": false,
   "consent_grant_id": null,
+  "phone_encrypted": null,
   "scopes": [],
   "expires_at": null,
   "next_action": "request_bind"
@@ -51,9 +53,78 @@ description: "查询某个 consent_grant_id 当前是否仍有效绑定，并返
 |------|------|------|
 | `bound` | boolean | 该 `consent_grant_id` 是否仍为有效绑定。`false` 表示无效 / 已过期 / 能力不匹配 |
 | `consent_grant_id` | string \| null | 已绑定时原样回传查询所用的 `consent_grant_id`；未绑定时为 `null` |
+| `phone_encrypted` | string \| null | 该授权绑定的手机号密文。用你的 API Key 解密后得到手机号，解密方法见下文「手机号解密」；未绑定时为 `null` |
 | `scopes` | string[] | 授权覆盖的能力范围，形如 `<provider_code>.<cap_code>`（例如 `taobao_flash.delivery`）；未绑定时为空数组 |
 | `expires_at` | string \| null | 授权过期时间，ISO 8601 带 UTC 时区（例如 `2026-09-14T10:00:00+00:00`）；未绑定时为 `null` |
 | `next_action` | string \| null | 下一步建议动作。已绑定时为 `null`；未绑定时为 `request_bind`（提示重新走绑定流程）|
+
+### 手机号解密
+
+`phone_encrypted` 是密文，密钥由你的 API Key 算出，我们不额外下发。两步：
+
+- **第 1 步 · 算密钥**：对你的 API Key 做 HMAC-SHA256，消息固定为 `clawdot/phone-encryption/v1`，得到 32 字节密钥。
+- **第 2 步 · 解密**：把 `phone_encrypted` 做 Base64 解码，前 12 字节是 IV，其余是 AES-256-GCM 密文（末 16 字节为认证标签），用第 1 步的密钥解开即得手机号。
+
+```python Python
+import base64, hmac, hashlib
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+def decrypt_phone(api_key: str, phone_encrypted: str) -> str:
+    key = hmac.new(api_key.encode(), b"clawdot/phone-encryption/v1", hashlib.sha256).digest()
+    raw = base64.b64decode(phone_encrypted)
+    return AESGCM(key).decrypt(raw[:12], raw[12:], None).decode()
+```
+
+```javascript Node.js
+const crypto = require('crypto');
+
+function decryptPhone(apiKey, phoneEncrypted) {
+  const key = crypto.createHmac('sha256', apiKey)
+    .update('clawdot/phone-encryption/v1').digest();
+  const raw = Buffer.from(phoneEncrypted, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, raw.subarray(0, 12));
+  decipher.setAuthTag(raw.subarray(raw.length - 16));
+  return Buffer.concat([
+    decipher.update(raw.subarray(12, raw.length - 16)),
+    decipher.final(),
+  ]).toString('utf8');
+}
+```
+
+```go Go
+func DecryptPhone(apiKey, phoneEncrypted string) (string, error) {
+	h := hmac.New(sha256.New, []byte(apiKey))
+	h.Write([]byte("clawdot/phone-encryption/v1"))
+	key := h.Sum(nil)
+
+	raw, err := base64.StdEncoding.DecodeString(phoneEncrypted)
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	out, err := gcm.Open(nil, raw[:12], raw[12:], nil)
+	return string(out), err
+}
+```
+
+<Warning>
+  **同一个手机号每次返回的密文都不一样**：每次加密都用新的随机 IV。不要拿密文做去重、比对或缓存键，要比对请先解密。
+</Warning>
+
+<Note>
+  **换了 API Key 旧密文就解不开**：密钥由 API Key 算出，换 Key 等于换密钥。密文即查即用即可，不要长期存下来指望以后再解。
+
+  **Key 不对会解密失败而非解出乱码**：AES-GCM 带完整性校验，Key 不对或密文被改动都会直接报错。
+
+  **建议在你自己的后端解密**：让 Agent 把这串密文原封不动交给你的服务端再解，手机号就不会出现在对话上下文或第三方平台的会话日志里。
+</Note>
 
 ### 错误码
 

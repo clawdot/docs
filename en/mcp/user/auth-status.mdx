@@ -29,6 +29,7 @@ When still a valid binding:
 {
   "bound": true,
   "consent_grant_id": "cg_your_consent_grant",
+  "phone_encrypted": "STA0lFuTSuRK9SVotkY9hJiCwt1jsHcnlLfgJcNY+DQMgnf8d50L",
   "scopes": ["taobao_flash.delivery"],
   "expires_at": "2026-09-14T10:00:00+00:00",
   "next_action": null
@@ -41,6 +42,7 @@ When invalid / expired / capability mismatch (no error, returns the unbound stat
 {
   "bound": false,
   "consent_grant_id": null,
+  "phone_encrypted": null,
   "scopes": [],
   "expires_at": null,
   "next_action": "request_bind"
@@ -51,9 +53,78 @@ When invalid / expired / capability mismatch (no error, returns the unbound stat
 |-------|------|-------------|
 | `bound` | boolean | Whether the `consent_grant_id` is still a valid binding. `false` means invalid / expired / capability mismatch |
 | `consent_grant_id` | string \| null | When bound, echoes back the `consent_grant_id` used for the query; `null` when unbound |
+| `phone_encrypted` | string \| null | The bound phone number, encrypted. Decrypt it with your API Key to get the number — see “Decrypting the phone number” below; `null` when unbound |
 | `scopes` | string[] | Capability scopes covered by the grant, formatted as `<provider_code>.<cap_code>` (e.g. `taobao_flash.delivery`); empty array when unbound |
 | `expires_at` | string \| null | Grant expiry time, ISO 8601 with UTC timezone (e.g. `2026-09-14T10:00:00+00:00`); `null` when unbound |
 | `next_action` | string \| null | Suggested next action. `null` when bound; `request_bind` when unbound (re-run the bind flow) |
+
+### Decrypting the phone number
+
+`phone_encrypted` is ciphertext. The key is derived from your own API Key — we do not issue a separate one. Two steps:
+
+- **Step 1 · Derive the key**: HMAC-SHA256 over your API Key with the fixed message `clawdot/phone-encryption/v1`, giving a 32-byte key.
+- **Step 2 · Decrypt**: Base64-decode `phone_encrypted`; the first 12 bytes are the IV and the rest is AES-256-GCM ciphertext (last 16 bytes are the auth tag). Decrypt with the key from step 1 to get the phone number.
+
+```python Python
+import base64, hmac, hashlib
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+def decrypt_phone(api_key: str, phone_encrypted: str) -> str:
+    key = hmac.new(api_key.encode(), b"clawdot/phone-encryption/v1", hashlib.sha256).digest()
+    raw = base64.b64decode(phone_encrypted)
+    return AESGCM(key).decrypt(raw[:12], raw[12:], None).decode()
+```
+
+```javascript Node.js
+const crypto = require('crypto');
+
+function decryptPhone(apiKey, phoneEncrypted) {
+  const key = crypto.createHmac('sha256', apiKey)
+    .update('clawdot/phone-encryption/v1').digest();
+  const raw = Buffer.from(phoneEncrypted, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, raw.subarray(0, 12));
+  decipher.setAuthTag(raw.subarray(raw.length - 16));
+  return Buffer.concat([
+    decipher.update(raw.subarray(12, raw.length - 16)),
+    decipher.final(),
+  ]).toString('utf8');
+}
+```
+
+```go Go
+func DecryptPhone(apiKey, phoneEncrypted string) (string, error) {
+	h := hmac.New(sha256.New, []byte(apiKey))
+	h.Write([]byte("clawdot/phone-encryption/v1"))
+	key := h.Sum(nil)
+
+	raw, err := base64.StdEncoding.DecodeString(phoneEncrypted)
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	out, err := gcm.Open(nil, raw[:12], raw[12:], nil)
+	return string(out), err
+}
+```
+
+<Warning>
+  **The same phone number yields different ciphertext on every call**: a fresh random IV is used each time. Do not use the ciphertext for deduplication, comparison, or as a cache key — decrypt first, then compare.
+</Warning>
+
+<Note>
+  **Rotating your API Key makes old ciphertext undecryptable**: the key is derived from the API Key, so rotating one rotates the other. Decrypt on receipt; do not store ciphertext long-term expecting to decrypt it later.
+
+  **A wrong key fails loudly rather than producing garbage**: AES-GCM is authenticated, so a wrong key or tampered ciphertext raises an error.
+
+  **Prefer decrypting in your own backend**: have the Agent pass the ciphertext through untouched to your server and decrypt there, so the phone number never appears in the conversation context or in third-party platform logs.
+</Note>
 
 ### Error Codes
 
