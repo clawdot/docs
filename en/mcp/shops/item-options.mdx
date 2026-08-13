@@ -52,15 +52,15 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 </Note>
 
 <Note>
-  **Options can exclude each other, and candidates narrow as you choose.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. Candidates that clash with a current selection come back as `available: false`, with `unavailable_reason` naming the option they clash with. Change the selection and call again; the selectable set follows.
+  **Options can exclude each other, and candidates narrow as you choose.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. **Candidates that clash with the current selection are omitted from the list**, so everything listed is pickable and you do not have to work out the compatible combinations yourself. Change the selection and call again; the selectable set follows.
 
-  **Just grey out entries with `available: false`** — you do not have to work out the compatible combinations yourself. Each sku is judged against **its own** selection, so switching sku only means reading that sku's list.
+  **Swapping within a group is unaffected.** Switching options inside a single-choice group is a normal move: send the new `option_id` and drop the old one from that group — the group's other options always stay listed. Each sku is judged against **its own** selection, so switching sku only means reading that sku's list.
 </Note>
 
 <Note>
   **To narrow step by step, resend the current selection every time.** Availability is computed from the `sku_id` / `ingredient_option_ids` / `ingredient_quantities` supplied on **this** call; nothing is remembered between calls. Pick an option, then call again carrying it, to see the narrowed candidate set.
 
-  **⚠️ Same name, different option**: a group often holds several identically-named entries (e.g. three "Signature Espresso" entries, one per coffee bean), so **always distinguish by `option_id`**. Comparing by name leads to the wrong conclusion that "the upper choice changed but the candidates did not" — measured across three beans, the selectable extraction methods were three completely disjoint sets of `option_id` with identical names.
+  **⚠️ Same name, different option**: options behind different upper-level choices may share a name (e.g. each of three coffee beans has its own "Signature Espresso"), so **always distinguish by `option_id`**. Comparing by name leads to the wrong conclusion that "the upper choice changed but the candidates did not" — measured across three beans, the selectable extraction methods were three completely disjoint sets of `option_id` with identical names.
 </Note>
 
 <Note>
@@ -101,13 +101,13 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].name` | string | Option name |
 | `items[].sku_options[].ingredient_options[].price_delta` | integer | Price delta of this option (cents) |
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
-| `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked **right now**; `false` when it conflicts with a current selection (see `unavailable_reason`) |
-| `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | Why it cannot be picked, naming the conflicting option; `null` when available |
+| `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked. **Only options selectable under the current selection are listed**, so this is normally `true`; `false` means the option is sold out or delisted |
+| `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | Why it cannot be picked; currently always `null` |
 | `items[].sku_options[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only, no portions. **Options in the same group can cap differently** — always read each option's own value |
 | `items[].sku_options[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |
 | `items[].sku_options[].ingredient_options[].required` | boolean | Whether this option's group is required; if you skip a required group, its default option is added for you |
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
-| `items[].sku_options[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit |
+| `items[].sku_options[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit. Exceeding it fails the order |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | Whether the order would actually carry this option; can only be `true` inside the selected sku's list |
 | `items[].ingredient_options` | array | **Only for items with no sku dimension** (`sku_options` empty): the item's single candidate set, same entry structure as above |
 
