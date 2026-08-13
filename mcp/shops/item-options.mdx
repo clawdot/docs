@@ -52,15 +52,15 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 </Note>
 
 <Note>
-  **选项之间可能互相排斥，候选会跟着当前选择收敛。** 有些商品的选项分层级——比如先选咖啡豆，再选萃取方式，能选的萃取方式只有那款咖啡豆对应的几种。与当前已选项冲突的候选返回 `available: false`，并在 `unavailable_reason` 里指明和哪一项冲突。改了选择再调一次，可选集会跟着变。
+  **选项之间可能互相排斥，候选会跟着当前选择收敛。** 有些商品的选项分层级——比如先选咖啡豆，再选萃取方式，能选的萃取方式只有那款咖啡豆对应的几种。**与当前选择冲突的候选不会出现在列表里**，所以列出来的都能选，不必自己推算哪些能共存。改了选择再调一次，可选集会跟着变。
 
-  **直接把 `available: false` 的项置灰即可**，不必自己推算哪些能共存。每个规格都按**它自己的**选择判定，换规格直接读目标规格的列表即可。
+  **同一组里换一项不受影响。** 单选组内换选项是正常操作：传新的 `option_id`、把同组的旧 `option_id` 去掉即可，同组其他选项始终在列。每个规格都按**它自己的**选择判定，换规格直接读目标规格的列表即可。
 </Note>
 
 <Note>
   **要逐级收敛，每次都得把当前选择回传。** 本接口按**本次传入**的 `sku_id` / `ingredient_option_ids` / `ingredient_quantities` 计算可选性，不记住上一次。选了一项就带着它重新调一次，才能看到收敛后的候选集。
 
-  **⚠️ 同名不同项**：同一组里常有多个重名选项（如 3 组「原萃浓缩」分别属于 3 款咖啡豆），**务必按 `option_id` 区分**。按名称比较会得出「换了上层选择、候选没变」的错误结论——实测换三款咖啡豆，可选萃取是三组完全不重叠的 `option_id`，而三组名字完全相同。
+  **⚠️ 同名不同项**：不同上层选择对应的选项可能重名（如 3 款咖啡豆各有一个「原萃浓缩」），**务必按 `option_id` 区分**。按名称比较会得出「换了上层选择、候选没变」的错误结论——实测换三款咖啡豆，可选萃取是三组完全不重叠的 `option_id`，而三组名字完全相同。
 </Note>
 
 <Note>
@@ -101,13 +101,13 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options[].ingredient_options[].name` | string | 选项名 |
 | `items[].sku_options[].ingredient_options[].price_delta` | integer | 该选项加价（分）|
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
-| `items[].sku_options[].ingredient_options[].available` | boolean | 该选项**当前**是否可选；与已选项互斥的返回 `false`（原因见 `unavailable_reason`）|
-| `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | 不可选的原因，会指明和哪一项冲突（如「与已选『经典浓缩(深烘)』冲突」）；可选时为 `null` |
+| `items[].sku_options[].ingredient_options[].available` | boolean | 该选项是否可选。**列表里只会出现当前选择下能选的项**，所以正常都是 `true`；`false` 表示该选项售罄或已下架 |
+| `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | 不可选的原因；当前恒为 `null` |
 | `items[].sku_options[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份。**同组各选项的上限可能不同**，按每个选项自己的值为准 |
 | `items[].sku_options[].ingredient_options[].default_quantity` | integer | 商家推荐份数，仅供展示；不传 `ingredient_quantities` 时按 **1 份**下单 |
 | `items[].sku_options[].ingredient_options[].required` | boolean | 该选项所在的组是否必选；必选组你没选时会自动补上该组默认项 |
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
-| `items[].sku_options[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类 |
+| `items[].sku_options[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类。超过会下单失败 |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
 | `items[].ingredient_options` | array | **仅无规格商品**（`sku_options` 为空）返回：该商品唯一形态的配料候选，条目结构同上 |
 
