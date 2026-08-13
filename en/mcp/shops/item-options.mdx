@@ -36,7 +36,7 @@ Typical scenarios:
 The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same order** as the requested `items` (the i-th result corresponds to the i-th request entry). Each result is either a **success entry** (full spec / ingredient candidates) or a **failure entry** (`{item_id, error}`) — **distinguished by the presence of an `error` field**.
 
 <Note>
-  **A per-item failure does not affect the others.** If an item's `item_id` does not belong to the cart, or its `ingredient_option_ids` pick the same single-select required group twice, **only that entry** comes back as `{item_id, error: {code, message}}`; the remaining items are returned normally and the whole call still **succeeds**. An invalid `cart_id` / consent, however, fails the whole call (see Errors).
+  **A per-item failure does not affect the others.** If an item's `item_id` does not belong to the cart, or its `ingredient_option_ids` pick the same single-select required group twice or exceed a multi-select group's `max_select`, **only that entry** comes back as `{item_id, error: {code, message}}`; the remaining items are returned normally and the whole call still **succeeds**. An invalid `cart_id` / consent, however, fails the whole call (see Errors).
 </Note>
 
 <Warning>
@@ -143,7 +143,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | Scenario | Behavior |
 |----------|----------|
 | An item's `item_id` does not belong to the `cart_id` | **That entry** returns `{item_id, error}` (`PUBLIC_REFERENCE_INVALID`); the other items are unaffected |
-| An item passes two options for the same single-select required group | **That entry** returns `{item_id, error}` (`CART_PRICE_INVALID`, same validation as `quote_cart` / `preview_order`); the other items are unaffected |
+| An item passes two options for the same single-select required group, or exceeds a multi-select group's `max_select` | **That entry** returns `{item_id, error}` (`CART_PRICE_INVALID`, same validation as `quote_cart` / `preview_order`); the other items are unaffected |
 | `cart_id` does not exist / has expired, or consent is invalid | **The whole call fails** with HTTP 400 `PUBLIC_REFERENCE_INVALID` |
 
 ### Example

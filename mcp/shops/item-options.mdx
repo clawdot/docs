@@ -36,7 +36,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 顶层返回 `{ "items": [...] }`，`items` 与请求的 `items` **一一对应、顺序一致**（第 i 个结果对应第 i 个请求项）。每个结果要么是**成功项**（完整规格 / 配料候选），要么是**失败项**（`{item_id, error}`）——**靠有没有 `error` 字段区分**。
 
 <Note>
-  **部分失败不影响其余商品。** 某个商品的 `item_id` 不属于该 cart，或它的 `ingredient_option_ids` 把同一单选必选组选了两次，**只有那一项**返回 `{item_id, error: {code, message}}`，其余商品照常返回，整个调用**仍算成功**（不报错）。但 `cart_id` / 授权本身无效时整次调用失败（见错误）。
+  **部分失败不影响其余商品。** 某个商品的 `item_id` 不属于该 cart，或它的 `ingredient_option_ids` 把同一单选必选组选了两次、某个多选组选超了 `max_select`，**只有那一项**返回 `{item_id, error: {code, message}}`，其余商品照常返回，整个调用**仍算成功**（不报错）。但 `cart_id` / 授权本身无效时整次调用失败（见错误）。
 </Note>
 
 <Warning>
@@ -143,7 +143,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | 场景 | 表现 |
 |------|------|
 | 某个商品的 `item_id` 不属于该 `cart_id` | **该项**返回 `{item_id, error}`（`PUBLIC_REFERENCE_INVALID`），不影响其余商品 |
-| 某个商品同一单选必选组传入两个选项 | **该项**返回 `{item_id, error}`（`CART_PRICE_INVALID`，与 `quote_cart` / `preview_order` 同款校验），不影响其余商品 |
+| 某个商品同一单选必选组传入两个选项，或某个多选组选超 `max_select` | **该项**返回 `{item_id, error}`（`CART_PRICE_INVALID`，与 `quote_cart` / `preview_order` 同款校验），不影响其余商品 |
 | `cart_id` 不存在 / 已过期，或授权无效 | **整次调用失败** HTTP 400 `PUBLIC_REFERENCE_INVALID` |
 
 ### 示例
