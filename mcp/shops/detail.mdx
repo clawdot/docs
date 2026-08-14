@@ -93,7 +93,8 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），原样回传到下单的 `items[].ingredient_option_ids` |
 | `items[].ingredient_options[].group_name` | string | 选项组名（如「糖度」）|
 | `items[].ingredient_options[].name` | string | 选项名（如「标准糖」）|
-| `items[].ingredient_options[].price_delta` | integer | 该选项加价（分），默认 `0` |
+| `items[].ingredient_options[].price_delta` | integer | 选 1 份的加价（分），默认 `0`。加多份不是简单相乘，看 `price_steps` |
+| `items[].ingredient_options[].price_steps` | array | 分档价目表，`[{min_quantity, max_quantity, total_price}]`。`total_price` 是买该份数时的**总**加价（分）。只有「加不同份数、价格也不同」的选项才有这个字段；没有它就表示加多少份都收 `price_delta` 那个数，同样不要乘 |
 | `items[].ingredient_options[].selected_by_default` | boolean | 是否为默认选项 |
 | `items[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份。**同组各选项的上限可能不同**，按每个选项自己的值为准 |
 | `items[].ingredient_options[].default_quantity` | integer | 商家推荐份数，仅供展示；不传 `ingredient_quantities` 时按 **1 份**下单 |

@@ -57,7 +57,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].available_quantity` | integer \| null | Remaining stock echo (units, menu-time snapshot): positive = units left, `0` = sold out, `null` = ample or unknown; display only — actual availability is enforced at order time |
 | `items[].image_url` | string \| null | Item image URL; `null` if none |
 | `items[].specs` | array | Selected specs for this item, `[{name, value}]` (e.g. `{"name":"Size","value":"Large"}`); `[]` if none |
-| `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta, quantity}]`; `group_name` may be `null`, `price_delta` is the **per-portion** surcharge (cents), `quantity` is the effective portion count (default `1`; the line's surcharge is `price_delta × quantity`); `[]` if none |
+| `items[].selected_ingredients` | array | Selected ingredients/options, `[{group_name, name, price_delta, quantity}]`; `group_name` may be `null`, `price_delta` is the surcharge for **one** portion (cents), `quantity` is the effective portion count (default `1`). The line's surcharge is NOT `price_delta × quantity` — see `price_steps` on `get_item_options` for the tiered price; `[]` if none |
 
 ### Error Codes
 

@@ -93,7 +93,8 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].ingredient_options[].option_id` | string | Option ID (`opt_`), passed back as-is to the order `items[].ingredient_option_ids` |
 | `items[].ingredient_options[].group_name` | string | Option group name (e.g. "Sugar") |
 | `items[].ingredient_options[].name` | string | Option name (e.g. "Standard") |
-| `items[].ingredient_options[].price_delta` | integer | Surcharge for this option (cents), defaults to `0` |
+| `items[].ingredient_options[].price_delta` | integer | Surcharge for ONE portion (cents), defaults to `0`. Extra portions are not a simple multiple — see `price_steps` |
+| `items[].ingredient_options[].price_steps` | array | Tiered price table, `[{min_quantity, max_quantity, total_price}]`. `total_price` is the **total** surcharge (cents) for that portion count. Only options whose price actually varies with the portion count carry this field; without it, any portion count costs the `price_delta` amount — do not multiply either |
 | `items[].ingredient_options[].selected_by_default` | boolean | Whether this is the default option |
 | `items[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only. **Options in the same group can cap differently** — always read each option's own value |
 | `items[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |

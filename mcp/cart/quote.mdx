@@ -57,7 +57,7 @@ description: "MCP 工具，对已选商品的购物车算价，返回价格明�
 | `items[].available_quantity` | integer \| null | 库存余量回显（份，菜单快照）：正整数=剩余可购，`0` 售罄，`null` 充足或未知；仅供展示参考，实际以下单校验为准 |
 | `items[].image_url` | string \| null | 商品图 URL，无图为 `null` |
 | `items[].specs` | array | 该项已选规格，`[{name, value}]`（如 `{"name":"规格","value":"大杯"}`）；无规格时为 `[]` |
-| `items[].selected_ingredients` | array | 该项已选配料/做法，`[{group_name, name, price_delta, quantity}]`；`group_name` 可为 `null`，`price_delta` 为**单份**加价（分），`quantity` 为生效份数（默认 `1`，该项实际加价 = `price_delta × quantity`）；无则为 `[]` |
+| `items[].selected_ingredients` | array | 该项已选配料/做法，`[{group_name, name, price_delta, quantity}]`；`group_name` 可为 `null`，`price_delta` 为选 **1 份**的加价（分），`quantity` 为生效份数（默认 `1`）。加多份不是 `price_delta × quantity`，分档价见 `get_item_options` 的 `price_steps`；无则为 `[]` |
 
 ### 错误码
 

@@ -184,6 +184,6 @@ This is the result of system automatically selecting the first non-conflicting o
 | Field | Description |
 |-------|-------------|
 | `items[].specs` | Selected specs, `[{name, value}]`, e.g. `[{"name":"Size","value":"Large"}]` |
-| `items[].selected_ingredients` | Selected ingredients / options, `[{group_name, name, price_delta}]`, e.g. `[{"group_name":"Add-ons","name":"Boba","price_delta":200}]`; `group_name` may be `null`, `price_delta` is the surcharge (cents) |
+| `items[].selected_ingredients` | Selected ingredients / options, `[{group_name, name, price_delta}]`, e.g. `[{"group_name":"Add-ons","name":"Boba","price_delta":200}]`; `group_name` may be `null`, `price_delta` is the surcharge for one portion (cents); **never multiply it by the portion count** — see `price_steps` on the option candidates for tiered pricing |
 
 The echo is translated by **each item's own `sku_id` / `ingredient_option_ids`**, so multiple items (including the same item with different specs) never cross-contaminate; fields are `[]` when there are no specs / ingredients.

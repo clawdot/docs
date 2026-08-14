@@ -70,7 +70,9 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 </Note>
 
 <Note>
-  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app: you can add several portions, each charged at `price_delta`. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and every option is 1 portion. Some items include a number of free portions, so trust the quoted price for the actual difference.
+  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app, so you can add several portions. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and every option is 1 portion.
+
+  **Do not multiply `price_delta` by the portion count.** Merchants price extra portions in tiers: espresso shots are free for 1-2 portions and ¥4 at the 3rd; mocha sauce is ¥3 for 1-4 portions and ¥6 total for 5-8. Options that carry `price_steps` must be read from that table. **Options without it must not be multiplied either** — for those, `price_delta` is what you pay no matter how many portions you add. In short: never multiply by the portion count.
 </Note>
 
 **Success entry fields** (same structure as a single-item result):
@@ -99,7 +101,8 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].option_id` | string | Option ID (`opt_`), usable directly in the order's `ingredient_option_ids` |
 | `items[].sku_options[].ingredient_options[].group_name` | string \| null | Option group name (e.g. "Temperature", "Sugar") |
 | `items[].sku_options[].ingredient_options[].name` | string | Option name |
-| `items[].sku_options[].ingredient_options[].price_delta` | integer | Price delta of this option (cents) |
+| `items[].sku_options[].ingredient_options[].price_delta` | integer | Surcharge for ONE portion (cents). Extra portions are not a simple multiple — see `price_steps` |
+| `items[].sku_options[].ingredient_options[].price_steps` | array | Tiered price table, `[{min_quantity, max_quantity, total_price}]`. `total_price` is the **total** surcharge (cents) for that portion count, not a per-portion price. Only options whose price actually varies with the portion count carry this field; without it, any portion count costs the `price_delta` amount |
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | Whether this is the menu default |
 | `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked. **Only options selectable under the current selection are listed**, so this is normally `true`; `false` means the option is sold out or delisted |
 | `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | Why it cannot be picked; currently always `null` |

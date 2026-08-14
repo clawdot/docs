@@ -70,7 +70,9 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 </Note>
 
 <Note>
-  **份数型选项用 `ingredient_quantities` 加份。** `max_quantity` 大于 1 的选项（如星巴克「浓缩份数」）在 App 上是加减号，可加多份，每份按 `price_delta` 加价。下单时用 `quote_cart` / `preview_order` 的 `items[].ingredient_quantities` 指定份数；不传则一律 1 份。部分商品有免费份数额度，实际差价以算价结果为准。
+  **份数型选项用 `ingredient_quantities` 加份。** `max_quantity` 大于 1 的选项（如星巴克「浓缩份数」）在 App 上是加减号，可加多份。下单时用 `quote_cart` / `preview_order` 的 `items[].ingredient_quantities` 指定份数；不传则一律 1 份。
+
+  **加多份的钱不能拿 `price_delta` 乘份数。** 商家常按档位定价：「浓缩份数」是 1~2 份免费、第 3 份才 ¥4；「摩卡酱」是 1~4 份 ¥3、5~8 份一共 ¥6。带 `price_steps` 的选项照它查表；**没有这个字段也不要乘**——那表示加多少份都收 `price_delta` 这一个数。换句话说，任何时候都不需要拿份数去乘。
 </Note>
 
 **成功项字段**（与请求单个商品时的结果结构一致）：
@@ -99,7 +101,8 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options[].ingredient_options[].option_id` | string | 选项 ID（`opt_`），可直接回传下单的 `ingredient_option_ids` |
 | `items[].sku_options[].ingredient_options[].group_name` | string \| null | 选项组名（如「温度」「糖度」）|
 | `items[].sku_options[].ingredient_options[].name` | string | 选项名 |
-| `items[].sku_options[].ingredient_options[].price_delta` | integer | 该选项加价（分）|
+| `items[].sku_options[].ingredient_options[].price_delta` | integer | 选 1 份的加价（分）。加多份不是简单相乘，看 `price_steps` |
+| `items[].sku_options[].ingredient_options[].price_steps` | array | 分档价目表，`[{min_quantity, max_quantity, total_price}]`。`total_price` 是买该份数时的**总**加价（分），不是每份单价。只有「加不同份数、价格也不同」的选项才有这个字段；没有它就表示加多少份都收 `price_delta` 那个数 |
 | `items[].sku_options[].ingredient_options[].selected_by_default` | boolean | 是否为菜单默认项 |
 | `items[].sku_options[].ingredient_options[].available` | boolean | 该选项是否可选。**列表里只会出现当前选择下能选的项**，所以正常都是 `true`；`false` 表示该选项售罄或已下架 |
 | `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | 不可选的原因；当前恒为 `null` |
