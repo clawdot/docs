@@ -20,6 +20,13 @@ Searches or browses shops near the delivery location. Each result carries a `sho
   **Browse pagination**: in browse mode (no `keyword`), pass `offset` to page through results — send `offset: 0` on the first call, then the response's `next_offset` on each subsequent call, until `shops` comes back empty (end reached). Page size is fixed and not adjustable (it only caps how many shops one page may return). Keyword search does not support pagination.
 </Note>
 
+<Warning>
+  **A keyword search does not necessarily return the shop you asked for.** The search never returns an empty list — when no shop name matches the keyword, it falls back to similar shops in the same category. `search_match_level` tells the two apart:
+
+  - **`exact`** — at least one shop's name or brand matches the keyword; those shops are listed first.
+  - **`related`** — no shop name matched; every result is a same-category alternative. For a category keyword ("奶茶") that is normal. For a shop or brand keyword ("星巴克") it means **that brand is not orderable at this delivery location** — do not treat the results as the shop the user asked for. Tell the user it wasn't found, or retry with a different address.
+</Warning>
+
 ### Parameters
 
 | Parameter | Type | Required | Default | Description |
@@ -67,6 +74,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
       ]
     }
   ],
+  "search_match_level": "exact",
   "next_offset": 20
 }
 ```
@@ -78,6 +86,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | Field | Type | Description |
 |-------|------|-------------|
 | `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
+| `search_match_level` | string | **Keyword search only**: `exact` = at least one shop name or brand matched the keyword, and those shops are listed first; `related` = no shop name matched, the results are same-category alternatives. Browse mode does **not** include this field |
 | `next_offset` | integer \| null | **Returned only when paging in browse mode** (request included `offset`): cursor for the next page, use as the next request's `offset`; empty `shops` means the end. Requests without `offset` do **not** include this field |
 | `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `get_shop_menu` / `quote_cart` / `preview_order` as-is |
 | `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
