@@ -20,6 +20,13 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
   **浏览翻页**：浏览模式（不传 `keyword`）下传 `offset` 翻页——首次传 `offset: 0`，返回会带 `next_offset`，下次把它作为 `offset` 继续翻，直到返回 `shops` 为空即到底。每页数量固定、不可调（仅作每页查询量上限）。关键词搜索不支持翻页。
 </Note>
 
+<Warning>
+  **关键词搜索给回来的，不一定是你要的那家店。** 搜索从不返回空列表——当没有任何店名对上关键词时，它会改推同品类的相似店铺。`search_match_level` 就是用来区分这两种情况的：
+
+  - **`exact`** — 至少有一家店的店名或品牌名对上了关键词，这些店排在列表最前面。
+  - **`related`** — 没有一家店名对得上，返回的全是同品类的相似店。用品类词搜（"奶茶"）时这很正常；但用店名或品牌搜（"星巴克"）时，它意味着**该品牌在这个配送位置点不到**，返回的只是同类替代——别把它们当成用户要的那家店，先告诉用户没搜到，或换个地址再试。
+</Warning>
+
 ### 参数
 
 | 参数 | 类型 | 必填 | 默认 | 说明 |
@@ -67,6 +74,7 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
       ]
     }
   ],
+  "search_match_level": "exact",
   "next_offset": 20
 }
 ```
@@ -78,6 +86,7 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `shops` | array | 店铺列表（浏览模式最多 20 家，关键词搜索约 5 家）|
+| `search_match_level` | string | **仅关键词搜索返回**：`exact`=至少一家店名或品牌名对上了关键词，这些店排在最前；`related`=没有店名对得上，返回的是同品类相似店。浏览模式**不含**此字段 |
 | `next_offset` | integer \| null | **仅浏览翻页时返回**（请求带了 `offset`）：下一页游标，作为下次请求的 `offset`；`shops` 为空即到底。不传 `offset` 的请求**不含**此字段 |
 | `shops[].shop_id` | string | 店铺 ID（`shop_` 前缀）；原样传给 `get_shop_menu` / `quote_cart` / `preview_order` |
 | `shops[].cart_id` | string | 购物车上下文 ID（`cart_` 前缀），已封装该店铺与配送坐标；后续工具据此免传经纬度 |

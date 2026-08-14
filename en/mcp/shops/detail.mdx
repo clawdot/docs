@@ -105,6 +105,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `total_items` | integer | Total item count after `keyword` filtering |
 | `has_more` | boolean | Whether there is a next page |
 | `next_offset` | integer \| null | The `offset` for the next page; `null` when `has_more` is `false` |
+| `search_match_level` | string | **Returned only when `keyword` is set**, telling you how these results matched: `exact` plain substring / `abbrev` colloquial short form / `fuzzy` same characters, different order / `none` nothing matched (`items` is empty). See the note below |
 <Note>
   **`available` in the menu does not account for exclusions.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. That kind of availability depends on what is currently selected, and this endpoint takes no parameter expressing a selection, so the menu just lists the candidates and `available` reflects only sold-out / delisted.
 
@@ -117,6 +118,23 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `required_groups[].min_select` | integer | Minimum items to pick from this group (currently always `1`) |
 | `required_groups[].candidate_item_ids` | array | `item_id`s of candidate items; pick at least `min_select` of them and add as normal items to the order `items[]` |
 | `required_groups[].candidates` | array | Candidate details `[{item_id, name, price, available}]`, one-to-one with `candidate_item_ids` and **always complete** (decoupled from `keyword`/paging); agent renders candidates directly without re-checking `items[]` |
+
+<Note>
+  **How `keyword` matches, and how results are ordered.**
+
+  Matching runs in four tiers, and a stricter tier that returns anything stops the search — looser results never dilute exact ones. `search_match_level` tells you which tier produced the results:
+
+  | Tier | Meaning | Example |
+  |------|---------|---------|
+  | `exact` | The item name / category / description literally contains the keyword | 「拿铁」→「生椰拿铁」|
+  | `abbrev` | The keyword is a colloquial short form of the dish name, or longer than it | 「香辣鸡腿堡」→「香辣鸡腿汉堡」|
+  | `fuzzy` | Same characters, different order | 「冰美式」→「美式咖啡（冰）」|
+  | `none` | Nothing matched at any tier; `items` is empty | — |
+
+  On `abbrev` / `fuzzy`, confirm the returned dish really is what the user asked for before ordering. `none` does **not** mean the shop lacks the dish — character matching cannot bridge synonyms (「鸡肉汉堡」 vs 「香辣鸡腿汉堡」); fetch `full_menu=true` and scan the outline yourself.
+
+  Ordering of `items[]`: **items whose name contains the keyword come first**, followed by those matched only through their category name or description; items from add-on / condiment / cutlery / packaging categories come last (searching 「珍珠」 gives you 「珍珠奶茶」 first and 「珍珠（分装）」 last). Within one tier the menu's own order is preserved. `categories[]` is never reordered — it always follows the menu, so you can render it as a category nav directly.
+</Note>
 
 <Tip>
   **Progressive disclosure**: use `keyword` to narrow results, or `limit` + `offset` to page. While `has_more` is `true`, keep calling with `offset=next_offset` until `has_more` is `false`. Item IDs returned by earlier calls on the same `cart_id` stay orderable for the cart's lifetime. For a large menu you can also skim it first with `full_menu=true`, then enrich the target items (`keyword` / `limit` or `get_item_options`).

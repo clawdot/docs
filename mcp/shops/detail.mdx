@@ -105,6 +105,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `total_items` | integer | 过滤（`keyword`）后的商品总数 |
 | `has_more` | boolean | 是否还有下一页 |
 | `next_offset` | integer \| null | 下一页的 `offset`；`has_more` 为 `false` 时为 `null` |
+| `search_match_level` | string | **仅传了 `keyword` 时返回**，说明这批结果是怎么匹配上的：`exact` 精确包含 / `abbrev` 口语简称 / `fuzzy` 同字不同序 / `none` 都没匹配上（`items` 为空）。见下方说明 |
 <Note>
   **菜单里的 `available` 不含互斥判定。** 有些商品的选项分层级——先选咖啡豆，再选萃取方式，能选的萃取只有那款豆对应的几种。这种可选性取决于「当前选了什么」，而本接口没有表达当前选择的入参，所以菜单只列出候选、`available` 只反映售罄 / 下架。
 
@@ -117,6 +118,23 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `required_groups[].min_select` | integer | 该组至少需选的商品数（当前恒为 `1`）|
 | `required_groups[].candidate_item_ids` | array | 候选商品的 `item_id` 列表；从中至少选 `min_select` 个，作为普通商品加入下单 `items[]` |
 | `required_groups[].candidates` | array | 候选商品详情 `[{item_id, name, price, available}]`，与 `candidate_item_ids` 一一对应且**始终完整**（与 `keyword`/分页解耦）；agent 直接据此展示候选，无需回查 `items[]` |
+
+<Note>
+  **`keyword` 怎么匹配、结果怎么排。**
+
+  匹配分四档，严格档有结果就到此为止，不会被宽松结果稀释——`search_match_level` 告诉你落在哪一档：
+
+  | 档位 | 含义 | 例子 |
+  |------|------|------|
+  | `exact` | 商品名 / 分类名 / 描述里精确含关键词 | 「拿铁」→「生椰拿铁」|
+  | `abbrev` | 关键词是菜名的口语简称，或比菜名更长 | 「香辣鸡腿堡」→「香辣鸡腿汉堡」|
+  | `fuzzy` | 同样的字、顺序不同 | 「冰美式」→「美式咖啡（冰）」|
+  | `none` | 四档都没匹配上，`items` 为空 | — |
+
+  拿到 `abbrev` / `fuzzy` 时，下单前请先确认返回的菜确实是用户要的那道。拿到 `none` **不代表这家店没有**——字面匹配跨不过同义词（「鸡肉汉堡」对「香辣鸡腿汉堡」），建议改用 `full_menu=true` 拉大纲自己找。
+
+  `items[]` 的顺序：**商品名含关键词的排在前面**，只靠分类名或描述匹配上的排在后面；加料 / 小料 / 餐具 / 打包这类配件分类的商品排在最后（搜「珍珠」先给「珍珠奶茶」，「珍珠（分装）」垫底）。同一档内保持菜单原顺序。`categories[]` 不参与重排，始终是菜单原顺序，可直接用作分类导航。
+</Note>
 
 <Tip>
   **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。大菜单也可先 `full_menu=true` 一次速览全貌，再对目标商品富化（`keyword` / `limit` 或 `get_item_options`）。
