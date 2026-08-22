@@ -25,7 +25,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `items[].sku_id` | string | 否 | `null` | SKU ID |
 | `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
 | `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项；非默认规格用该规格 `sku_options[].ingredient_options` 的 option_id）|
-| `items[].ingredient_quantities` | array | 否 | `[]` | 为某个选项指定份数，如「浓缩份数 x3」，格式 `[{option_id, quantity}]`；仅 `max_quantity` 大于 1 的选项可用，超出会下单失败。列在这里即**视同已选**，不必再写进 `ingredient_option_ids`；不传则全部按 1 份 |
+| `items[].ingredient_quantities` | array | 否 | `[]` | 为某个选项指定份数，如「浓缩份数 x3」，格式 `[{option_id, quantity}]`；仅 `max_quantity` 大于 1 的选项可用，超出会下单失败。列在这里即**视同已选**，不必再写进 `ingredient_option_ids`；不传则按各选项的 `default_quantity`（商家推荐份数） |
 | `items[].remark` | string | 否 | `""` | 单品备注 |
 | `coupon_ids` | string[] \| null | 否 | `null` | 优惠券选择，三态见下 |
 | `order_remark` | string | 否 | `""` | 订单备注（给骑手）|
@@ -61,7 +61,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `items[].available_quantity` | integer \| null | 库存余量回显；同 `quote_cart` 的 `items[].available_quantity` |
 | `items[].image_url` | string \| null | 商品图 URL，无图为 `null` |
 | `items[].specs` | array | 该项已选规格，`[{name, value}]`（如 `{"name":"规格","value":"大杯"}`）；无规格时为 `[]` |
-| `items[].selected_ingredients` | array | 该项已选配料/做法，`[{group_name, name, price_delta, quantity}]`；`group_name` 可为 `null`，`price_delta` 为选 **1 份**的加价（分），`quantity` 为生效份数（默认 `1`）。加多份不是 `price_delta × quantity`，分档价见 `get_item_options` 的 `price_steps`；无则为 `[]` |
+| `items[].selected_ingredients` | array | 该项已选配料/做法，`[{group_name, name, price_delta, quantity}]`；`group_name` 可为 `null`，`price_delta` 为选 **1 份**的加价（分），`quantity` 为生效份数（未指定时＝该选项的 `default_quantity`）。加多份不是 `price_delta × quantity`，分档价见 `get_item_options` 的 `price_steps`；无则为 `[]` |
 | `price.goods_price` | integer | 商品小计（分）|
 | `price.delivery_fee` | integer | 配送费（分）|
 | `price.packing_fee` | integer | 打包费（分）|

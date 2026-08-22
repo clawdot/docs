@@ -28,7 +28,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].item_id` | string | 是 | — | 商品 ID（来自同一 cart 的 `get_shop_menu`）|
 | `items[].sku_id` | string \| null | 否 | `null` | 该商品当前选择的规格 ID，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认规格**计算 |
 | `items[].ingredient_option_ids` | array | 否 | `[]` | 该商品当前选择的配料选项 ID 列表，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认选择**计算 |
-| `items[].ingredient_quantities` | array | 否 | `[]` | 该商品当前选择的份数，与发给 `quote_cart` / `preview_order` 的一致；不传按每项 1 份计算 |
+| `items[].ingredient_quantities` | array | 否 | `[]` | 该商品当前选择的份数，与发给 `quote_cart` / `preview_order` 的一致；不传则每项按各自的 `default_quantity`（商家推荐份数）计算 |
 | `grouped` | boolean | 否 | `false` | 配料是否按组返回。`false` / 不传：配料平铺在 `ingredient_options` 里，每条自带 `group_name`；`true`：改为按组返回 `ingredient_groups`，组信息只出现一次 |
 
 ### 返回
@@ -70,7 +70,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 </Note>
 
 <Note>
-  **份数型选项用 `ingredient_quantities` 加份。** `max_quantity` 大于 1 的选项（如星巴克「浓缩份数」）在 App 上是加减号，可加多份。下单时用 `quote_cart` / `preview_order` 的 `items[].ingredient_quantities` 指定份数；不传则一律 1 份。
+  **份数型选项用 `ingredient_quantities` 加份。** `max_quantity` 大于 1 的选项（如星巴克「浓缩份数」）在 App 上是加减号，可加多份。下单时用 `quote_cart` / `preview_order` 的 `items[].ingredient_quantities` 指定份数；不传则按各选项的 `default_quantity`（商家推荐份数）下单。
 
   **加多份的钱不能拿 `price_delta` 乘份数。** 商家常按档位定价：「浓缩份数」是 1~2 份免费、第 3 份才 ¥4；「摩卡酱」是 1~4 份 ¥3、5~8 份一共 ¥6。带 `price_steps` 的选项照它查表；**没有这个字段也不要乘**——那表示加多少份都收 `price_delta` 这一个数。换句话说，任何时候都不需要拿份数去乘。
 </Note>
@@ -107,7 +107,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options[].ingredient_options[].available` | boolean | 该选项是否可选。**列表里只会出现当前选择下能选的项**，所以正常都是 `true`；`false` 表示该选项售罄或已下架 |
 | `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | 不可选的原因；当前恒为 `null` |
 | `items[].sku_options[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份。**同组各选项的上限可能不同**，按每个选项自己的值为准 |
-| `items[].sku_options[].ingredient_options[].default_quantity` | integer | 商家推荐份数，仅供展示；不传 `ingredient_quantities` 时按 **1 份**下单 |
+| `items[].sku_options[].ingredient_options[].default_quantity` | integer | 商家推荐份数。不传 `ingredient_quantities` 时**就按这个份数下单**，例如大杯馥芮白是 3 份浓缩 |
 | `items[].sku_options[].ingredient_options[].required` | boolean | 该选项所在的组是否必选；必选组你没选时会自动补上该组默认项 |
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
 | `items[].sku_options[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类。超过会下单失败 |
