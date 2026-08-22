@@ -97,7 +97,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].ingredient_options[].price_steps` | array | 分档价目表，`[{min_quantity, max_quantity, total_price}]`。`total_price` 是买该份数时的**总**加价（分）。只有「加不同份数、价格也不同」的选项才有这个字段；没有它就表示加多少份都收 `price_delta` 那个数，同样不要乘 |
 | `items[].ingredient_options[].selected_by_default` | boolean | 是否为默认选项 |
 | `items[].ingredient_options[].max_quantity` | integer | 该选项最多可加几份；`1` 表示只能选、不能加份。**同组各选项的上限可能不同**，按每个选项自己的值为准 |
-| `items[].ingredient_options[].default_quantity` | integer | 商家推荐份数，仅供展示；不传 `ingredient_quantities` 时按 **1 份**下单 |
+| `items[].ingredient_options[].default_quantity` | integer | 商家推荐份数。不传 `ingredient_quantities` 时**就按这个份数下单**，例如大杯馥芮白是 3 份浓缩 |
 | `items[].ingredient_options[].required` | boolean | 该选项所在的组是否必选；必选组你没选时会自动补上该组默认项 |
 | `items[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
 | `items[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类 |

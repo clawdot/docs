@@ -28,7 +28,7 @@ Typical scenarios:
 | `items[].item_id` | string | Yes | — | Item ID (from `get_shop_menu` on the same cart) |
 | `items[].sku_id` | string \| null | No | `null` | This item's currently chosen sku ID, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default sku** |
 | `items[].ingredient_option_ids` | array | No | `[]` | This item's currently chosen option ID list, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default selection** |
-| `items[].ingredient_quantities` | array | No | `[]` | This item's currently chosen portion counts, exactly as sent to `quote_cart` / `preview_order`; omit to compute 1 portion each |
+| `items[].ingredient_quantities` | array | No | `[]` | This item's currently chosen portion counts, exactly as sent to `quote_cart` / `preview_order`; omit and each option uses its own `default_quantity` (the merchant-recommended count) |
 | `grouped` | boolean | No | `false` | Whether ingredients come back grouped. `false` / omitted: flat `ingredient_options`, each carrying its own `group_name`; `true`: grouped `ingredient_groups` with group info stated once |
 
 ### Returns
@@ -70,7 +70,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 </Note>
 
 <Note>
-  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app, so you can add several portions. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and every option is 1 portion.
+  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app, so you can add several portions. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and each option uses its own `default_quantity` (the merchant-recommended count).
 
   **Do not multiply `price_delta` by the portion count.** Merchants price extra portions in tiers: espresso shots are free for 1-2 portions and ¥4 at the 3rd; mocha sauce is ¥3 for 1-4 portions and ¥6 total for 5-8. Options that carry `price_steps` must be read from that table. **Options without it must not be multiplied either** — for those, `price_delta` is what you pay no matter how many portions you add. In short: never multiply by the portion count.
 </Note>
@@ -107,7 +107,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].available` | boolean | Whether this option can be picked. **Only options selectable under the current selection are listed**, so this is normally `true`; `false` means the option is sold out or delisted |
 | `items[].sku_options[].ingredient_options[].unavailable_reason` | string \| null | Why it cannot be picked; currently always `null` |
 | `items[].sku_options[].ingredient_options[].max_quantity` | integer | How many portions of this option can be added; `1` means pick-only, no portions. **Options in the same group can cap differently** — always read each option's own value |
-| `items[].sku_options[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count, display only; omitting `ingredient_quantities` orders **1 portion** |
+| `items[].sku_options[].ingredient_options[].default_quantity` | integer | Merchant-recommended portion count. Omitting `ingredient_quantities` **orders exactly this many** — a grande Flat White, for example, comes with 3 espresso shots |
 | `items[].sku_options[].ingredient_options[].required` | boolean | Whether this option's group is required; if you skip a required group, its default option is added for you |
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
 | `items[].sku_options[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit. Exceeding it fails the order |
