@@ -72,7 +72,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].image_url` | string \| null | 商品图片 URL |
 | `items[].price` | integer | 当前价（分）|
 | `items[].original_price` | integer \| null | 原价（分）；无折扣时为 `null` |
-| `items[].tip_texts` | array | 营销展示文案（上游现成文案，如 `["月售 1000+", "好评率 100%"]`）；无则为 `[]`。仅供展示，不是下单入参 |
+| `items[].tip_texts` | array | 营销展示文案，目前为月售，如 `["月售 1000+"]`；无则为 `[]`。仅供展示，不是下单入参 |
 | `items[].promo_labels` | array | 折扣/促销标签，主副结构；无则为 `[]`。也可能出现配送限制标签（如「单点不送」＝该商品不可单独下单，建议加购时提示搭配正常商品，否则 `quote_cart` 会返回 `blocking_code=1`）|
 | `items[].promo_labels[].text` | string | 主标签文案（如「66折」）|
 | `items[].promo_labels[].sub_texts` | array | 副标签文案列表（如 `["限3份"]`）|

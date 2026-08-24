@@ -59,7 +59,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
       "delivery_time_text": "35分钟",
       "delivery_fee_text": "配送 ¥3",
       "rating": 4.8,
-      "monthly_sales_text": "月售2000+",
+      "monthly_sales_text": null,
       "min_order_amount": 0,
       "available": true,
       "unavailable_reason": null,
@@ -98,7 +98,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].delivery_time_text` | string \| null | Estimated delivery text; present in both modes, `null` only when the upstream omits it |
 | `shops[].delivery_fee_text` | string \| null | Delivery fee text; present in both modes, `null` only when the upstream omits it; a fee of 0 shows as "免配送费" (free delivery) |
 | `shops[].rating` | float \| null | Rating (may be `null` in keyword search mode) |
-| `shops[].monthly_sales_text` | string \| null | Monthly sales text |
+| `shops[].monthly_sales_text` | string \| null | Monthly sales text. **Currently always `null`** — shop-level monthly sales are not available; for per-dish monthly sales see `items[].tip_texts` on `get_shop_menu` |
 | `shops[].min_order_amount` | integer \| null | Minimum order amount (cents); `null` when absent |
 | `shops[].available` | boolean | Whether orderable (open and not closed) |
 | `shops[].unavailable_reason` | string \| null | Reason if unavailable |

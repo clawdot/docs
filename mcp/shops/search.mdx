@@ -59,7 +59,7 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
       "delivery_time_text": "35分钟",
       "delivery_fee_text": "配送 ¥3",
       "rating": 4.8,
-      "monthly_sales_text": "月售2000+",
+      "monthly_sales_text": null,
       "min_order_amount": 0,
       "available": true,
       "unavailable_reason": null,
@@ -98,7 +98,7 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
 | `shops[].delivery_time_text` | string \| null | 预计送达文案；两种模式都带，仅上游未返回时为 `null` |
 | `shops[].delivery_fee_text` | string \| null | 配送费文案；两种模式都带，仅上游未返回时为 `null`；配送费为 0 显示「免配送费」 |
 | `shops[].rating` | float \| null | 评分（关键词搜索模式可能为 `null`）|
-| `shops[].monthly_sales_text` | string \| null | 月销文案 |
+| `shops[].monthly_sales_text` | string \| null | 月销文案。**当前恒为 `null`**，店铺维度的月销暂不提供；商品维度的月售见 `get_shop_menu` 的 `items[].tip_texts` |
 | `shops[].min_order_amount` | integer \| null | 起送金额（分）；缺失为 `null` |
 | `shops[].available` | boolean | 是否可下单（营业且未关闭）|
 | `shops[].unavailable_reason` | string \| null | 不可用原因 |

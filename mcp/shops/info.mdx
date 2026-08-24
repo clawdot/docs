@@ -1,0 +1,118 @@
+---
+title: "get_shop_info"
+description: "MCP 工具 get_shop_info — 查询店铺本身的信息：营业时间、地址、是否在营业、评分与配送信息，不含菜单"
+---
+
+## get_shop_info
+
+查询一个店铺**本身的信息**——营业时间、地址、是否在营业、评分、送达时长与配送费，**不含菜单**。适合用户点进店铺详情页，或问「这家店几点关门 / 评分多少 / 多久能送到」的时候调用。
+
+只要店铺信息的话，本工具比 `get_shop_menu` 快得多——它不拉商品数据。需要菜单请用 [`get_shop_menu`](/mcp/shops/detail)。
+
+<Note>
+  **链路**：`search_shops` 得 `shop_id` + `cart_id` → **`get_shop_info`** 看店铺信息。`shop_id` 与 `cart_id` 必须来自同一次 `search_shops` 的**同一家店**，否则报 `PUBLIC_REFERENCE_INVALID`。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `shop_id` | string | 是 | — | 店铺 ID（`shop_` 前缀，来自 `search_shops`），原样回传 |
+| `cart_id` | string | 是 | — | 购物上下文 ID（`cart_` 前缀，来自 `search_shops` 中同一家店），原样回传 |
+
+### 返回
+
+返回一个 `shop` 对象。字段分两类，取值时机不同：
+
+- **本次查询的实时结果**：`name`、`address`、`business_hours`、`is_open_now`、`lat`、`lng`
+- **沿用 `search_shops` 搜到该店时的值**：`rating`、`delivery_time_text`、`delivery_fee_text`、`distance_text`、`min_order_amount`、`brand_name`、`logo_url`、`tags`
+
+送达时长、配送费和距离取决于收货位置，只凭店铺 ID 无法重新计算，因此这几个字段与 `search_shops` 返回的同名字段完全一致。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `shop_id` | string | 原样回传请求的 `shop_id` |
+| `name` | string | 店铺名称 |
+| `brand_name` | string \| null | 品牌名称，如 `"瑞幸咖啡"`；无则为 `null` |
+| `logo_url` | string \| null | 店铺 logo 图片地址；无则为 `null` |
+| `address` | string | 店铺地址 |
+| `business_hours` | string | 营业时间文本，如 `"周一至周日 07:00-21:00"`。格式随商家而定，可能按星期分列或含多个时段，请原样展示 |
+| `is_open_now` | boolean \| null | 当前是否在营业，由 `business_hours` 推算。无法解析时为 `null` |
+| `lat` | number \| null | 店铺自身纬度。**不是收货地址的坐标** |
+| `lng` | number \| null | 店铺自身经度 |
+| `rating` | number \| null | 评分，如 `4.8`。关键词搜索得到的店铺没有评分，为 `null` |
+| `delivery_time_text` | string \| null | 预计送达时长，如 `"25分钟"` |
+| `delivery_fee_text` | string \| null | 配送费展示文本，如 `"免配送费"` |
+| `distance_text` | string \| null | 距离展示文本，如 `"2103m"`；关键词搜索得到的店铺为空字符串 |
+| `min_order_amount` | integer \| null | 起送价，单位分；无起送门槛时为 `0` |
+| `tags` | array | 品类标签，如 `["咖啡"]`；无则为空数组 |
+
+<Warning>
+  `is_open_now` 为 `null` 时**不要断言店铺已打烊**——那表示营业时间文本无法解析，请把 `business_hours` 原样告诉用户，让他自己判断。
+</Warning>
+
+<Note>
+  沿用字段的取值跟着 `search_shops` 的模式走：**关键词搜索**得到的店铺没有评分（`rating` 为 `null`）、距离为空字符串；**浏览附近**得到的店铺没有 `brand_name` 与 `tags`。
+</Note>
+
+### 不提供的信息
+
+以下三项本工具不返回，不要向用户承诺：
+
+- **店铺公告**（商家在店铺页顶部挂的那条通知）
+- **店铺月销量**（如「月销 2000+」）
+- **配送方式**（商家自配送 / 平台配送）
+
+商品维度的月售是有的，见 `get_shop_menu` 返回的 `items[].tip_texts`（如 `["月售 1000+"]`）。
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `PUBLIC_REFERENCE_INVALID` | `shop_id` 或 `cart_id` 无效、过期，或两者不是同一家店 |
+| `ELEME_ERROR` | 店铺信息查询失败，可重试 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "get_shop_info",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<来自 search_shops>",
+    "cart_id": "<来自 search_shops，同一家店>"
+  }
+}
+```
+
+### 返回示例
+
+```json
+{
+  "shop": {
+    "shop_id": "shop_4f2a...",
+    "name": "瑞幸咖啡(古城现代嘉园店)",
+    "brand_name": "瑞幸咖啡",
+    "logo_url": "https://img.alicdn.com/…",
+    "address": "北京市石景山区古城西路68号院3号楼1层101-02",
+    "business_hours": "周一至周日 07:00-21:00",
+    "is_open_now": true,
+    "lat": 39.914486,
+    "lng": 116.177943,
+    "rating": 4.8,
+    "delivery_time_text": "25分钟",
+    "delivery_fee_text": "免配送费",
+    "distance_text": "2103m",
+    "min_order_amount": 2000,
+    "tags": ["咖啡"]
+  }
+}
+```

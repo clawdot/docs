@@ -1,0 +1,118 @@
+---
+title: "get_shop_info"
+description: "MCP tool get_shop_info — fetch a shop's own profile: hours, address, open state, rating and delivery info, without the menu"
+---
+
+## get_shop_info
+
+Fetches a shop's **own profile** — opening hours, address, whether it is open right now, rating, delivery time and delivery fee — **without the menu**. Use it for a shop detail view, or when the user asks "when does this place close / how good is it / how long will delivery take".
+
+When you only need shop information, this is much faster than `get_shop_menu`, which pulls dish data. For the menu, use [`get_shop_menu`](/en/mcp/shops/detail).
+
+<Note>
+  **Flow**: `search_shops` → `shop_id` + `cart_id` → **`get_shop_info`**. The `shop_id` and `cart_id` must come from the **same shop** in the same `search_shops` response, otherwise the call fails with `PUBLIC_REFERENCE_INVALID`.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `shop_id` | string | Yes | — | Shop ID (`shop_` prefix, from `search_shops`); pass it back as-is |
+| `cart_id` | string | Yes | — | Cart context ID (`cart_` prefix, from the same shop in `search_shops`); pass it back as-is |
+
+### Returns
+
+Returns a `shop` object. Its fields fall into two groups, resolved at different times:
+
+- **Live for this call**: `name`, `address`, `business_hours`, `is_open_now`, `lat`, `lng`
+- **Carried from the `search_shops` call that minted the cart**: `rating`, `delivery_time_text`, `delivery_fee_text`, `distance_text`, `min_order_amount`, `brand_name`, `logo_url`, `tags`
+
+Delivery time, delivery fee and distance depend on the user's location, so they cannot be recomputed from a shop ID alone — these fields match exactly what `search_shops` returned for this shop.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `shop_id` | string | Echoes the requested `shop_id` |
+| `name` | string | Shop name |
+| `brand_name` | string \| null | Brand name, e.g. `"瑞幸咖啡"`; `null` when absent |
+| `logo_url` | string \| null | Shop logo image URL; `null` when absent |
+| `address` | string | Shop address |
+| `business_hours` | string | Opening-hours text, e.g. `"周一至周日 07:00-21:00"`. The format varies by merchant — it may be split per weekday or list several time ranges. Display it as-is |
+| `is_open_now` | boolean \| null | Whether the shop is open right now, derived from `business_hours`. `null` when the text cannot be parsed |
+| `lat` | number \| null | The SHOP's own latitude. **Not the delivery address** |
+| `lng` | number \| null | The SHOP's own longitude |
+| `rating` | number \| null | Rating, e.g. `4.8`. Shops found by keyword search carry no rating and return `null` |
+| `delivery_time_text` | string \| null | Estimated delivery time, e.g. `"25分钟"` |
+| `delivery_fee_text` | string \| null | Delivery fee display text, e.g. `"免配送费"` |
+| `distance_text` | string \| null | Distance display text, e.g. `"2103m"`; an empty string for shops found by keyword search |
+| `min_order_amount` | integer \| null | Minimum order amount in cents; `0` when the shop has no minimum |
+| `tags` | array | Category tags, e.g. `["咖啡"]`; empty array when absent |
+
+<Warning>
+  When `is_open_now` is `null`, **do not tell the user the shop is closed**. It means the opening-hours text could not be parsed — show `business_hours` as-is and let the user judge.
+</Warning>
+
+<Note>
+  The carried fields follow whichever `search_shops` mode minted the cart: shops from **keyword search** have no rating (`rating` is `null`) and an empty `distance_text`; shops from **browsing nearby** have no `brand_name` and no `tags`.
+</Note>
+
+### What this tool does not return
+
+Three things are not available — do not promise them to the user:
+
+- **Shop notice / bulletin** (the announcement merchants pin to the top of their shop page)
+- **Shop-level monthly sales** (e.g. "2000+ sold this month")
+- **Delivery mode** (merchant-delivered vs platform-delivered)
+
+Per-dish monthly sales *are* available, as `items[].tip_texts` on `get_shop_menu` (e.g. `["月售 1000+"]`).
+
+### Error codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing user consent (`consent_grant_id` not provided) |
+| `CONSENT_GRANT_INVALID` | Invalid user consent grant |
+| `CONSENT_GRANT_EXPIRED` | Consent grant expired; re-authorize |
+| `CAP_NOT_BOUND` | This Agent has no takeout capability enabled |
+| `CONSENT_GRANT_WRONG_CAP` | The grant belongs to another capability / provider |
+| `PUBLIC_REFERENCE_INVALID` | `shop_id` or `cart_id` is invalid, expired, or the two are not the same shop |
+| `ELEME_ERROR` | Shop lookup failed; retryable |
+
+See [Error handling](/en/gateway/error-handling) for the full list.
+
+### Example call
+
+```json
+{
+  "name": "get_shop_info",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "shop_id": "<from search_shops>",
+    "cart_id": "<from search_shops, same shop>"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "shop": {
+    "shop_id": "shop_4f2a...",
+    "name": "瑞幸咖啡(古城现代嘉园店)",
+    "brand_name": "瑞幸咖啡",
+    "logo_url": "https://img.alicdn.com/…",
+    "address": "北京市石景山区古城西路68号院3号楼1层101-02",
+    "business_hours": "周一至周日 07:00-21:00",
+    "is_open_now": true,
+    "lat": 39.914486,
+    "lng": 116.177943,
+    "rating": 4.8,
+    "delivery_time_text": "25分钟",
+    "delivery_fee_text": "免配送费",
+    "distance_text": "2103m",
+    "min_order_amount": 2000,
+    "tags": ["咖啡"]
+  }
+}
+```
