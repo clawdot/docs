@@ -173,7 +173,7 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 // → { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-可选传 `callback_url`：支付结果会以回调推送（`event=order_payment`）。
+可选传 `callback_url`：这笔单每次状态变化都会推一条回调，支付结果那条为 `event=order_payment`。
 
 </Step>
 

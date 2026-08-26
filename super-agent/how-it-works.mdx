@@ -186,7 +186,7 @@ get_order_status(consent_grant_id, order_id)
     - 骑手配送中
     - 已送达
 
-    可用于主动更新用户订单进展。下单时也可在 `create_order` 传 `callback_url`，由网关轮询并在订单脱离未支付态时 POST 回调。
+    可用于主动更新用户订单进展。下单时也可在 `create_order` 传 `callback_url`，这笔单每次状态变化都会 POST 一条回调。
   </Accordion>
 
   <Accordion title="免密签约阶段" icon="credit-card">

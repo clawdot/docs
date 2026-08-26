@@ -186,7 +186,7 @@ The full ordering flow is a **stateful chain** — each step's returned ID must 
     - Rider is delivering
     - Delivered
 
-    Can be used to proactively update users on order progress. You can also pass `callback_url` to `create_order`, and the gateway will poll and POST a callback once the order leaves the unpaid state.
+    Can be used to proactively update users on order progress. You can also pass `callback_url` to `create_order`, and every status change on the order will POST a callback.
   </Accordion>
 
   <Accordion title="Passwordless Signing Phase" icon="credit-card">

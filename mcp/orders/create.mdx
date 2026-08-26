@@ -12,7 +12,7 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 </Note>
 
 <Note>
-  本工具**幂等**：以 `confirmation_token` 为幂等键。幂等指纹只比对 `preview_id` + `confirmation_token` + `payment_method` 三项（**不含** `callback_url`）。用相同 `confirmation_token` 重复调用时：若 `preview_id`、`payment_method` 与首次一致，返回首次的结果；若任一与首次不一致，则返回 `IDEMPOTENCY_CONFLICT`。同一令牌只能下一单——再次下单需重新走 `preview_order` 取新令牌。注意：仅改 `callback_url`（其余三项不变）不算冲突，会命中重放并**重新注册一次轮询**（回调因此可能多次送达）。
+  本工具**幂等**：以 `confirmation_token` 为幂等键。幂等指纹只比对 `preview_id` + `confirmation_token` + `payment_method` 三项（**不含** `callback_url`）。用相同 `confirmation_token` 重复调用时：若 `preview_id`、`payment_method` 与首次一致，返回首次的结果；若任一与首次不一致，则返回 `IDEMPOTENCY_CONFLICT`。同一令牌只能下一单——再次下单需重新走 `preview_order` 取新令牌。注意：仅改 `callback_url`（其余三项不变）不算冲突，会命中重放并**重新开始一轮状态跟踪**（回调因此可能多次送达）。
 </Note>
 
 ### 参数
@@ -23,40 +23,75 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `preview_id` | string | 是 | — | 预览 ID（来自 `preview_order`，原样回传）|
 | `confirmation_token` | string | 是 | — | 确认令牌（来自 **同一次** `preview_order`，原样回传）；同时作为幂等键 |
 | `payment_method` | string \| null | 否 | `null` | 支付渠道；不传则用默认渠道 |
-| `callback_url` | string \| null | 否 | `null` | 支付状态回调地址（绝对 http(s) URL）；填写后网关侧轮询订单状态，脱离未支付态即向该地址 POST 一次回调（见下）|
+| `callback_url` | string \| null | 否 | `null` | 订单状态回调地址（绝对 http(s) URL）；填写后这笔单每次状态变化都会向该地址 POST 一条事件（见下）|
 
-**`callback_url` 说明：** 必须是绝对的 `http`/`https` URL，禁止指向回环 / 内网 / 链路本地等地址。填写后网关每隔约 2 秒轮询订单状态，一旦订单脱离未支付态（`created` / `pending_payment`），向该地址 POST 一次回调。轮询窗口约 **15 分钟**（`POLL_WINDOW_SECONDS = 15 * 60`）；窗口耗尽仍未支付则按 `timeout` 收尾，确保任务必然终止。回调 body 固定为以下 6 个键：
+**`callback_url` 说明：** 必须是绝对的 `http`/`https` URL，禁止指向回环 / 内网 / 链路本地等地址。填写后，这笔订单**每次状态变化都会向该地址 POST 一条事件**，直到订单结束（`completed` / `cancelled` / `failed` / `refunded`）。查状态的频率是：未支付时约 2 秒一次，已支付后约 30 秒一次。订单满 2 小时仍未结束时，会推送一条 `timeout` 事件后停止，调用方不会一直等下去。
+
+回调 body：
 
 ```json
 {
-  "event": "order_payment",
+  "event": "order_status",
   "order_id": "ord_...",
-  "ispay": "success",
-  "status": "paid",
-  "status_text": "已支付",
+  "seq": 3,
+  "status": "delivering",
+  "previous_status": "preparing",
+  "status_text": "配送中",
+  "event_at": "2026-08-26T12:34:56+08:00",
   "consent_grant_id": "cg_..."
 }
 ```
 
 | 字段 | 说明 |
 |------|------|
-| `event` | 固定为 `order_payment` |
+| `event` | `order_status`；支付成败那一条为 `order_payment`（见下）|
 | `order_id` | 平台订单 ID |
-| `ispay` | 支付结果枚举（见下）|
-| `status` | 回调时刻的订单状态枚举（与返回 `status` 同一枚举）|
-| `status_text` | `status` 对应的中文文案（如 `已支付` / `已取消`）|
-| `consent_grant_id` | 该订单所属的用户授权 ID，供调用方校验匹配 |
+| `seq` | 这笔单的事件序号，从 1 连续递增 |
+| `status` | 本次变成的状态（枚举见下）|
+| `previous_status` | 上一条事件的状态；首条为 `null` |
+| `status_text` | `status` 对应的中文文案（如 `配送中`）|
+| `event_at` | 事件发生时间（ISO 8601，北京时间）|
+| `consent_grant_id` | 该订单所属的用户授权 ID。**极少数情况下会缺席**（服务重启后恢复跟踪的订单取不到该值），请按 `order_id` 匹配订单 |
 
-**`ispay` 枚举（共 4 值）：**
+**`status` 枚举（共 8 值）：**
 
-| 值 | 含义 | 触发的订单状态 |
-|------|------|------|
-| `success` | 已进入支付链路 | `paid` / `preparing` / `delivering` / `completed` / `refunded` |
-| `closed` | 取消或关闭 | `cancelled` / `failed` |
-| `timeout` | 约 15 分钟轮询窗口耗尽仍未支付（调用方不悬空）| 窗口结束时仍为 `created` / `pending_payment` |
-| `unknown` | 授权被撤销 / 轮换，或订单引用失效，网关无法再代查 | — |
+| 值 | 含义 |
+|------|------|
+| `pending_payment` | 待支付 |
+| `paid` | 已支付 |
+| `preparing` | 商家备餐中 |
+| `delivering` | 配送中 |
+| `completed` | 已完成（结束）|
+| `cancelled` | 已取消（结束）|
+| `failed` | 下单或履约失败（结束）|
+| `refunded` | 已退款（结束）|
 
-回调为**至少一次**送达；幂等重放 `create_order` 会重新注册轮询（回调可能多次送达）。回调失败不影响订单结果——不传 `callback_url`（或想兜底）时请自行调用 `get_order_status` 轮询。
+<Note>
+订单创建成功这件事不会单独推一条事件——`create_order` 的返回本身就是凭据。第一条事件通常是 `pending_payment`。
+</Note>
+
+**支付成败那一条额外带两个字段**，格式与旧版回调完全一致，已有的接收逻辑无需改动：
+
+```json
+{
+  "event": "order_payment",
+  "ispay": "success",
+  "...": "其余字段同上"
+}
+```
+
+| `ispay` | 含义 |
+|------|------|
+| `success` | 已进入支付链路 |
+| `closed` | 取消或关闭 |
+| `timeout` | 订单满 2 小时仍未结束 |
+| `unknown` | 授权被撤销 / 轮换，网关无法再查该订单 |
+
+**用 `seq` 自查有没有漏收：** 同一笔订单的 `seq` 从 1 连续递增。若你收到 1、2、4，说明第 3 条没送到，调 `get_order_status` 补查当前状态即可。
+
+**去重：** 回调为**至少一次**送达，同一条可能重复到达，请按 `(order_id, seq)` 去重。
+
+投递失败只重试三次（间隔 1 / 2 / 4 秒），之后不再补发，但不影响订单本身。不传 `callback_url` 则一条都不推，请自行调用 `get_order_status` 查询。
 
 ### 返回
 
