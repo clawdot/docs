@@ -12,7 +12,7 @@ Places the order using the `preview_id` and `confirmation_token` returned by a p
 </Note>
 
 <Note>
-  This tool is **idempotent**, keyed on `confirmation_token`. The idempotency fingerprint compares only `preview_id` + `confirmation_token` + `payment_method` (**not** `callback_url`). Repeating the call with the same `confirmation_token`: if `preview_id` and `payment_method` match the first call, it returns the first result; if either differs, it returns `IDEMPOTENCY_CONFLICT`. A token places exactly one order — to order again, run `preview_order` for a fresh token. Note: changing only `callback_url` (the other three unchanged) is not a conflict — it replays and **re-registers the poller** (so the callback may be delivered more than once).
+  This tool is **idempotent**, keyed on `confirmation_token`. The idempotency fingerprint compares only `preview_id` + `confirmation_token` + `payment_method` (**not** `callback_url`). Repeating the call with the same `confirmation_token`: if `preview_id` and `payment_method` match the first call, it returns the first result; if either differs, it returns `IDEMPOTENCY_CONFLICT`. A token places exactly one order — to order again, run `preview_order` for a fresh token. Note: changing only `callback_url` (the other three unchanged) is not a conflict — it replays and **restarts status tracking** (so callbacks may be delivered more than once).
 </Note>
 
 ### Parameters
@@ -23,40 +23,75 @@ Places the order using the `preview_id` and `confirmation_token` returned by a p
 | `preview_id` | string | Yes | — | Preview ID (from `preview_order`, passed back as-is) |
 | `confirmation_token` | string | Yes | — | Confirmation token (from the **same** `preview_order`, passed back as-is); also the idempotency key |
 | `payment_method` | string \| null | No | `null` | Payment channel; omit to use the default channel |
-| `callback_url` | string \| null | No | `null` | Payment-status callback URL (absolute http(s) URL); when set, the gateway polls order status and POSTs one callback once the order leaves the unpaid state (see below) |
+| `callback_url` | string \| null | No | `null` | Order-status callback URL (absolute http(s) URL); when set, every status change on this order POSTs one event to that URL (see below) |
 
-**About `callback_url`:** must be an absolute `http`/`https` URL; loopback / private / link-local hosts are rejected. When set, the gateway polls order status roughly every 2 seconds and, once the order leaves the unpaid state (`created` / `pending_payment`), POSTs one callback to that URL. The polling window is about **15 minutes** (`POLL_WINDOW_SECONDS = 15 * 60`); if still unpaid when it elapses, the poller finishes with `timeout` so the task always terminates. The callback body always has these 6 keys:
+**About `callback_url`:** must be an absolute `http`/`https` URL; loopback / private / link-local hosts are rejected. When set, **every status change on this order POSTs one event** to that URL, until the order ends (`completed` / `cancelled` / `failed` / `refunded`). Status is checked roughly every 2 seconds while unpaid, and every 30 seconds after payment. If the order has not ended after 2 hours, a final `timeout` event is sent and tracking stops, so you are never left waiting.
+
+Callback body:
 
 ```json
 {
-  "event": "order_payment",
+  "event": "order_status",
   "order_id": "ord_...",
-  "ispay": "success",
-  "status": "paid",
-  "status_text": "已支付",
+  "seq": 3,
+  "status": "delivering",
+  "previous_status": "preparing",
+  "status_text": "配送中",
+  "event_at": "2026-08-26T12:34:56+08:00",
   "consent_grant_id": "cg_..."
 }
 ```
 
 | Field | Description |
-|-------|-------------|
-| `event` | Always `order_payment` |
+|------|------|
+| `event` | `order_status`; the payment-outcome event is `order_payment` (see below) |
 | `order_id` | Platform order ID |
-| `ispay` | Payment-result enum (see below) |
-| `status` | Order status at callback time (same enum as the returned `status`) |
-| `status_text` | Localized (Chinese) text for `status` (e.g. `已支付` / `已取消`) |
-| `consent_grant_id` | The consent grant the order belongs to, for the caller to match |
+| `seq` | Event sequence number for this order, starting at 1 and incrementing without gaps |
+| `status` | The status just entered (enum below) |
+| `previous_status` | Status of the previous event; `null` on the first one |
+| `status_text` | Chinese display text for `status` (e.g. `配送中`) |
+| `event_at` | When the change happened (ISO 8601, Beijing time) |
+| `consent_grant_id` | The user grant this order belongs to. **Rarely absent** (orders whose tracking resumed after a service restart cannot recover this value) — match on `order_id` instead |
 
-**`ispay` enum (4 values):**
+**`status` enum (8 values):**
 
-| Value | Meaning | Triggering order status |
-|-------|---------|-------------------------|
-| `success` | Entered the paid pipeline | `paid` / `preparing` / `delivering` / `completed` / `refunded` |
-| `closed` | Cancelled or closed | `cancelled` / `failed` |
-| `timeout` | ~15-minute polling window elapsed while still unpaid (so the caller is not left hanging) | still `created` / `pending_payment` when the window ends |
-| `unknown` | Consent grant revoked / rotated, or the order reference became invalid — the gateway can no longer query on the user's behalf | — |
+| Value | Meaning |
+|------|------|
+| `pending_payment` | Awaiting payment |
+| `paid` | Paid |
+| `preparing` | Merchant preparing |
+| `delivering` | Out for delivery |
+| `completed` | Completed (ends tracking) |
+| `cancelled` | Cancelled (ends tracking) |
+| `failed` | Order or fulfillment failed (ends tracking) |
+| `refunded` | Refunded (ends tracking) |
 
-Callback delivery is **at-least-once**; an idempotent replay of `create_order` re-registers the poller (the callback may be delivered more than once). A failed callback does not affect the order outcome — without `callback_url` (or as a fallback), poll with `get_order_status` yourself.
+<Note>
+Order creation itself does not get its own event — the `create_order` response is the receipt for that. The first event is normally `pending_payment`.
+</Note>
+
+**The payment-outcome event carries two extra fields**, in exactly the previous callback format, so existing receivers need no changes:
+
+```json
+{
+  "event": "order_payment",
+  "ispay": "success",
+  "...": "all other fields as above"
+}
+```
+
+| `ispay` | Meaning |
+|------|------|
+| `success` | Payment went through |
+| `closed` | Cancelled or closed |
+| `timeout` | Order still not ended after 2 hours |
+| `unknown` | Grant revoked / rotated; the gateway can no longer query this order |
+
+**Use `seq` to detect missed events:** `seq` increments without gaps per order. If you receive 1, 2, 4, event 3 never arrived — call `get_order_status` to fetch the current state.
+
+**Deduplication:** delivery is **at-least-once**; the same event may arrive more than once, so dedupe on `(order_id, seq)`.
+
+A failed delivery is retried three times (after 1 / 2 / 4 seconds) and then dropped, without affecting the order itself. Without `callback_url`, nothing is pushed — poll `get_order_status` yourself.
 
 ### Returns
 

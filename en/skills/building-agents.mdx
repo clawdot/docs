@@ -285,7 +285,7 @@ Place the order with the `preview_id` + `confirmation_token` from the same previ
 // → { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-This tool uses `confirmation_token` as the **idempotency key**: a token can place only one order; re-ordering requires a fresh preview for a new token. Returns `order_id`, `status`, and (when payment is needed) `payment_action`. You may pass `callback_url`; the gateway polls order status and POSTs a callback once it leaves the unpaid state (`event=order_payment`, body carries `order_id`, `ispay`, `status`, etc.) — otherwise poll `get_order_status` yourself. Full fields in [Create Order](/en/mcp/orders/create).
+This tool uses `confirmation_token` as the **idempotency key**: a token can place only one order; re-ordering requires a fresh preview for a new token. Returns `order_id`, `status`, and (when payment is needed) `payment_action`. You may pass `callback_url`; every status change on the order POSTs a callback (body carries `order_id`, `seq`, `status`; the payment-outcome one adds `event=order_payment` and `ispay`, `status`, etc.) — otherwise poll `get_order_status` yourself. Full fields in [Create Order](/en/mcp/orders/create).
 
 ---
 

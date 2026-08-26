@@ -285,7 +285,7 @@ search_addresses → select_address → search_shops → get_shop_menu
 // → { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-本工具以 `confirmation_token` 为**幂等键**：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时 POST 回调（`event=order_payment`，体含 `order_id`、`ispay`、`status` 等）；不传则自行用 `get_order_status` 轮询。完整字段见 [创建订单](/mcp/orders/create)。
+本工具以 `confirmation_token` 为**幂等键**：同一令牌只能下一单，再次下单需重新预览取新令牌。返回 `order_id`、`status` 与（需支付时的）`payment_action`。可选传 `callback_url`，这笔单每次状态变化都会 POST 一条回调（体含 `order_id`、`seq`、`status` 等；支付结果那条为 `event=order_payment` 并带 `ispay`）；不传则自行用 `get_order_status` 轮询。完整字段见 [创建订单](/mcp/orders/create)。
 
 ---
 

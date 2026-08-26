@@ -173,7 +173,7 @@ Use the `preview_id` + `confirmation_token` returned by the preview (`confirmati
 // -> { "order_id": "ord_...", "status": "...", "payment_action": {...} }
 ```
 
-You may pass an optional `callback_url`: the payment result is pushed as a callback (`event=order_payment`).
+You may pass an optional `callback_url`: every status change on the order is pushed as a callback, and the payment-outcome one carries `event=order_payment`.
 
 </Step>
 

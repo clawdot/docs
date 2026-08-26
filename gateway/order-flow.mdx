@@ -176,7 +176,7 @@ create_order(
 用同一次预览的 `preview_id` + `confirmation_token` 正式下单，返回平台订单 `order_id`、`status` 与（需支付时的）`payment_action`。
 
 <Note>
-  本工具以 `confirmation_token` 为幂等键；同一令牌只能下一单，再次下单需重新预览取新令牌。可选传 `callback_url`，网关会轮询订单状态并在脱离未支付态时回调（见下方「查询订单与支付结果」）；不传则自行轮询 `get_order_status`。完整字段、`status` 与回调 `ispay` 枚举见 [创建订单](/mcp/orders/create)。
+  本工具以 `confirmation_token` 为幂等键；同一令牌只能下一单，再次下单需重新预览取新令牌。可选传 `callback_url`，这笔单每次状态变化都会回调（见下方「查询订单与支付结果」）；不传则自行轮询 `get_order_status`。完整字段、`status` 与回调 `ispay` 枚举见 [创建订单](/mcp/orders/create)。
 </Note>
 
 </Steps>
@@ -206,7 +206,7 @@ get_sign_action(
 get_order_status(consent_grant_id="cg_...", order_id="ord_...")
 ```
 
-如果 `create_order` 时传了 `callback_url`，网关还会在订单脱离未支付态时主动 POST 一次支付结果回调（`event=order_payment`），无需一直轮询。两条路径如下：
+如果 `create_order` 时传了 `callback_url`，这笔单每次状态变化都会主动 POST 一条回调（支付结果那条为 `event=order_payment`），无需一直轮询。两条路径如下：
 
 ```mermaid
 sequenceDiagram
@@ -215,7 +215,7 @@ sequenceDiagram
     A->>G: get_order_status(order_id)
     G-->>A: status, status_text, paid_at?, delivery?
     opt 创建订单时已传 callback_url
-        G-->>A: POST callback_url(event=order_payment){order_id, ispay, status}
+        G-->>A: POST callback_url{order_id, seq, status, previous_status}
     end
 ```
 

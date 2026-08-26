@@ -176,7 +176,7 @@ create_order(
 Places the order with the `preview_id` + `confirmation_token` from the same preview, returning the platform `order_id`, `status`, and (when payment is required) `payment_action`.
 
 <Note>
-  This tool is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: the gateway polls order status and calls back once it leaves the unpaid state (see "Query an order and payment result" below); otherwise poll `get_order_status` yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
+  This tool is idempotent on `confirmation_token`; a given token can place only one order — to order again, re-run the preview for a fresh token. You may pass `callback_url`: every status change on the order triggers a callback (see "Query an order and payment result" below); otherwise poll `get_order_status` yourself. Full fields and the `status` / callback `ispay` enums: [Create Order](/en/mcp/orders/create).
 </Note>
 
 </Steps>
@@ -206,7 +206,7 @@ After ordering, use `get_order_status` to actively query the order's current sta
 get_order_status(consent_grant_id="cg_...", order_id="ord_...")
 ```
 
-If you passed `callback_url` to `create_order`, the gateway also POSTs a payment-result callback (`event=order_payment`) once the order leaves the unpaid state, so you don't have to keep polling. The two paths:
+If you passed `callback_url` to `create_order`, every status change on the order POSTs a callback (the payment-outcome one carries `event=order_payment`), so you don't have to keep polling. The two paths:
 
 ```mermaid
 sequenceDiagram
@@ -215,7 +215,7 @@ sequenceDiagram
     A->>G: get_order_status(order_id)
     G-->>A: status, status_text, paid_at?, delivery?
     opt callback_url provided at create_order
-        G-->>A: POST callback_url(event=order_payment){order_id, ispay, status}
+        G-->>A: POST callback_url{order_id, seq, status, previous_status}
     end
 ```
 
