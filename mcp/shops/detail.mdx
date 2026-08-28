@@ -24,7 +24,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `keyword` | string \| null | 否 | `null` | 关键词过滤，按商品名 / 分类名 / 描述匹配（大小写不敏感）|
 | `limit` | integer \| null | 否 | `null` | 本页返回数量，≥ 1；不传则返回（过滤后的）全部 |
 | `offset` | integer | 否 | `0` | 分页偏移，≥ 0；与上一次响应的 `next_offset` 配合翻页 |
-| `full_menu` | boolean | 否 | `false` | 菜单大纲模式：`true` 时一次返回全部分类的全部商品卡片，**不含规格 / 配料且不可直接下单**（见下方说明）；显式传 `keyword` / `limit` / `offset` 时优先于本参数 |
+| `full_menu` | boolean | 否 | `false` | 菜单大纲模式：`true` 时一次返回全部分类的全部商品卡片，**不含规格 / 配料且不可直接下单**（见下方说明）；结果恒完整、不分页——`limit` / `offset` 被忽略，`keyword` 照常生效 |
 | `grouped` | boolean | 否 | `false` | 配料是否按组返回。`false` / 不传：配料平铺在 `ingredient_options` 里，每条自带 `group_name`；`true`：改为按组返回 `ingredient_groups`，组信息只出现一次 |
 
 <Note>
@@ -32,7 +32,9 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 </Note>
 
 <Note>
-  **菜单大纲（`full_menu=true`）**：一次返回**全部分类的全部商品卡片**（`item_id` / `name` / `price` / `available` / `image_url` 及营销字段），**`sku_options` / `ingredient_options` 恒为空数组**——适合大菜单先速览全貌（不逐品拉规格，响应快）。大纲商品的 `item_id` 稳定（同一 `cart_id` 内与富化后相同），但**不可直接下单**：大纲 id 未写入购物车，直接传给 `quote_cart` / `preview_order` / `create_order` 会报 `PUBLIC_REFERENCE_INVALID`。要下单先富化目标商品——再调 `get_shop_menu`（用 `keyword` / `limit` 定位该商品）或用 [`get_item_options`](/mcp/shops/item-options) 按需批量拉取规格，随后用同一 `item_id` 下单。显式传 `keyword` / `limit` / `offset` 任一时**优先于 `full_menu`**：即便 `full_menu=true` 也按富化分页返回。
+  **菜单大纲（`full_menu=true`）**：一次返回**全部分类的全部商品卡片**（`item_id` / `name` / `price` / `available` / `image_url` 及营销字段），**`sku_options` / `ingredient_options` 恒为空数组**——适合大菜单先速览全貌（不逐品拉规格，响应快）。大纲商品的 `item_id` 稳定（同一 `cart_id` 内与富化后相同），但**不可直接下单**：大纲 id 未写入购物车，直接传给 `quote_cart` / `preview_order` / `create_order` 会报 `PUBLIC_REFERENCE_INVALID`。要下单先富化目标商品——再调 `get_shop_menu`（用 `keyword` / `limit` 定位该商品）或用 [`get_item_options`](/mcp/shops/item-options) 按需批量拉取规格，随后用同一 `item_id` 下单。`full_menu=true` 表示**「完整结果、不分页」**：`limit` / `offset` 被忽略、`has_more` 恒为 `false`；`keyword` 照常生效——它决定这份完整结果是整本菜单还是全部命中商品，`search_match_level` 也照常返回。**在大菜单里找菜，`full_menu=true` + `keyword` 最快。**
+
+  大纲里的 `price` 是该商品自己的价格；多规格商品那是**首档价，不是价格区间**（标 21.9 的拿铁，大杯可能要 24.9）。各规格的真实价格请从 [`get_item_options`](/mcp/shops/item-options) 读。
 </Note>
 
 ### 返回
@@ -102,10 +104,10 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
 | `items[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类 |
 | `items[].ingredient_options[].available` | boolean | 该选项是否可选：只表示它本身有没有售罄 / 下架，**不含选项之间的互斥**（见下方提示）|
-| `total_items` | integer | 过滤（`keyword`）后的商品总数 |
+| `total_items` | integer | 本次筛选选中的商品数：传了 `keyword` 时是命中数，没传时是整本菜单的商品数。<br/>店铺必选组商品**始终返回、但从不计入**，所以 `items` 的条数可能大于它 |
 | `has_more` | boolean | 是否还有下一页 |
 | `next_offset` | integer \| null | 下一页的 `offset`；`has_more` 为 `false` 时为 `null` |
-| `search_match_level` | string | **仅传了 `keyword` 时返回**，说明这批结果是怎么匹配上的：`exact` 精确包含 / `abbrev` 口语简称 / `fuzzy` 同字不同序 / `none` 都没匹配上（`items` 为空）。见下方说明 |
+| `search_match_level` | string | **仅传了 `keyword` 时返回**，说明这批结果是怎么匹配上的：`exact` 精确包含 / `abbrev` 口语简称 / `fuzzy` 同字不同序 / `none` 都没匹配上（此时 `total_items` 为 0，但 `items` 未必为空——店铺必选组商品始终返回）。见下方说明 |
 <Note>
   **菜单里的 `available` 不含互斥判定。** 有些商品的选项分层级——先选咖啡豆，再选萃取方式，能选的萃取只有那款豆对应的几种。这种可选性取决于「当前选了什么」，而本接口没有表达当前选择的入参，所以菜单只列出候选、`available` 只反映售罄 / 下架。
 
@@ -129,15 +131,15 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
   | `exact` | 商品名 / 分类名 / 描述里精确含关键词 | 「拿铁」→「生椰拿铁」|
   | `abbrev` | 关键词是菜名的口语简称，或比菜名更长 | 「香辣鸡腿堡」→「香辣鸡腿汉堡」|
   | `fuzzy` | 同样的字、顺序不同 | 「冰美式」→「美式咖啡（冰）」|
-  | `none` | 四档都没匹配上，`items` 为空 | — |
+  | `none` | 四档都没匹配上，`total_items` 为 0 | — |
 
-  拿到 `abbrev` / `fuzzy` 时，下单前请先确认返回的菜确实是用户要的那道。拿到 `none` **不代表这家店没有**——字面匹配跨不过同义词（「鸡肉汉堡」对「香辣鸡腿汉堡」），建议改用 `full_menu=true` 拉大纲自己找。
+  拿到 `abbrev` / `fuzzy` 时，下单前请先确认返回的菜确实是用户要的那道。拿到 `none` **不代表这家店没有**——字面匹配跨不过同义词（「鸡肉汉堡」对「香辣鸡腿汉堡」），请**去掉 `keyword`** 重拉再自己找（想快就同时加 `full_menu=true`）。注意：保留 `keyword` 只加 `full_menu=true` 仍然是空——`full_menu` 不会关掉过滤，它只是不分页、不拉规格。
 
   `items[]` 的顺序：**商品名含关键词的排在前面**，只靠分类名或描述匹配上的排在后面；加料 / 小料 / 餐具 / 打包这类配件分类的商品排在最后（搜「珍珠」先给「珍珠奶茶」，「珍珠（分装）」垫底）。同一档内保持菜单原顺序。`categories[]` 不参与重排，始终是菜单原顺序，可直接用作分类导航。
 </Note>
 
 <Tip>
-  **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。大菜单也可先 `full_menu=true` 一次速览全貌，再对目标商品富化（`keyword` / `limit` 或 `get_item_options`）。
+  **渐进式披露**：用 `keyword` 缩小范围，或用 `limit` + `offset` 翻页。`has_more` 为 `true` 时，带 `offset=next_offset` 继续调用，直到 `has_more` 为 `false`。同一 `cart_id` 上之前各次调用返回的 `item_id` 在购物车存活期内仍可下单。大菜单也可先 `full_menu=true` 一次速览全貌，再对目标商品富化（`keyword` / `limit` 或 `get_item_options`）。要在大菜单里快速定位某道菜，`full_menu=true` + `keyword` 一步到位。
 </Tip>
 
 
