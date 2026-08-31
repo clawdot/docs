@@ -107,7 +107,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `total_items` | integer | How many items the filter selected: the number of matches when `keyword` is passed, every dish on the menu otherwise.<br/>Shop-level required-group items are **always returned but never counted**, so `items` can hold more rows than this |
 | `has_more` | boolean | Whether there is a next page |
 | `next_offset` | integer \| null | The `offset` for the next page; `null` when `has_more` is `false` |
-| `search_match_level` | string | **Returned only when `keyword` is set**, telling you how these results matched: `exact` plain substring / `abbrev` colloquial short form / `fuzzy` same characters, different order / `none` nothing matched (`total_items` is 0, but `items` may still be non-empty — shop-level required-group items are always returned). See the note below |
+| `search_match_level` | string | **Returned only when `keyword` is set**, telling you how these results matched: `exact` plain substring / `abbrev` colloquial short form / `fuzzy` same characters, different order / `partial` characters the menu lacks were dropped / `none` nothing matched (`total_items` is 0, but `items` may still be non-empty — shop-level required-group items are always returned). See the note below |
 <Note>
   **`available` in the menu does not account for exclusions.** Some items layer their options — pick a coffee bean first, and only the extraction methods belonging to that bean remain selectable. That kind of availability depends on what is currently selected, and this endpoint takes no parameter expressing a selection, so the menu just lists the candidates and `available` reflects only sold-out / delisted.
 
@@ -124,16 +124,17 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 <Note>
   **How `keyword` matches, and how results are ordered.**
 
-  Matching runs in four tiers, and a stricter tier that returns anything stops the search — looser results never dilute exact ones. `search_match_level` tells you which tier produced the results:
+  Matching runs in five tiers, and a stricter tier that returns anything stops the search — looser results never dilute exact ones. `search_match_level` tells you which tier produced the results:
 
   | Tier | Meaning | Example |
   |------|---------|---------|
   | `exact` | The item name / category / description literally contains the keyword | 「拿铁」→「生椰拿铁」|
   | `abbrev` | The keyword is a colloquial short form of the dish name, or longer than it | 「香辣鸡腿堡」→「香辣鸡腿汉堡」|
   | `fuzzy` | Same characters, different order | 「冰美式」→「美式咖啡（冰）」|
+  | `partial` | The keyword carries characters the menu does not have; they are dropped before matching (loosest) | 「贝果圈」→「滑蛋蟹柳贝果」|
   | `none` | Nothing matched at any tier; `total_items` is 0 | — |
 
-  On `abbrev` / `fuzzy`, confirm the returned dish really is what the user asked for before ordering. `none` does **not** mean the shop lacks the dish — character matching cannot bridge synonyms (「鸡肉汉堡」 vs 「香辣鸡腿汉堡」); re-fetch **without `keyword`** and scan the list yourself (add `full_menu=true` to make that fast). Note: keeping the keyword and merely adding `full_menu=true` still returns the same empty result — `full_menu` does not disable filtering, it only skips paging and specs.
+  On `abbrev` / `fuzzy` / `partial`, confirm the returned dish really is what the user asked for before ordering. `partial` is the loosest tier and may return something close rather than the same thing (searching 「牛肉面」 in a shop with no noodles returns 「牛肉汉堡」). `none` does **not** mean the shop lacks the dish — character matching cannot bridge synonyms (「鸡肉汉堡」 vs 「香辣鸡腿汉堡」); re-fetch **without `keyword`** and scan the list yourself (add `full_menu=true` to make that fast). Note: keeping the keyword and merely adding `full_menu=true` still returns the same empty result — `full_menu` does not disable filtering, it only skips paging and specs.
 
   Ordering of `items[]`: **items whose name contains the keyword come first**, followed by those matched only through their category name or description; items from add-on / condiment / cutlery / packaging categories come last (searching 「珍珠」 gives you 「珍珠奶茶」 first and 「珍珠（分装）」 last). Within one tier the menu's own order is preserved. `categories[]` is never reordered — it always follows the menu, so you can render it as a category nav directly.
 </Note>
