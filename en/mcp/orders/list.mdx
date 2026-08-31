@@ -59,7 +59,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `orders[].status_text` | string | Localized (Chinese) status label, one-to-one with `status` |
 | `orders[].shop_name` | string | Shop name |
 | `orders[].payable_price` | integer | Payable amount (cents) |
-| `orders[].detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Same page as `detail_url` from `get_order_status`. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days |
+| `orders[].detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Same page as `detail_url` from `get_order_status`. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days. Orders placed a while ago may come back as `null` the first time they show up in a list — retry a few seconds later and the link is there |
 | `orders[].created_at` | string | Order creation time (ISO 8601) |
 | `orders[].updated_at` | string | Time the order status last changed (ISO 8601); equals `created_at` when it never changed |
 | `next_offset` | integer \| null | Next-page cursor, used as the `offset` of the next request; `null` when there are no more |
