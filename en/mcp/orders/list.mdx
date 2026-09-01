@@ -12,7 +12,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
 </Note>
 
 <Note>
-  **Use `get_order_status` when you need order details.** `list_orders` returns an overview (status / shop / payable amount / time). When you need the item breakdown, rider and delivery information, or paid/completed times, call `get_order_status` with an `order_id` from the list.
+  **Use `get_order_status` when you need rider and delivery information.** `list_orders` returns an overview (status / shop / payable amount / item breakdown / time). When you need rider and delivery information, or paid/completed times, call `get_order_status` with an `order_id` from the list.
 </Note>
 
 <Note>
@@ -38,6 +38,16 @@ Paginates the consenting user's order history, sorted by creation time in descen
       "status_text": "已完成",
       "shop_name": "茶百道(星光大道24h店)",
       "payable_price": 2300,
+      "items_snapshot": [
+        {
+          "name": "Mango Pomelo Sago",
+          "line_total": 2300,
+          "quantity": 1,
+          "description": "Regular ice / 70% sugar",
+          "image_url": "https://img.alicdn.com/i3/2215646075688/O1CN01SeLKKLgum8F1hk6i_!!2215646075688-2-koubei.png"
+        }
+      ],
+      "address_id": "addr_9198205b27df48b7bd2cc4ba894b7045",
       "detail_url": "https://g.clawdot.ai/9Kd3T",
       "created_at": "2026-07-20T11:27:06",
       "updated_at": "2026-07-20T11:52:31"
@@ -59,6 +69,13 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `orders[].status_text` | string | Localized (Chinese) status label, one-to-one with `status` |
 | `orders[].shop_name` | string | Shop name |
 | `orders[].payable_price` | integer | Payable amount (cents) |
+| `orders[].items_snapshot` | array \| null | What was ordered. `null` for orders placed before this feature shipped |
+| `orders[].items_snapshot[].name` | string | Item name |
+| `orders[].items_snapshot[].line_total` | integer \| null | Line total in cents, **quantity already included — do not multiply by `quantity`** |
+| `orders[].items_snapshot[].quantity` | integer \| null | Quantity ordered |
+| `orders[].items_snapshot[].description` | string | Spec / preparation summary (including specs applied by default); empty string when there is none |
+| `orders[].items_snapshot[].image_url` | string \| null | Item image link, ready to show to the user. It is the image as of the time the order was placed, so a later change by the merchant does not affect it. `null` for orders placed before this feature shipped |
+| `orders[].address_id` | string \| null | Delivery address ID for this order; pass it to `select_address` to send the next order to the same place. It points at that address in the address book, so if the user edited it later you get the edited content; passing it after the address was deleted returns an error. `null` for orders placed before this feature shipped |
 | `orders[].detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Same page as `detail_url` from `get_order_status`. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days |
 | `orders[].created_at` | string | Order creation time (ISO 8601) |
 | `orders[].updated_at` | string | Time the order status last changed (ISO 8601); equals `created_at` when it never changed |
