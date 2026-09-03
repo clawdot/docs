@@ -48,6 +48,16 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
         }
       ],
       "address_id": "addr_9198205b27df48b7bd2cc4ba894b7045",
+      "address": {
+        "display_name": "亲橙Hub(2号门)",
+        "address_detail": "621",
+        "city": "",
+        "lat": 30.276617,
+        "lng": 120.030885,
+        "contact_name": "王xx",
+        "contact_phone_masked": "188****2920",
+        "tag": "家"
+      },
       "detail_url": "https://g.clawdot.ai/9Kd3T",
       "created_at": "2026-07-20T11:27:06",
       "updated_at": "2026-07-20T11:52:31"
@@ -76,6 +86,15 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
 | `orders[].items_snapshot[].description` | string | 规格 / 做法摘要（含默认生效规格），无则为空字符串 |
 | `orders[].items_snapshot[].image_url` | string \| null | 商品图片链接，可直接展示给用户。这是下单当时的图片，商家后来换图不影响。本功能上线前的订单为 `null` |
 | `orders[].address_id` | string \| null | 本单的收货地址 ID，可传给 `select_address` 让下一单送到同一地址。它指向地址簿中的这个地址，用户后来编辑过则读到的是编辑后的内容；地址已删除时再传会报错。功能上线前的存量订单为 `null` |
+| `orders[].address` | object \| null | 本单收货地址的内容信息，可直接展示给用户。与 `address_id` 指向地址簿中的同一个地址：用户后来编辑过，读到的是编辑后的内容。地址已删除、或订单没有 `address_id` 时为 `null` |
+| `orders[].address.display_name` | string | 地址展示名 |
+| `orders[].address.address_detail` | string | 地址详情 |
+| `orders[].address.city` | string | 城市；早期保存的地址可能为空字符串 |
+| `orders[].address.lat` | number \| null | 纬度（高德地图 GCJ-02 坐标系）|
+| `orders[].address.lng` | number \| null | 经度（高德地图 GCJ-02 坐标系）|
+| `orders[].address.contact_name` | string \| null | 联系人称呼 |
+| `orders[].address.contact_phone_masked` | string \| null | 脱敏联系电话，如 `188****2920` |
+| `orders[].address.tag` | string | 地址标签（自定义字符串）；未打标为空字符串 |
 | `orders[].detail_url` | string \| null | 订单详情页链接，可直接发给用户查看订单进度；未支付的订单打开后可继续支付。与 `get_order_status` 的同名字段指向同一个页面。每次调用返回的链接可能不同，但都可用——不要用作订单标识或做前后比对。链接有效期 30 天 |
 | `orders[].created_at` | string | 下单时间（ISO 8601）|
 | `orders[].updated_at` | string | 订单状态最近变化的时间（ISO 8601）；状态从未变过时等于 `created_at` |

@@ -48,6 +48,16 @@ Paginates the consenting user's order history, sorted by creation time in descen
         }
       ],
       "address_id": "addr_9198205b27df48b7bd2cc4ba894b7045",
+      "address": {
+        "display_name": "Orange Hub (Gate 2)",
+        "address_detail": "621",
+        "city": "",
+        "lat": 30.276617,
+        "lng": 120.030885,
+        "contact_name": "Wang",
+        "contact_phone_masked": "188****2920",
+        "tag": "home"
+      },
       "detail_url": "https://g.clawdot.ai/9Kd3T",
       "created_at": "2026-07-20T11:27:06",
       "updated_at": "2026-07-20T11:52:31"
@@ -76,6 +86,15 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `orders[].items_snapshot[].description` | string | Spec / preparation summary (including specs applied by default); empty string when there is none |
 | `orders[].items_snapshot[].image_url` | string \| null | Item image link, ready to show to the user. It is the image as of the time the order was placed, so a later change by the merchant does not affect it. `null` for orders placed before this feature shipped |
 | `orders[].address_id` | string \| null | Delivery address ID for this order; pass it to `select_address` to send the next order to the same place. It points at that address in the address book, so if the user edited it later you get the edited content; passing it after the address was deleted returns an error. `null` for orders placed before this feature shipped |
+| `orders[].address` | object \| null | Delivery address content for this order, ready to show to the user. Points at the same address-book entry as `address_id`: if the user edited it later you get the edited content. `null` when the address was deleted, or when the order has no `address_id` |
+| `orders[].address.display_name` | string | Address display name |
+| `orders[].address.address_detail` | string | Address detail (building / room) |
+| `orders[].address.city` | string | City; may be an empty string for addresses saved early on |
+| `orders[].address.lat` | number \| null | Latitude (AMap GCJ-02 coordinate system) |
+| `orders[].address.lng` | number \| null | Longitude (AMap GCJ-02 coordinate system) |
+| `orders[].address.contact_name` | string \| null | Contact name |
+| `orders[].address.contact_phone_masked` | string \| null | Masked contact phone, e.g. `188****2920` |
+| `orders[].address.tag` | string | Address tag (free-form string); empty string when not set |
 | `orders[].detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Same page as `detail_url` from `get_order_status`. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days |
 | `orders[].created_at` | string | Order creation time (ISO 8601) |
 | `orders[].updated_at` | string | Time the order status last changed (ISO 8601); equals `created_at` when it never changed |
