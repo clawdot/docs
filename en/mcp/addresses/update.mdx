@@ -52,6 +52,7 @@ Edits one of the user's saved addresses. Only two kinds of edit are allowed: **c
 | `ADDRESS_UPDATE_REQUIRES_TOKEN` | Changing location / detail without a `suggestion_token`; not needed for `tag`-only edits |
 | `DETAIL_REQUIRED` | `suggestion_token` was given but `address_detail` is empty / blank |
 | `SUGGESTION_EXPIRED` | `suggestion_token` is invalid or expired; re-run `search_addresses` |
+| `ADDRESS_CREATE_REJECTED` | The platform refused to re-register the address at the new location (business reason). Retry with a different suggestion |
 | `ELEME_ERROR` | Upstream Eleme / Taobao Instant returned an error (e.g. re-registering the address failed) |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.

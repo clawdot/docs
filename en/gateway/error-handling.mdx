@@ -46,6 +46,8 @@ The error body contains only `code` and `message`.
 | `SMS_CODE_INVALID` | OTP is invalid or expired | Resend the OTP |
 | `CONTACT_REQUIRED` | Selecting an address requires a recipient | Pass `contact_name` and `contact_phone` |
 | `DETAIL_REQUIRED` | POI address missing apartment / floor | Have the user provide a non-empty detail |
+| `ADDRESS_CONTACT_NAME_TOO_LONG` | Recipient name exceeds 12 characters; the platform refused to register the address | Shorten `contact_name` and retry |
+| `ADDRESS_CREATE_REJECTED` | The platform refused to register the address (business reason) | Retry with a different suggestion |
 | `SUGGESTION_EXPIRED` | Address suggestion token expired | Re-run address search |
 | `COORDS_REQUIRED` | Coordinates missing | Pass `lat`/`lng` explicitly, or run a shop search first |
 | `ADDRESS_UPDATE_REQUIRES_TOKEN` | Changing an address location / detail needs a POI token | Search the address for a token; changing only `tag` needs none |

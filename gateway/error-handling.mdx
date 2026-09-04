@@ -46,6 +46,8 @@ description: "统一错误格式与全部错误码"
 | `SMS_CODE_INVALID` | 验证码无效或已过期 | 重新发送验证码 |
 | `CONTACT_REQUIRED` | 选择地址缺收货人 | 传 `contact_name` 与 `contact_phone` |
 | `DETAIL_REQUIRED` | POI 地址缺门牌 / 楼层 | 让用户补充非空门牌后重试 |
+| `ADDRESS_CONTACT_NAME_TOO_LONG` | 收货人姓名超过 12 个字符，平台拒绝注册 | 缩短 `contact_name` 后重试 |
+| `ADDRESS_CREATE_REJECTED` | 平台拒绝注册该地址（业务原因） | 换一条地址建议重试 |
 | `SUGGESTION_EXPIRED` | 地址建议 token 失效 | 重新调用地址搜索 |
 | `COORDS_REQUIRED` | 缺坐标 | 显式传 `lat`/`lng`，或先搜一次店铺 |
 | `ADDRESS_UPDATE_REQUIRES_TOKEN` | 改地址位置 / 门牌需 POI token | 先搜地址取 token；仅改 `tag` 无需 |
