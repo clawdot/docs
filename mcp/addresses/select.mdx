@@ -26,7 +26,7 @@ description: "MCP 工具 select_address — 把一条地址搜索建议落库为
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
 | `suggestion_token` | string \| null | 否 | `null` | 地址建议 token（来自 `search_addresses` 返回的 `token`）；新建地址时必传 |
 | `address_id` | string \| null | 否 | `null` | 已保存的网关地址 ID（来自上一次 `select_address`）；重选已存地址时传此字段。与 `suggestion_token` 二选一，两者都不传会报错 |
-| `contact_name` | string | 是 | — | 收货人姓名 |
+| `contact_name` | string | 是 | — | 收货人姓名，**最多 12 个字符**（按字符数计，中英文同；首尾空格不计）。超长返回 `PUBLIC_REFERENCE_INVALID`，message 会点名 `contact_name` |
 | `contact_phone` | string | 是 | — | 收货人手机号 |
 | `address_detail` | string | 否 | `""` | 门牌 / 楼层 / 房间号。新建 POI 地址时**必须非空**（上游拒绝空白门牌），否则返回 `DETAIL_REQUIRED` |
 
@@ -52,11 +52,13 @@ description: "MCP 工具 select_address — 把一条地址搜索建议落库为
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
-| `PUBLIC_REFERENCE_INVALID` | `address_id` 无效 / 不属于当前授权用户，或 `suggestion_token` 与 `address_id` 都未传 |
+| `PUBLIC_REFERENCE_INVALID` | `address_id` 无效 / 不属于当前授权用户，`suggestion_token` 与 `address_id` 都未传，或参数不合法（如 `contact_name` 超过 12 个字符）|
 | `SUGGESTION_EXPIRED` | `suggestion_token` 无效或已过期，需重新调用 `search_addresses` |
 | `CONTACT_REQUIRED` | 缺收货人姓名或手机号 |
 | `DETAIL_REQUIRED` | 新建 POI 地址时缺非空门牌 / 楼层 |
-| `ELEME_ERROR` | 上游注册地址失败 |
+| `ADDRESS_CONTACT_NAME_TOO_LONG` | 收货人姓名超过 12 个字符，平台拒绝注册（正常情况下会先被参数校验拦成 `PUBLIC_REFERENCE_INVALID`）|
+| `ADDRESS_CREATE_REJECTED` | 平台拒绝注册该地址（业务原因）。换一条地址建议重试 |
+| `ELEME_ERROR` | 上游注册地址失败（网络 / 平台异常）|
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

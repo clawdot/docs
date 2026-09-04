@@ -26,7 +26,7 @@ Materializes an address search suggestion (`suggestion_token`) together with rec
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
 | `suggestion_token` | string \| null | No | `null` | Address suggestion token (the `token` returned by `search_addresses`); required when creating a new address |
 | `address_id` | string \| null | No | `null` | Saved gateway address ID (from a previous `select_address`); pass this to re-select a saved address. Mutually exclusive with `suggestion_token`; sending neither is an error |
-| `contact_name` | string | Yes | — | Recipient name |
+| `contact_name` | string | Yes | — | Recipient name, **at most 12 characters** (counted by characters, CJK or Latin alike; surrounding whitespace is not counted). Longer names return `PUBLIC_REFERENCE_INVALID` with a message naming `contact_name` |
 | `contact_phone` | string | Yes | — | Recipient phone number |
 | `address_detail` | string | No | `""` | Apartment / floor / room number. **Must be non-empty** when creating a new POI address (upstream rejects blank detail), otherwise returns `DETAIL_REQUIRED` |
 
@@ -52,11 +52,13 @@ Materializes an address search suggestion (`suggestion_token`) together with rec
 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
 | `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
-| `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid / not owned by the consenting user, or neither `suggestion_token` nor `address_id` was provided |
+| `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid / not owned by the consenting user, neither `suggestion_token` nor `address_id` was provided, or a parameter is invalid (e.g. `contact_name` longer than 12 characters) |
 | `SUGGESTION_EXPIRED` | `suggestion_token` is invalid or expired; re-run `search_addresses` |
 | `CONTACT_REQUIRED` | Missing recipient name or phone |
 | `DETAIL_REQUIRED` | Missing non-empty apartment / floor when creating a new POI address |
-| `ELEME_ERROR` | Upstream address registration failed |
+| `ADDRESS_CONTACT_NAME_TOO_LONG` | Recipient name exceeds 12 characters and the platform refused to register it (normally caught earlier as `PUBLIC_REFERENCE_INVALID`) |
+| `ADDRESS_CREATE_REJECTED` | The platform refused to register this address (business reason). Retry with a different suggestion |
+| `ELEME_ERROR` | Upstream address registration failed (network / platform fault) |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 

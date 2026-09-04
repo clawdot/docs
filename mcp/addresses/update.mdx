@@ -52,6 +52,7 @@ description: "MCP 工具 update_address — 编辑一个已保存地址：仅改
 | `ADDRESS_UPDATE_REQUIRES_TOKEN` | 改位置 / 门牌却未传 `suggestion_token`；仅改 `tag` 无需 |
 | `DETAIL_REQUIRED` | 传了 `suggestion_token` 但 `address_detail` 为空 / 空白 |
 | `SUGGESTION_EXPIRED` | `suggestion_token` 无效或已过期，需重新调 `search_addresses` |
+| `ADDRESS_CREATE_REJECTED` | 平台拒绝按新位置重新注册该地址（业务原因）。换一条地址建议重试 |
 | `ELEME_ERROR` | 上游饿了么 / 淘宝闪购返回错误（如重新注册地址失败）|
 
 完整错误码见 [错误处理](/gateway/error-handling)。
