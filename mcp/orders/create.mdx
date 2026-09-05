@@ -12,7 +12,7 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 </Note>
 
 <Note>
-  本工具**幂等**：以 `confirmation_token` 为幂等键。幂等指纹只比对 `preview_id` + `confirmation_token` + `payment_method` 三项（**不含** `callback_url`）。用相同 `confirmation_token` 重复调用时：若 `preview_id`、`payment_method` 与首次一致，返回首次的结果；若任一与首次不一致，则返回 `IDEMPOTENCY_CONFLICT`。同一令牌只能下一单——再次下单需重新走 `preview_order` 取新令牌。注意：仅改 `callback_url`（其余三项不变）不算冲突，会命中重放并**重新开始一轮状态跟踪**（回调因此可能多次送达）。
+  本工具**幂等**：以 `confirmation_token` 为幂等键。幂等指纹比对 `preview_id` + `confirmation_token` + `payment_method` 三项，外加 `require_phone_verify` 是否为 `true`（**不含** `callback_url`）。用相同 `confirmation_token` 重复调用时：若这几项与首次一致，返回首次的结果；若任一与首次不一致，则返回 `IDEMPOTENCY_CONFLICT`。同一令牌只能下一单——再次下单需重新走 `preview_order` 取新令牌。注意：仅改 `callback_url`（其余三项不变）不算冲突，会命中重放并**重新开始一轮状态跟踪**（回调因此可能多次送达）。
 </Note>
 
 ### 参数
@@ -24,6 +24,9 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `confirmation_token` | string | 是 | — | 确认令牌（来自 **同一次** `preview_order`，原样回传）；同时作为幂等键 |
 | `payment_method` | string \| null | 否 | `null` | 支付渠道；不传则用默认渠道 |
 | `callback_url` | string \| null | 否 | `null` | 订单状态回调地址（绝对 http(s) URL）；填写后这笔单每次状态变化都会向该地址 POST 一条事件（见下）|
+| `require_phone_verify` | boolean | 否 | `false` | 为 `true` 时，这笔单的支付/详情链接打开后先要求输入下单手机号后 4 位确认本人，输对才进入订单页（见下）|
+
+**`require_phone_verify` 说明：** 传 `true` 后，这笔订单的所有链接——本次返回的 `payment_action.action_url`，以及之后 `get_order_status` / `list_orders` 给出的 `detail_url`——打开时都会先出现一个「确认本人」页，输入下单手机号后 4 位，输对才进入订单页。输对一次后，同一浏览器 24 小时内再打开不用重输；连错 5 次后这笔单的链接锁定 24 小时。适合链接会经过聊天转发、担心发错人的场景。是否开启在下单时确定，之后不可更改；不传或 `false` 时链接与以往完全一样。
 
 **`callback_url` 说明：** 必须是绝对的 `http`/`https` URL，禁止指向回环 / 内网 / 链路本地等地址。填写后，这笔订单**每次状态变化都会向该地址 POST 一条事件**，直到订单结束（`completed` / `cancelled` / `failed` / `refunded`）。查状态的频率是：未支付时约 2 秒一次，已支付后约 30 秒一次。订单满 2 小时仍未结束时，会推送一条 `timeout` 事件后停止，调用方不会一直等下去。
 
@@ -122,7 +125,7 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `payment_action` | object \| null | 支付动作；需支付时返回，否则为 `null` |
 | `payment_action.action_id` | string | 动作 ID（`act_` 前缀）|
 | `payment_action.action_type` | string | 动作类型，当前为 `open_h5`（打开 H5 支付页）|
-| `payment_action.action_url` | string | 支付页 URL，引导用户完成支付 |
+| `payment_action.action_url` | string | 支付页 URL，引导用户完成支付；下单时传了 `require_phone_verify: true` 的订单，打开后先要求输入下单手机号后 4 位确认本人 |
 | `payment_action.expires_at` | string | 动作过期时间（ISO 8601，UTC）；有效期约 30 分钟 |
 | `callback_registered` | boolean | 是否已注册支付回调（即请求是否带了有效 `callback_url`）|
 
@@ -138,7 +141,7 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
 | `PUBLIC_REFERENCE_INVALID` | `preview_id` / `confirmation_token` 无效或过期、两者不匹配（非同一次预览），或 `callback_url` 不合法 |
-| `IDEMPOTENCY_CONFLICT` | 同一 `confirmation_token` 重复调用，但 `preview_id` 或 `payment_method` 与首次不一致；需重新预览取新令牌 |
+| `IDEMPOTENCY_CONFLICT` | 同一 `confirmation_token` 重复调用，但 `preview_id`、`payment_method` 或 `require_phone_verify` 与首次不一致；需重新预览取新令牌 |
 | `ORDER_FAILED` | 订单创建失败；重新预览后重试 |
 | `ELEME_ERROR` | 上游下单 API 错误；稍后重试 |
 
@@ -153,6 +156,20 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
     "consent_grant_id": "cg_your_consent_grant",
     "preview_id": "<来自 preview_order>",
     "confirmation_token": "<来自 preview_order>"
+  }
+}
+```
+
+链接需先确认本人时：
+
+```json
+{
+  "name": "create_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "preview_id": "<来自 preview_order>",
+    "confirmation_token": "<来自 preview_order>",
+    "require_phone_verify": true
   }
 }
 ```
