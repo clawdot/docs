@@ -8,7 +8,7 @@ description: "MCP 工具：解除当前用户授权，滞空凭证使旧 consent
 解除当前用户的授权：滞空 binding 行上的凭证，使本次使用的 `consent_grant_id` 即刻失效。Agent 的凭证不受影响。
 
 <Note>
-  **授权链路**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用 → **`revoke_user_bind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达。
+  **授权链路**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用 → **`revoke_user_bind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。默认情况下用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达；手机号或设备交给其他人使用时，传 `reset_history: true` 清退，重新绑定后看不到此前的地址与历史订单。
 </Note>
 
 ### 参数
@@ -16,12 +16,15 @@ description: "MCP 工具：解除当前用户授权，滞空凭证使旧 consent
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `consent_grant_id` | string | 是 | 用户授权 ID（`cg_...`）；要解除的就是它自身 |
+| `reset_history` | boolean | 否 | 默认 `false`。为 `true` 时解除授权并清退：同一手机号之后重新绑定，看不到此前保存的地址与历史订单，不可逆 |
 
 ### 返回
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `revoked` | boolean | 是否已解除，恒为 `true` |
+| `revoked_scopes` | string[] | 本次实际失效的能力。开通跨能力互通的客户外卖与跑腿共用一枚凭证，会一并撤销；未开通则只撤外卖 |
+| `reset_history` | boolean | 仅在传 `true` 时返回，恒为 `true` |
 | `next_action` | string | 下一步建议动作，恒为 `request_user_bind`（重新发起绑定）|
 
 ### 错误码
@@ -45,6 +48,18 @@ description: "MCP 工具：解除当前用户授权，滞空凭证使旧 consent
   "name": "revoke_user_bind",
   "arguments": {
     "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```
+
+解除授权并清退（重新绑定后看不到此前的地址与历史订单）：
+
+```json
+{
+  "name": "revoke_user_bind",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "reset_history": true
   }
 }
 ```

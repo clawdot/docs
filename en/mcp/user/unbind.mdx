@@ -8,7 +8,7 @@ description: "MCP tool: revoke the current user's authorization; clearing the cr
 Revokes the current user's authorization: clears the credential on the binding row so the `consent_grant_id` used for this call is invalidated immediately. The Agent's credential is unaffected.
 
 <Note>
-  **Authorization flow**: `request_user_bind` → `verify_user_bind` to get `consent_grant_id` → business calls → **`revoke_user_bind`** to revoke. After revocation the `consent_grant_id` is invalid immediately; to act for this user again, run the bind flow (`request_user_bind` + `verify_user_bind`) to mint a NEW `consent_grant_id`. The user's saved addresses and order history are kept and become reachable again after re-binding the same phone number.
+  **Authorization flow**: `request_user_bind` → `verify_user_bind` to get `consent_grant_id` → business calls → **`revoke_user_bind`** to revoke. After revocation the `consent_grant_id` is invalid immediately; to act for this user again, run the bind flow (`request_user_bind` + `verify_user_bind`) to mint a NEW `consent_grant_id`. By default the user's saved addresses and order history are kept and become reachable again after re-binding the same phone number. When the phone number or device is handed to a different person, pass `reset_history: true` to retire the binding: after re-binding, the previous addresses and order history are no longer visible.
 </Note>
 
 ### Parameters
@@ -16,12 +16,15 @@ Revokes the current user's authorization: clears the credential on the binding r
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `consent_grant_id` | string | Yes | User consent grant ID (`cg_...`); this is the grant being revoked |
+| `reset_history` | boolean | No | Default `false`. When `true`, revoke and retire the binding: after the same phone number re-binds, previously saved addresses and order history are no longer visible. Irreversible |
 
 ### Returns
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `revoked` | boolean | Whether the grant was revoked; always `true` |
+| `revoked_scopes` | string[] | Capabilities revoked by this call. Customers with cross-capability sharing enabled share one grant between delivery and errand, so both are revoked; otherwise only delivery |
+| `reset_history` | boolean | Returned only when `true` was passed; always `true` |
 | `next_action` | string | Suggested next action, always `request_user_bind` (start the bind flow again) |
 
 ### Error Codes
@@ -45,6 +48,18 @@ See [Error Handling](/en/gateway/error-handling) for the full list.
   "name": "revoke_user_bind",
   "arguments": {
     "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```
+
+Revoke and retire (previous addresses and order history are not visible after re-binding):
+
+```json
+{
+  "name": "revoke_user_bind",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "reset_history": true
   }
 }
 ```
