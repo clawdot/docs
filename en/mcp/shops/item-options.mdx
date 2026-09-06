@@ -30,6 +30,7 @@ Typical scenarios:
 | `items[].ingredient_option_ids` | array | No | `[]` | This item's currently chosen option ID list, exactly as sent to `quote_cart` / `preview_order`; omit to compute against the **default selection** |
 | `items[].ingredient_quantities` | array | No | `[]` | This item's currently chosen portion counts, exactly as sent to `quote_cart` / `preview_order`; omit and each option uses its own `default_quantity` (the merchant-recommended count) |
 | `grouped` | boolean | No | `false` | Whether ingredients come back grouped. `false` / omitted: flat `ingredient_options`, each carrying its own `group_name`; `true`: grouped `ingredient_groups` with group info stated once |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 ### Returns
 

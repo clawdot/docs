@@ -63,6 +63,29 @@ All tools follow the same calling convention:
   All amount fields are in **cents (integers)**, not yuan. For example, `1500` means ¥15.00.
 </Warning>
 
+## Multilingual
+
+Responses can be returned in the language you choose: shop names, item names, specs and add-ons, labels, order status and error messages are all localized. One of `zh` (Chinese, default) / `en` / `ja` / `ko` / `ru` / `ms`; any other value returns 400.
+
+Two ways to set it — pick one:
+
+- **At binding time:** pass `lang` to `request_user_bind`. Every later call for that user uses this language, so you don't pass it again.
+- **Per call:** pass `lang` on a supporting tool; it affects only that call.
+
+Tools that accept `lang`: `search_addresses`, `search_shops`, `get_shop_info`, `get_shop_menu`, `get_item_options`, `get_item_description`, `quote_cart`, `list_coupons`, `preview_order`, `create_order`, `get_order_status`, `list_orders`.
+
+In the `create_order` `callback_url` payload, `status_text` also follows the language set at binding time.
+
+<Note>
+  **Three things to know before you integrate**
+
+  1. **Description-type content may still be Chinese on first read.** Item descriptions, recommendation blurbs, and address results from the 11th onward may come back in Chinese the first time; query again shortly and they are in your language. Display whatever you receive.
+  2. **When a response carries `localization: "degraded"`**, translation is temporarily unavailable and the payload may contain Chinese. This is transient — retry and it recovers. The field is absent under normal operation.
+  3. **These pages are always Chinese, regardless of `lang`:** the payment page, the order detail page (opened via `detail_url` or the payment link), and the courier app. Tell your users when you hand them these links.
+</Note>
+
+The recipient name (`contact_name`) is never translated — it is stored and shown exactly as entered so it matches the delivery details. Names are capped at 12 characters; longer values return 400. For non-Chinese names we suggest "given name + last-name initial", e.g. Alexander Petrov → Alexander P.
+
 ## Tool list
 
 The MCP Server exposes **18 tools**, grouped below by function. Each tool links to its tool page (with full parameters and response fields).

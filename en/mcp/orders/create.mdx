@@ -25,6 +25,7 @@ Places the order using the `preview_id` and `confirmation_token` returned by a p
 | `payment_method` | string \| null | No | `null` | Payment channel; omit to use the default channel |
 | `callback_url` | string \| null | No | `null` | Order-status callback URL (absolute http(s) URL); when set, every status change on this order POSTs one event to that URL (see below) |
 | `require_phone_verify` | boolean | No | `false` | When `true`, this order's payment / detail links first ask for the last 4 digits of the ordering phone number; the order page opens only after a correct entry (see below) |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 **About `require_phone_verify`:** when `true`, every link for this order — the `payment_action.action_url` returned here, and the `detail_url` later returned by `get_order_status` / `list_orders` — first shows a confirmation page asking for the last 4 digits of the phone number used to place the order; the order page opens only after a correct entry. Once confirmed, the same browser is not asked again for 24 hours; after 5 wrong attempts the order's links are locked for 24 hours. Useful when links travel through chat and may reach the wrong person. The setting is fixed at order creation and cannot be changed later; omitted or `false` leaves the links exactly as before.
 

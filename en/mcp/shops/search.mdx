@@ -38,6 +38,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `lng` | float \| null | No | `null` | Longitude (GCJ-02) |
 | `city` | string \| null | No | `null` | City name to scope the search |
 | `offset` | integer \| null | No | `null` | **Browse mode only**: pagination cursor. Omit = first page; pass the previous `next_offset` to fetch the next page. Page size is fixed and not adjustable. Ignored when `keyword` is set |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 <Note>
   **How the delivery location is resolved**: in order, ① the coordinates of the saved address behind `address_id` → ② the `lat`/`lng` passed explicitly → ③ the user's most-recently-used saved address / remembered location. If none resolve, the call returns `COORDS_REQUIRED`. So `address_id` and `lat`/`lng` are both optional, but at least one location source must be resolvable.

@@ -26,6 +26,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `offset` | integer | 否 | `0` | 分页偏移，≥ 0；与上一次响应的 `next_offset` 配合翻页 |
 | `full_menu` | boolean | 否 | `false` | 菜单大纲模式：`true` 时一次返回全部分类的全部商品卡片，**不含规格 / 配料且不可直接下单**（见下方说明）；结果恒完整、不分页——`limit` / `offset` 被忽略，`keyword` 照常生效 |
 | `grouped` | boolean | 否 | `false` | 配料是否按组返回。`false` / 不传：配料平铺在 `ingredient_options` 里，每条自带 `group_name`；`true`：改为按组返回 `ingredient_groups`，组信息只出现一次 |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 <Note>
   `address_id` / `lat` / `lng` 三者用于解析配送坐标，通常无需传：`cart_id` 已封装搜索时的坐标。三者同时不传时使用 `cart_id` 内坐标。

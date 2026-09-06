@@ -19,6 +19,7 @@ description: "MCP 工具 request_user_bind — 发起用户授权绑定（sms �
 | `auth_type` | string | 否 | `"sms"` | 绑定模式，枚举 `"sms"` / `"h5"`；其它值返回 422 |
 | `callback_url` | string \| null | 否 | `null` | **仅 `h5` 有效**：网关侧轮询绑定结果，成功或过期后向该地址 POST 回调（含 `consent_grant_id`）。须为绝对 http(s) URL，禁止内网 / 环回地址。`sms` 模式传入会报错 |
 | `extra` | object \| null | 否 | `null` | 调用方业务透传（JSON 对象，≤2KB）：发起时传入，绑定完成时由 `verify_user_bind` 响应与回调原样回传，网关不解释其内容 |
+| `lang` | string | 否 | — | 该用户之后所有调用返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；绑定后持续生效，不必每次调用都传 |
 
 ### 返回
 

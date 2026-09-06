@@ -26,6 +26,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
 | `limit` | integer | No | `20` | Page size, max 50 (values above 50 are clamped to 50, below 1 to 1) |
 | `offset` | integer | No | `0` | Pagination offset, starting at 0; pass the previous response's `next_offset` for the next page. Capped at 1000000 (above is clamped, negatives become 0) |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 ### Returns
 

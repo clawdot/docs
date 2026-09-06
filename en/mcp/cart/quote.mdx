@@ -26,6 +26,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options; for a non-default SKU use that SKU's `sku_options[].ingredient_options`) |
 | `items[].ingredient_quantities` | array | No | `[]` | Portion counts for specific options, e.g. "Espresso shots x3", shaped `[{option_id, quantity}]`; only options whose `max_quantity` exceeds 1 accept it, and exceeding it fails the order. Listing an option here **counts as selecting it**, so it need not repeat in `ingredient_option_ids`; omit and each option uses its own `default_quantity` (the merchant-recommended count) |
 | `items[].remark` | string | No | `""` | Per-item note |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 ### Returns
 

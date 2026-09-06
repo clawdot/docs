@@ -30,6 +30,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].ingredient_option_ids` | array | 否 | `[]` | 该商品当前选择的配料选项 ID 列表，与发给 `quote_cart` / `preview_order` 的一致；不传按**默认选择**计算 |
 | `items[].ingredient_quantities` | array | 否 | `[]` | 该商品当前选择的份数，与发给 `quote_cart` / `preview_order` 的一致；不传则每项按各自的 `default_quantity`（商家推荐份数）计算 |
 | `grouped` | boolean | 否 | `false` | 配料是否按组返回。`false` / 不传：配料平铺在 `ingredient_options` 里，每条自带 `group_name`；`true`：改为按组返回 `ingredient_groups`，组信息只出现一次 |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 ### 返回
 

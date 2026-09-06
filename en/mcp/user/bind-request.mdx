@@ -19,6 +19,7 @@ Starts a user consent binding. With `auth_type=sms` the gateway sends a verifica
 | `auth_type` | string | No | `"sms"` | Binding mode, enum `"sms"` / `"h5"`; other values return 422 |
 | `callback_url` | string \| null | No | `null` | **`h5` only**: the gateway polls the binding result and POSTs a callback (with `consent_grant_id`) to this URL on success or expiry. Must be an absolute http(s) URL; private / loopback hosts are rejected. Passing it in `sms` mode is an error |
 | `extra` | object \| null | No | `null` | Caller passthrough (JSON object, ≤2KB): supplied at request time, echoed back verbatim by `verify_user_bind` and the callback. The gateway does not interpret its contents |
+| `lang` | string | No | — | Language for all later responses for this user. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; persists after binding, no need to pass it on every call |
 
 ### Returns
 

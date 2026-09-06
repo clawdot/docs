@@ -27,6 +27,7 @@ description: "MCP 工具 get_item_description — 读取单个商品的「商品
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`）|
 | `cart_id` | string | 是 | — | 购物车上下文 ID（来自 `search_shops`）|
 | `item_id` | string | 是 | — | 商品 ID，来自**同一个 cart** 的 `get_shop_menu` |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 <Note>
   **本工具是商品级的，不接收 `sku_id`。** 一个商品无论有几个规格，查一次即可。多规格商品若某一项的内容按规格而异，会合并成一条返回，详见下方「多规格商品的份量」。

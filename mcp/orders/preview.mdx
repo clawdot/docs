@@ -29,6 +29,7 @@ description: "MCP 工具，校验已算价的购物车，返回最终价格、�
 | `items[].remark` | string | 否 | `""` | 单品备注 |
 | `coupon_ids` | string[] \| null | 否 | `null` | 优惠券选择，三态见下 |
 | `order_remark` | string | 否 | `""` | 订单备注（给骑手）|
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 **`coupon_ids` 三态：**
 

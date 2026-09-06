@@ -20,6 +20,7 @@ Lists the consenting user's gateway-saved delivery addresses (`saved_addresses`)
 | `lat` | number \| null | No | `null` | User latitude (GCJ-02); enables `distance_meters` and `nearest_address_id`, and biases POI search |
 | `lng` | number \| null | No | `null` | User longitude (GCJ-02) |
 | `city` | string \| null | No | `null` | City name to scope POI search; when provided it wins over `lat`/`lng` for the search scope |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 <Note>
   All fields except `consent_grant_id` are optional. POI `suggestions` are returned only when both a `keyword` and a scope signal (a `lat`+`lng` pair, or a resolvable `city`) are present; otherwise `suggestions` is an empty array and only `saved_addresses` is returned.

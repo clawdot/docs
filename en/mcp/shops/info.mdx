@@ -20,6 +20,7 @@ When you only need shop information, this is much faster than `get_shop_menu`, w
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
 | `shop_id` | string | Yes | — | Shop ID (`shop_` prefix, from `search_shops`); pass it back as-is |
 | `cart_id` | string | Yes | — | Cart context ID (`cart_` prefix, from the same shop in `search_shops`); pass it back as-is |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 ### Returns
 

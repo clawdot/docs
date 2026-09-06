@@ -26,6 +26,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `offset` | integer | No | `0` | Paging offset, ≥ 0; pair with the previous response's `next_offset` to page |
 | `full_menu` | boolean | No | `false` | Menu outline mode: `true` returns ALL categories with ALL item cards in one call, **without specs / ingredients and not directly orderable** (see below); the result is always complete and never paged — `limit` / `offset` are ignored, `keyword` still applies |
 | `grouped` | boolean | No | `false` | Whether ingredients come back grouped. `false` / omitted: flat `ingredient_options`, each carrying its own `group_name`; `true`: grouped `ingredient_groups` with group info stated once |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 <Note>
   `address_id` / `lat` / `lng` resolve the delivery coordinates and are usually unnecessary: the `cart_id` already carries the coordinates from search. When all three are omitted, the `cart_id` coordinates are used.

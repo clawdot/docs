@@ -63,6 +63,29 @@ https://eleme-gateway.hicaspian.com/mcp/v1
   所有金额字段单位为**分（整数）**，不是元。例如 `1500` 表示 ¥15.00。
 </Warning>
 
+## 多语言
+
+平台可按语言返回内容：店铺名、商品名、规格与加料、标签、订单状态、错误提示等展示文案，都会按所选语言返回。枚举 `zh`（中文，默认）/ `en` / `ja` / `ko` / `ru` / `ms`，传其它值返回 400。
+
+设定方式两种，按需选一种：
+
+- **绑定时设定：** `request_user_bind` 传 `lang`，该用户之后所有调用都用这个语言，不必每次传。
+- **单次指定：** 在支持的工具上传 `lang`，只影响该次调用。
+
+支持 `lang` 的工具：`search_addresses`、`search_shops`、`get_shop_info`、`get_shop_menu`、`get_item_options`、`get_item_description`、`quote_cart`、`list_coupons`、`preview_order`、`create_order`、`get_order_status`、`list_orders`。
+
+`create_order` 的 `callback_url` 回调里，`status_text` 也按绑定时设定的语言返回。
+
+<Note>
+  **接入前请注意三点**
+
+  1. **商品描述类内容首次可能仍是中文**：商品描述、推荐理由，以及地址搜索结果第 11 条起的地址，首次查询可能是中文，稍后再查即为所选语言。按拿到的内容直接展示即可。
+  2. **响应里出现 `localization: "degraded"` 时**，表示翻译服务暂时不可用，本次内容可能含中文。这是临时状态，重试即可恢复；正常情况下没有这个字段。
+  3. **以下页面固定为中文，不受 `lang` 影响**：支付页、订单详情页（`detail_url` 与支付链接打开的页面）、骑手端。向外语用户提供这些链接时请一并说明。
+</Note>
+
+收货人姓名（`contact_name`）不翻译，原样保存与展示，以便与配送信息一致。姓名上限 12 个字符，超出返回 400；外文姓名建议用「名 + 姓首字母」，如 Alexander Petrov → Alexander P。
+
 ## 工具列表
 
 MCP Server 暴露 **18 个工具**，按功能分组如下。每个工具链接到其工具页（含完整参数与返回字段）。
