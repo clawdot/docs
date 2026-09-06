@@ -17,6 +17,7 @@ Queries the current status of a single order by its platform order ID. The gatew
 |-----------|------|----------|---------|-------------|
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
 | `order_id` | string | Yes | — | Platform order ID (`ord_` prefix), used as-is from the `create_order` response |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 ### Returns
 

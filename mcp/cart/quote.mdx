@@ -26,6 +26,7 @@ description: "MCP 工具，对已选商品的购物车算价，返回价格明�
 | `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项；非默认规格用该规格 `sku_options[].ingredient_options` 的 option_id）|
 | `items[].ingredient_quantities` | array | 否 | `[]` | 为某个选项指定份数，如「浓缩份数 x3」，格式 `[{option_id, quantity}]`；仅 `max_quantity` 大于 1 的选项可用，超出会下单失败。列在这里即**视同已选**，不必再写进 `ingredient_option_ids`；不传则按各选项的 `default_quantity`（商家推荐份数） |
 | `items[].remark` | string | 否 | `""` | 单品备注 |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 ### 返回
 

@@ -27,6 +27,7 @@ Typical scenarios:
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`) |
 | `cart_id` | string | Yes | — | Cart context ID (from `search_shops`) |
 | `item_id` | string | Yes | — | Item ID, from `get_shop_menu` on the **same cart** |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 <Note>
   **This tool is item-level and takes no `sku_id`.** One call covers an item however many skus it has. If a row genuinely differs per sku, the values are merged into a single row — see "Portion size on multi-sku items" below.

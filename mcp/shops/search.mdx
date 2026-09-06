@@ -38,6 +38,7 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
 | `lng` | float \| null | 否 | `null` | 经度（GCJ-02）|
 | `city` | string \| null | 否 | `null` | 城市名，用于限定搜索范围 |
 | `offset` | integer \| null | 否 | `null` | **仅浏览模式**：翻页游标。不传=第一页；传上次返回的 `next_offset` 取下一页。每页数量固定、不可调。带 `keyword` 时忽略 |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 <Note>
   **配送坐标如何解析**：依次取 ① `address_id` 对应保存地址的经纬度 → ② 显式传入的 `lat`/`lng` → ③ 该用户最近使用过的保存地址 / 历史定位。三者都没有时返回 `COORDS_REQUIRED`。即 `address_id` 与 `lat`/`lng` 均为可选，但至少要能解析出一个位置。

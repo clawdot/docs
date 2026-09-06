@@ -26,6 +26,7 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
 | `limit` | integer | 否 | `20` | 单页返回条数，最大 50（超过按 50 截断，小于 1 按 1）|
 | `offset` | integer | 否 | `0` | 翻页偏移量，从 0 开始；传上一次响应的 `next_offset` 取下一页。上限 1000000，超过按上限截断，负数按 0 |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 ### 返回
 

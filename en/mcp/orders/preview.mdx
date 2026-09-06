@@ -29,6 +29,7 @@ Previews an order before creation: validates the shop / address / items, applies
 | `items[].remark` | string | No | `""` | Per-item note |
 | `coupon_ids` | string[] \| null | No | `null` | Coupon selection, three states below |
 | `order_remark` | string | No | `""` | Order note (for the rider) |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 **`coupon_ids` three states:**
 

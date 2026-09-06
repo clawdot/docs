@@ -20,6 +20,7 @@ description: "MCP 工具 search_addresses — 列出用户已保存的收货地�
 | `lat` | number \| null | 否 | `null` | 用户当前纬度（GCJ-02）；启用 `distance_meters` 与 `nearest_address_id`，并为 POI 搜索提供坐标偏好 |
 | `lng` | number \| null | 否 | `null` | 用户当前经度（GCJ-02）|
 | `city` | string \| null | 否 | `null` | 城市名，用于限定 POI 搜索范围；传入后优先于 `lat`/`lng` 决定搜索范围 |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 <Note>
   除 `consent_grant_id` 外全部字段均为可选。仅当同时具备 `keyword` 与一个范围信号（`lat`+`lng` 坐标对，或可解析的 `city`）时才返回 POI `suggestions`；否则 `suggestions` 为空数组，只返回 `saved_addresses`。
