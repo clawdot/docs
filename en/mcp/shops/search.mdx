@@ -38,6 +38,8 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `lng` | float \| null | No | `null` | Longitude (GCJ-02) |
 | `city` | string \| null | No | `null` | City name to scope the search |
 | `offset` | integer \| null | No | `null` | **Browse mode only**: pagination cursor. Omit = first page; pass the previous `next_offset` to fetch the next page. Page size is fixed and not adjustable. Ignored when `keyword` is set |
+| `exclude_required_selection` | boolean | No | `false` | Drop shops that force one more pick before checkout (a hotpot base, a mandatory staple). In browse mode the gateway pages forward automatically to refill up to 5 shops; keyword mode filters but never pages, so it can come back empty |
+| `with_recommendations` | boolean | No | `false` | Attach 1–2 signature dishes per shop (see `recommend_items`) |
 | `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
 <Note>
@@ -72,11 +74,21 @@ Searches or browses shops near the delivery location. Each result carries a `sho
           "original_price": 2900,
           "image_url": "https://cube.elemecdn.com/8/be/57a834efd750f506fb634dd3f6700jpg.jpg?x-oss-process=image/resize,m_fill,w_184,h_184/quality,q_75"
         }
+      ],
+      "recommend_items": [
+        {
+          "name": "Coconut Latte",
+          "description": "Coconut milk + espresso",
+          "price": 1600,
+          "original_price": 2900,
+          "image_url": "https://cube.elemecdn.com/…"
+        }
       ]
     }
   ],
   "search_match_level": "exact",
-  "next_offset": 20
+  "next_offset": 20,
+  "filtered_required_selection": 3
 }
 ```
 
@@ -89,6 +101,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
 | `search_match_level` | string | **Keyword search only**: `exact` = at least one shop name or brand matched the keyword, and those shops are listed first; `related` = no shop name matched, the results are same-category alternatives. Browse mode does **not** include this field |
 | `next_offset` | integer \| null | **Returned only when paging in browse mode** (request included `offset`): cursor for the next page, use as the next request's `offset`; empty `shops` means the end. Requests without `offset` do **not** include this field |
+| `filtered_required_selection` | integer | **Only when `exclude_required_selection: true`**: how many shops were dropped this call. Lets you tell "there really are only a few shops nearby" from "they were filtered out" |
 | `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `get_shop_menu` / `quote_cart` / `preview_order` as-is |
 | `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
 | `shops[].name` | string | Shop name |
@@ -109,9 +122,15 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].matched_items[].price` | integer | Item price (cents) |
 | `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
 | `shops[].matched_items[].image_url` | string \| null | Item image URL (upstream thumbnail, ~184×184). For the original or another size, rewrite/drop the trailing `?x-oss-process` parameter |
+| `shops[].recommend_items` | array | 1–2 signature dishes for the shop (**only when `with_recommendations: true`; display-only**). Picked by monthly sales and the shop's own hot/signature categories, with sub-¥1 loss leaders excluded |
+| `shops[].recommend_items[].name` | string | Item name |
+| `shops[].recommend_items[].description` | string \| null | Item description (up to 80 chars) |
+| `shops[].recommend_items[].price` | integer | Price in cents |
+| `shops[].recommend_items[].original_price` | integer \| null | Original price in cents |
+| `shops[].recommend_items[].image_url` | string \| null | Image URL, same as `matched_items` |
 
 <Warning>
-  `matched_items` carry **no IDs and no stock state**. To order, you must first call `get_shop_menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
+  `recommend_items` and `matched_items` carry **no IDs and no stock state**. To order, you must first call `get_shop_menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
 </Warning>
 
 ### Error Codes
