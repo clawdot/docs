@@ -53,7 +53,7 @@ description: "MCP 工具，按平台订单 ID 查询订单的实时状态、店�
 | `shop_name` | string | 店铺名称（取不到时为空串）|
 | `items_summary` | string | 商品摘要，取前 3 项拼成 `名称 x数量`，以中文逗号 `，` 连接 |
 | `payable_price` | integer | 应付金额（分）|
-| `cancel_reason` | string \| null | 订单取消或下单失败的原因，如「超时未支付」；其他状态为 `null` |
+| `cancel_reason` | string \| null | 订单取消或下单失败的原因，如「超时未支付」「用户取消支付」；文案由平台给出、可能新增，请直接展示不要做枚举判断；其他状态为 `null` |
 | `delivery` | object \| null | 配送信息；上游无实时配送数据、或实时查询失败回落本地快照时为 `null` |
 | `delivery.status` | string \| null | 上游配送状态原值 |
 | `delivery.estimated_time_text` | string \| null | 预计送达文案（当前恒为 `null`，上游暂不返回该字段）|

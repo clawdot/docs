@@ -53,7 +53,7 @@ Queries the current status of a single order by its platform order ID. The gatew
 | `shop_name` | string | Shop name (empty string if unavailable) |
 | `items_summary` | string | Item summary; first 3 items joined as `name x quantity`, separated by the Chinese comma `，` |
 | `payable_price` | integer | Payable amount (cents) |
-| `cancel_reason` | string \| null | Why the order was cancelled or failed (e.g. payment timed out); `null` for all other statuses |
+| `cancel_reason` | string \| null | Why the order was cancelled or failed, e.g. payment timed out, or the user cancelled the payment. The wording comes from the platform and new values may appear, so display it as-is rather than matching against a fixed set; `null` for all other statuses |
 | `delivery` | object \| null | Delivery info; `null` when no real-time delivery data is available upstream, or when the real-time lookup fails and falls back to the local snapshot |
 | `delivery.status` | string \| null | Raw upstream delivery status |
 | `delivery.estimated_time_text` | string \| null | Estimated delivery text (currently always `null`; upstream does not return this field yet) |
