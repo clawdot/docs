@@ -49,26 +49,27 @@ Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order
 | `pay_status` | string | Always `unpaid` |
 | `quote_fee` | integer | Amount payable (= the selected courier's `fee`), in fen |
 | `cashier_url` | string | Cashier payment page URL; hand this to the user to complete payment |
+| `company_code` | integer | Courier code |
+| `company_name` | string | Courier name, e.g. JD Now; a few couriers have no name yet and show as 其他运力 (other courier) |
+| `from` | object | Pickup end: `contact_name` / `contact_phone_masked` / `address_text` / `lat` / `lng`; the phone is masked (e.g. `157****2669`) and cannot be dialed |
+| `to` | object | Drop-off end, same shape as `from` |
+| `goods` | array | Item list: `name`, `qty`, `price_fen` (unit price, in fen) |
+| `goods_category_code` | integer \| null | Goods category code chosen at order time; `null` if none was chosen |
+| `goods_category_name` | string \| null | Goods category name, matching the category list; `null` if none was chosen |
+| `goods_total_amount_fen` | integer | Estimated total value of all goods (unit price × quantity, summed), in fen |
+| `total_weight_g` | integer | Total weight declared at order time (grams); the system default weight when not provided |
+| `person_direct` | boolean | Whether this is a direct delivery (the courier carries this order only) |
+| `insured` | boolean | Whether this order is insured |
+| `remark` | string | Note to the courier; empty string when none was given |
+| `scheduled_at` | integer \| null | Scheduled delivery time (millisecond timestamp); `null` for immediate delivery |
+| `actual_fee` | integer \| null | Amount actually charged by the courier (fen); always `null` at creation, filled in once the order completes |
+| `tip_fee` | integer | Accumulated tips (fen); always `0` at creation |
+| `cancel_fee` | integer \| null | Cancellation penalty (fen); always `null` at creation |
+| `pickup_photos` | array | Pickup photo URLs; always an empty array at creation |
+| `finish_photos` | array | Delivery photo URLs; always an empty array at creation |
+| `created_at` | string | Order creation time (ISO 8601) |
 
-**The response also carries this order's full order info**, using exactly the same base fields as the order detail from [errand_get_order](/en/errand/orders/get) and the entries returned by `errand_list_orders` (`status_desc` / `timeline` / `rider` appear only when you query an in-flight order — a pending-payment order carries none of them) — available immediately, no extra lookup needed. The full order info includes:
-
-| Field | Description |
-|-------|-------------|
-| `company_code` / `company_name` | Courier code and name (a small number of orders show `company_name` as "其他运力" — that's an expected value, not an error) |
-| `from` / `to` | Pickup and dropoff details: contact name, masked phone (e.g. `157****2669`, not dialable), address text, coordinates |
-| `goods` | Item list: name, quantity, unit price (fen) |
-| `goods_category_code` / `goods_category_name` | Item category code and name |
-| `goods_total_amount_fen` | Estimated total item value (fen) |
-| `total_weight_g` | Total weight (grams) |
-| `person_direct` | Whether this is a dedicated (no-bundling) delivery |
-| `insured` | Whether the shipment is insured |
-| `scheduled_at` | Scheduled delivery time (millisecond timestamp); `null` when not scheduled |
-| `remark` | Note left for the courier |
-| `actual_fee` / `tip_fee` / `cancel_fee` | Amount actually charged, tip paid, and cancellation fee, all in fen |
-| `pickup_photos` / `finish_photos` | Pickup and delivery photos |
-| `created_at` | Order creation time |
-
-For each field's exact type and when it can be `null`, see the order detail in [errand_get_order](/en/errand/orders/get).
+In the table above, `company_code` and everything after it is **this order's full order info**, identical to the base fields of the order detail from [errand_get_order](/en/errand/orders/get) and the entries returned by `errand_list_orders` (`status_desc` / `timeline` / `rider` appear only when you query an in-flight order — a pending-payment order carries none of them) — available immediately, no extra lookup needed.
 
 **Example response**:
 

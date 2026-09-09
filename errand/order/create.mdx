@@ -49,26 +49,27 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 | `pay_status` | string | 恒为 `unpaid`（未支付）|
 | `quote_fee` | integer | 应付金额（= 所选运力 `fee`），单位分 |
 | `cashier_url` | string | 收银台支付页链接，交给用户打开完成支付 |
+| `company_code` | integer | 承运运力编码 |
+| `company_name` | string | 承运运力名称，如「京东秒送」；少数运力暂无名称，显示为「其他运力」 |
+| `from` | object | 发件端：`contact_name` / `contact_phone_masked` / `address_text` / `lat` / `lng`；电话为脱敏号码（如 `157****2669`），不能直接拨打 |
+| `to` | object | 收件端，结构同 `from` |
+| `goods` | array | 货品清单：`name`（名称）/ `qty`（件数）/ `price_fen`（单价，分） |
+| `goods_category_code` | integer \| null | 下单时选择的物品品类码；未选择为 `null` |
+| `goods_category_name` | string \| null | 物品品类名称，与品类清单给出的名称一致；未选择为 `null` |
+| `goods_total_amount_fen` | integer | 全部货品的预估总货值（单价 × 件数之和），单位分 |
+| `total_weight_g` | integer | 下单时申报的总重量（克）；未填写时为系统默认重量 |
+| `person_direct` | boolean | 是否专人直送（骑手不拼单、只送本单） |
+| `insured` | boolean | 本单是否保价 |
+| `remark` | string | 给骑手的留言；未填为空串 |
+| `scheduled_at` | integer \| null | 预约送达时间（毫秒时间戳）；立即配送为 `null` |
+| `actual_fee` | integer \| null | 配送方实扣费用（分）；下单时恒为 `null`，订单完结后回填 |
+| `tip_fee` | integer | 已累计小费（分）；下单时恒为 `0` |
+| `cancel_fee` | integer \| null | 取消违约金（分）；下单时恒为 `null` |
+| `pickup_photos` | array | 取件照片链接；下单时恒为空数组 |
+| `finish_photos` | array | 送达照片链接；下单时恒为空数组 |
+| `created_at` | string | 下单时间（ISO 8601） |
 
-**响应同时带上这笔订单的整单信息**，与 [errand_get_order](/errand/orders/get) 订单详情的基础字段、`errand_list_orders` 的列表条目完全一致（`status_desc` / `timeline` / `rider` 只在查询在途订单时才有，待支付单不带）——创建后立即可用，不必再查一次。整单信息包括：
-
-| 字段 | 说明 |
-|------|------|
-| `company_code` / `company_name` | 承运运力编码与名称（少数订单 `company_name` 会是「其他运力」，属正常取值）|
-| `from` / `to` | 收发两端信息：联系人、脱敏电话（如 `157****2669`，不能直接拨打）、地址文本、经纬度 |
-| `goods` | 货品清单：名称、件数、单价（分）|
-| `goods_category_code` / `goods_category_name` | 物品品类码与名称 |
-| `goods_total_amount_fen` | 货品预估总货值（分）|
-| `total_weight_g` | 总重量（克）|
-| `person_direct` | 是否专人直送 |
-| `insured` | 是否保价 |
-| `scheduled_at` | 预约送达时间（毫秒时间戳）；未预约为 `null` |
-| `remark` | 给骑手的留言 |
-| `actual_fee` / `tip_fee` / `cancel_fee` | 实际扣款、已付小费、取消费用，单位分 |
-| `pickup_photos` / `finish_photos` | 取件 / 送达照片 |
-| `created_at` | 下单时间 |
-
-各字段的精确类型与何时为 `null`，见 [errand_get_order](/errand/orders/get) 订单详情。
+上表中 `company_code` 及其之后的字段是**这笔订单的整单信息**，与 [errand_get_order](/errand/orders/get) 订单详情的基础字段、`errand_list_orders` 的列表条目完全一致（`status_desc` / `timeline` / `rider` 只在查询在途订单时才有，待支付单不带）——创建后立即可用，不必再查一次。
 
 **响应示例**：
 
