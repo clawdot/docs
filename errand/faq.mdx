@@ -1,0 +1,40 @@
+---
+title: "注意事项"
+description: "跑腿接入前需要了解的地址来源、同城限制、支付门禁、金额口径等要点"
+---
+
+<Steps>
+  <Step title="地址来源三形态">
+    下单 `from_address`/`to_address`——**知道坐标**直接传 `address_text`+`lat`+`lng`；**从地址簿选**传 `address_id`（来自 `errand_save_address`/`errand_list_addresses`）；**只有地名**先 `errand_search_addresses` 搜坐标。三者取其一。
+  </Step>
+  <Step title="仅同城">
+    跑腿只送同城，收发地址须在同一城市，跨城返回 `ERRAND_CROSS_CITY`。
+  </Step>
+  <Step title="支付门禁">
+    `errand_create` 只建待支付单；**支付成功平台才呼叫骑手**，无需调用方触发派单。
+  </Step>
+  <Step title="金额口径">
+    支付金额 = 所选运力的报价 `fee`；小费为独立支付项（付成才生效、累计进 `tip_fee`）。所有金额单位为分。
+  </Step>
+  <Step title="令牌节奏">
+    `quote_id` 600 秒单次有效；用户犹豫超时或换运力重选价格时，重新询价即可。
+  </Step>
+  <Step title="隐私">
+    联系电话加密保存，不返回明文——地址簿返回脱敏形态（`138****5678`），历史单不返回电话。门牌（`detail`）会返回，下单时自动拼进地址。骑手电话按用途区分：查询骑手位置返回完整工作号（供用户联系骑手），状态回调里只给隐藏中间四位的形态（用于核对是哪位骑手）。
+  </Step>
+  <Step title="坐标">
+    统一使用 GCJ-02。`errand_search_addresses` 返回的坐标即为该系，直接回填。
+  </Step>
+  <Step title="取消费用">
+    骑手接单后取消可能产生违约金，务必先 `errand_pre_cancel` 预检并向用户确认。
+  </Step>
+  <Step title="回调是提醒不是事实源">
+    `callback_url` 推送 best-effort 不重试；订单事实状态一律以 `errand_get_order` 为准。
+  </Step>
+  <Step title="与外卖 MCP 的关系">
+    独立 endpoint、独立工具集；同一 agent 凭证可同时接两个服务，`consent_grant_id` 分能力发放。
+  </Step>
+  <Step title="预计送达时间">
+    按配送距离估算（3 公里以内 45 分钟，之后每公里加 5 分钟），故同一单各运力给出的时效相同；预约单显示您约定的送达时间。
+  </Step>
+</Steps>

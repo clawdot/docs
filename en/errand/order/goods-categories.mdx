@@ -1,0 +1,85 @@
+---
+title: "errand_list_goods_categories"
+description: "MCP tool errand_list_goods_categories — returns the list of item categories to fill into errand_quote"
+---
+
+## errand_list_goods_categories
+
+Returns the list of item categories, for the user to pick which category their item belongs to. The selected `code` is passed back into `goods_category_code` on `errand_quote`.
+
+The list has 15 entries. The first 7 are valuable categories (`valuable: true`), the remaining 8 are ordinary categories — the return order already splits them into these two groups. Pick the closest match; use "Other" when nothing fits.
+
+<Note>
+  **The item name does not affect claims.** `goods[].name` on `errand_quote` can be filled in with the user's own words as-is — the platform does not parse the name. Claims are decided solely by category, so make sure the category is correct.
+</Note>
+
+<Note>
+  **Ask about insurance for valuable categories.** Categories with `valuable: true` typically cover higher-value items — this is a good moment to ask the user whether they want insurance (`insured: true` at order creation). Insurance is an extra charge; never enable it on the user's behalf.
+</Note>
+
+The list is fixed and cacheable, but always render it by the `code` the endpoint returns rather than a hardcoded list or index position — the category count has changed before and hardcoding will break next time it does.
+
+### Parameters
+
+This tool takes no parameters — call it directly to get the full list.
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `categories` | array | The category list, 15 entries; the first 7 are valuable categories |
+| `categories[].code` | integer | Category code, passed back into `goods_category_code` on `errand_quote` |
+| `categories[].name` | string | Category name, shown to the user for selection |
+| `categories[].valuable` | boolean | This category typically covers higher-value items; when `true`, consider asking the user whether they want insurance |
+
+**Example response** (excerpt; the actual call returns 15 entries):
+
+```json
+{
+  "categories": [
+    { "code": 1672215005, "name": "数码电器", "valuable": true },
+    { "code": 1851862003, "name": "药品", "valuable": true },
+    { "code": 1917869373, "name": "生鲜肉蛋水产", "valuable": true },
+    { "code": 8889, "name": "餐饮食品", "valuable": false },
+    { "code": 1917869379, "name": "其他", "valuable": false }
+  ]
+}
+```
+
+**Full category table** (15 entries, for reference — always defer to the endpoint's live response):
+
+| Code | Name | Valuable |
+|---|---|---|
+| 1672215005 | Electronics | Yes |
+| 1672215009 | Clothing & bags | Yes |
+| 1672214914 | Alcohol | Yes |
+| 1851862003 | Medicine | Yes |
+| 1852332002 | Health supplements | Yes |
+| 1852332003 | Glasses | Yes |
+| 1917869373 | Fresh meat, eggs & seafood | Yes |
+| 8889 | Prepared food | |
+| 1672214915 | Beverages | |
+| 1917867465 | Fruit | |
+| 8888 | Cakes | |
+| 1603 | Convenience-store goods | |
+| 1672215006 | Daily necessities | |
+| 1721733001 | Flowers & plants | |
+| 1917869379 | Other | |
+
+### Error codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API key |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+
+See [Error Handling](/en/errand/errors) for the full list.
+
+### Example call
+
+```json
+{
+  "name": "errand_list_goods_categories",
+  "arguments": {}
+}
+```

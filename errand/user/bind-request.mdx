@@ -1,0 +1,49 @@
+---
+title: "errand_request_user_bind"
+description: "MCP 工具 errand_request_user_bind — 向用户手机发送验证码，发起跑腿授权绑定"
+---
+
+## errand_request_user_bind
+
+向用户手机发送短信验证码。本工具是获取跑腿 consent 的入口，仅需 Agent 凭证（`Authorization: Bearer`），参数不带 `consent_grant_id`。
+
+<Note>
+  **跑腿授权链路（入口）**：**`errand_request_user_bind`** → 拿到 `bind_id` → 用户收到验证码 → `errand_verify_user_bind` 换取 `consent_grant_id` → 后续跑腿工具带该 `consent_grant_id` 调用。跑腿与外卖的 consent 分能力发放，即使该用户已经绑定过外卖，跑腿仍需单独走一遍这套流程。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `phone` | string | 是 | — | 用户手机号 |
+| `external_user_id` | string | 否 | — | 客户侧用户唯一标识（1–128 字符）；会注入收银台联登 / 支付链接的 `open_id` |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bind_id` | string | 本次验证码会话 ID，传给 `errand_verify_user_bind` |
+| `expires_in` | integer | 验证码有效期，单位秒，当前为 `300` |
+| `masked_phone` | string | 脱敏手机号，用于展示 |
+
+```json
+{ "bind_id": "586674fa-882d-42bc-834d-3561e6ea04d9", "expires_in": 300, "masked_phone": "188****2920" }
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 Agent 凭据 |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通跑腿能力 |
+| `SMS_COOLDOWN` | 60 秒内向同一手机号重复发送验证码 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+**大致耗时**：约 0.5 秒。
+
+### 调用示例
+
+```json
+{ "name": "errand_request_user_bind", "arguments": { "phone": "<user_phone>" } }
+```

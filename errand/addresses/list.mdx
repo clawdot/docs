@@ -1,0 +1,58 @@
+---
+title: "errand_list_addresses"
+description: "MCP 工具 errand_list_addresses —— 列出用户的跑腿地址簿"
+---
+
+## errand_list_addresses
+
+列出当前授权用户的跑腿地址簿，地址 ID 恒带 `plat_` 前缀，可以直接当 `address_id` 下单。
+
+<Note>
+  **只含在跑腿存过的地址**：跑腿地址簿与外卖地址簿是两套、互不可见，外卖地址簿里的地址不会出现在这里。新用户首次使用为空，请先用 `errand_search_addresses` 搜索并 `errand_save_address` 存过之后再查。默认只看本 Agent 给该手机号存的地址，开通地址共享后才跨 Agent 可见。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权记录 ID（`cg_` 前缀），来自 `errand_verify_user_bind` |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `addresses` | array | 地址数组；没有地址时返回空数组 |
+| `addresses[].id` | string | 地址 ID（`plat_` 前缀），可直接当 `address_id` 下单 |
+| `addresses[].contact_name` | string | 联系人（可空）|
+| `addresses[].contact_phone_masked` | string | 脱敏联系电话（如 `138****5678`）；没存过电话时为空串 |
+| `addresses[].address` | string | 地址 |
+| `addresses[].detail` | string | 门牌补充（如「3 号楼 303」）；没填过为空串 |
+| `addresses[].lat` | number | 纬度（GCJ-02）|
+| `addresses[].lng` | number | 经度（GCJ-02）|
+| `addresses[].tag` | string | 标签 |
+| `addresses[].source` | string | 地址来源，跑腿存的恒为 `errand` |
+| `addresses[].last_used_at` | string \| null | 最近使用时间 |
+| `addresses[].use_count` | integer | 使用次数 |
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，跑腿需单独绑定 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "errand_list_addresses",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>"
+  }
+}
+```

@@ -1,0 +1,104 @@
+---
+title: "Status callbacks"
+description: "Once errand_create is called with callback_url, the platform pushes three event types whenever the order status changes"
+---
+
+Once `errand_create` is called with `callback_url`, the platform POSTs JSON to that address whenever the order status changes. Return HTTP 200 on receipt (the response body isn't checked).
+
+Besides status changes during delivery, the platform also pushes when **payment succeeds and rider dispatch begins** (`dispatching`), when **rider dispatch fails** (`dispatch_failed`, with the amount paid refunded in full), and when **a pending-payment order auto-closes after 15 minutes unpaid** (`cancelled`). The only case with no push is when you call the cancellation tool yourself and it succeeds — the tool's response already gives you the result.
+
+<Warning>
+  **A callback is a notification, not the source of truth.** Delivery is single-attempt with no retry, so network blips can drop it; the order's actual state is always whatever `errand_get_order` returns. **When the callback fires is decided by the delivery provider — the platform makes no delivery-time guarantee** — don't use it to build a timeout check; query directly when you need to know the current state for certain.
+</Warning>
+
+Events may arrive more than once or out of order — the delivery provider retries failed pushes. Handle them idempotently by `order_id`, and use `time` to determine ordering: ignore an event whose `time` is earlier than one you've already processed.
+
+The three event types carry different fields, so **branch on `event`** — don't assume any particular field is always present.
+
+<Note>
+  **A callback only fires once the push address is configured on the delivery provider's side** — confirm with the platform that it's enabled for your account before you integrate; don't treat the callback as the only source of order status. `rider_changed` (rider changed) is **disabled by default** and needs to be enabled separately.
+</Note>
+
+## Common fields (present on all three event types)
+
+| Field | Type | Description |
+|---|---|---|
+| `event` | string | Event type: `status_changed` (status progressed) / `exception` (delivery exception reported) / `rider_changed` (rider changed). |
+| `order_id` | string | Order ID (`err_` prefix). |
+| `status` | string | The order's current status (see [Status enums](/en/errand/status)). For an exception report (`event=exception`), this is **the status the order was in when the exception occurred** — the order itself doesn't change status just because an exception was reported. |
+| `time` | integer | When the event occurred (millisecond timestamp). |
+
+## status_changed — status progressed
+
+Sent whenever the order status changes; the most common event type.
+
+| Field | Type | Description |
+|---|---|---|
+| `status_desc` | string | A Chinese status label you can show directly, e.g. "配送中" (delivering). |
+| `cancel_fee` | integer | Present only when the order is cancelled: the cancellation fee, in cents. A paid order is refunded automatically for "amount paid − cancellation fee"; no separate request is needed. |
+| `error_reason` | string | Present only on delivery failure: the failure reason. |
+| `rider` | object | Rider info: `{ name, phone }`. Appears once a rider has accepted the order. The middle four digits of the phone are masked with `*` (e.g. `186****1111`), for the user to confirm which rider it is. |
+| `pickup_photos` | array | List of pickup photo URLs; sent when pickup photos exist. |
+| `finish_photos` | array | List of delivery photo URLs; sent when delivery photos exist. |
+| `failure` | object | Present when the order is cancelled or a delivery exception occurs: `{ kind, reason, code, fee }`. `kind`: `cancelled` / `failed` (delivery failed) / `exception` (delivery exception). `reason` is a Chinese explanation you can show directly. `code` is the delivery provider's reason code, kept for reference only — **go by `reason` to determine the cause**, since the same code can mean different things in a callback versus order details. `fee` is the cancellation fee (in cents), present only on cancellation. |
+
+```json
+{
+  "event": "status_changed",
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "delivering",
+  "status_desc": "配送中",
+  "rider": { "name": "张师傅", "phone": "186****1111" },
+  "pickup_photos": ["https://img.example.com/pickup-1.jpg"],
+  "time": 1783783107917
+}
+```
+
+## exception — delivery exception reported
+
+Sent when something unexpected happens during delivery. **This event is informational only — it doesn't change the order status** (a single exception report doesn't turn the order into a failure), and delivery may resume normally afterward. Consider showing it to the user and asking how to proceed.
+
+| Field | Type | Description |
+|---|---|---|
+| `error_reason` | string | The exception reason, a Chinese string you can show directly, e.g. "商家出餐慢" (the merchant is slow preparing the order). See the value table below. |
+| `failure` | object | Present when the order is cancelled or a delivery exception occurs: `{ kind, reason, code, fee }`. `kind`: `cancelled` / `failed` (delivery failed) / `exception` (delivery exception). `reason` is a Chinese explanation you can show directly. `code` is the delivery provider's reason code, kept for reference only — **go by `reason` to determine the cause**, since the same code can mean different things in a callback versus order details. `fee` is the cancellation fee (in cents), present only on cancellation. |
+| `rider` | object | Rider info: `{ name, phone }`; present only once a rider has accepted the order. The middle four digits of the phone are masked with `*` (e.g. `186****1111`). |
+
+```json
+{
+  "event": "exception",
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "delivering",
+  "error_reason": "商家出餐慢",
+  "time": 1783783107917
+}
+```
+
+## rider_changed — rider changed
+
+Sent when the rider changes, usually with the new rider attached; in a few cases the `rider` field isn't included. If you need the real-time location, or this event didn't include the rider, call `errand_get_rider`.
+
+| Field | Type | Description |
+|---|---|---|
+| `rider` | object | New rider info: `{ name, phone }`. The middle four digits of the phone are masked with `*` (e.g. `139****2222`), for the user to confirm which rider it is. |
+
+```json
+{
+  "event": "rider_changed",
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "delivering",
+  "rider": { "name": "李师傅", "phone": "139****2222" },
+  "time": 1783783107917
+}
+```
+
+## Exception reason values (error_reason)
+
+| Category | Possible reasons |
+|---|---|
+| Customer-side | Phone off / disconnected / no answer / not in service / wrong number left / otherwise unreachable |
+| Customer-side | Customer changed the delivery address / delivery address is wrong / delivery address is out of range |
+| Customer-side | Customer refused the item / asked to delay delivery |
+| Pickup side | Refused to prepare the order / slow preparing the order / closed / unreachable / wrong location |
+| Rider-side | Rider maliciously cancelled the order / the item was lost or damaged |
+| Other | Other (a free-text description from the delivery provider) |

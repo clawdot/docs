@@ -1,0 +1,33 @@
+---
+title: "状态枚举"
+description: "跑腿订单的 status（订单状态）与 pay_status（支付状态）全部取值"
+---
+
+`errand_create` / `errand_get_order` / `errand_list_orders` 与状态回调推送共用同一套状态枚举。
+
+## 订单状态 status
+
+| 值 | 含义 |
+|---|---|
+| `pending_payment` | 待支付（未付款不派单）。 |
+| `dispatching` | 支付完成，正在呼叫骑手。 |
+| `pending` | 已提交配送方，等待受理。 |
+| `waiting_rider` | 等待分配骑士。 |
+| `rider_reassigning` | 骑士转单中（重新分配）。 |
+| `rider_accepted` | 骑士已接单。 |
+| `rider_arrived` | 骑士已到店/到取货点。 |
+| `delivering` | 配送中。 |
+| `completed` | 已完成（终态）。 |
+| `cancelled` | 已取消（终态）。 |
+| `failed` | 配送失败（终态；已付款项全额退回）。 |
+| `dispatch_failed` | 呼叫骑手失败（终态；已付款项全额退回）。 |
+
+## 支付状态 pay_status
+
+| 值 | 含义 |
+|---|---|
+| `unpaid` | 未支付。 |
+| `paid` | 已支付。 |
+| `refunded` | 已退款（原路退回）。 |
+| `pending_refund` | 退款处理中（平台自动补偿重试，无需干预）。 |
+| `expired` | 超时未支付已过期。 |

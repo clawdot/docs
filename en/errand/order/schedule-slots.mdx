@@ -1,0 +1,76 @@
+---
+title: "errand_list_schedule_slots"
+description: "MCP tool errand_list_schedule_slots — returns the list of schedulable delivery times to fill into errand_quote"
+---
+
+## errand_list_schedule_slots
+
+Returns the list of schedulable delivery times, for the user to pick "deliver by when". The selected `value` is passed back into `scheduled_at` on `errand_quote`.
+
+Slots are 15 minutes apart, starting no earlier than 45 minutes from now and running through 23:45 tomorrow (Beijing time). When the user wants delivery "as soon as possible", omit `scheduled_at` entirely — do not pass `0`.
+
+<Note>
+  **Only a `value` from this list is accepted** — a timestamp you compute yourself from a minute count is rejected (`SCHEDULED_AT_NOT_ON_GRID`). The list is generated at call time, so refetch it if some time has passed. This applies even more when reusing a past order: don't reuse its `value`, that time has very likely already passed.
+</Note>
+
+### Parameters
+
+This tool takes no parameters — call it directly to get the currently available time slots.
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timezone` | string | Timezone for every time in this response, fixed at `Asia/Shanghai` (Beijing time) |
+| `step_minutes` | integer | Minutes between adjacent slots, fixed at `15` |
+| `earliest` | integer | Earliest schedulable time (millisecond timestamp), equal to the first slot's `value` |
+| `latest` | integer | Latest schedulable time (millisecond timestamp), equal to the last slot's `value` |
+| `days` | array | Slots grouped by day, at most two groups (today, tomorrow). When today has no slots left, only tomorrow's group is returned — don't assume there are always two |
+| `days[].label` | string | Group heading, e.g. "今日(周二)" |
+| `days[].slots` | array | This day's slots, in chronological order |
+| `days[].slots[].value` | integer | Passed back into `scheduled_at` on `errand_quote` (millisecond timestamp) |
+| `days[].slots[].label` | string | Time shown to the user, e.g. `11:00` |
+
+**Example response** (excerpt; each day has up to 96 slots, all 15 minutes apart):
+
+```json
+{
+  "timezone": "Asia/Shanghai",
+  "step_minutes": 15,
+  "earliest": 1787023800000,
+  "latest": 1787154300000,
+  "days": [
+    {
+      "label": "今日(周二)",
+      "slots": [
+        { "value": 1787023800000, "label": "11:30" },
+        { "value": 1787024700000, "label": "11:45" }
+      ]
+    },
+    {
+      "label": "明日(周三)",
+      "slots": [
+        { "value": 1787068800000, "label": "00:00" }
+      ]
+    }
+  ]
+}
+```
+
+### Error codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid API key |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+
+See [Error Handling](/en/errand/errors) for the full list.
+
+### Example call
+
+```json
+{
+  "name": "errand_list_schedule_slots",
+  "arguments": {}
+}
+```

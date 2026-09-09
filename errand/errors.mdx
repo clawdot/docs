@@ -1,0 +1,71 @@
+---
+title: "错误处理"
+description: "跑腿工具的统一错误结构与常见错误码"
+---
+
+工具业务失败时 `content` 里带 `error` 结构，**请以 `content` 中有没有 `error` 字段判断成败**：
+
+```json
+{ "error": { "code": "ERRAND_CANCEL_NOT_ALLOWED", "message": "当前订单状态不允许取消。", "request_id": "4c86fff3-..." } }
+```
+
+<Warning>
+  工具失败时 HTTP 恒为 200、`isError` 恒为 `false`——**这两个都判不出业务失败**，请看 `content` 里有没有 `error` 字段。（这样设计是为了让你的流程读到错误后能继续处理，而不是被直接中断。）排障请携带 `request_id` 联系平台。
+</Warning>
+
+## 常见错误码
+
+| code | 说明 |
+|---|---|
+| `GOODS_PROHIBITED` | 物品名称或备注涉及禁运物品，本单无法配送；错误消息含具体词与类别。 |
+| `GOODS_CATEGORY_INVALID` | 物品品类码不在清单内；用 `errand_list_goods_categories` 重新取值。 |
+| `REMARK_TOO_LONG` | 骑手留言超过 200 字。 |
+| `SCHEDULED_AT_INVALID` | 预约送达时间不是 13 位毫秒时间戳（传成秒、传成小数或负数都会命中）。 |
+| `SCHEDULED_AT_PAST` | 预约送达时间早于当前时间；复用历史单时最常撞，需重新问用户约几点。 |
+| `SCHEDULED_AT_NOT_ON_GRID` | 预约送达时间不在可选档位上；从预约时间清单里取 `value`，不要自己算。 |
+| `SCHEDULED_AT_TOO_SOON` | 预约送达时间太近；错误消息里给出当前最早可约的时间。 |
+| `SCHEDULED_AT_TOO_FAR` | 预约送达时间超出范围；最晚只能约到明天 23:45（北京时间）。 |
+| `ERRAND_STATUS_INVALID` | 历史单筛选的 `status` 取值不支持；错误消息里列出全部可选值。 |
+| `ERRAND_TIME_RANGE_INVALID` | 历史单筛选的时间格式不对；写 `2026-08-01` 或 `2026-08-01 10:30:00`。 |
+| `ERRAND_TIP_INVALID` | 小费金额不合法；须为大于 0 的整数（单位分）。 |
+| `KEYWORD_REQUIRED` | 地址搜索关键词为空。 |
+| `ERRAND_LOCATE_UNAVAILABLE` | 地址搜索服务暂未开通。 |
+| `ADDRESS_SEARCH_FAILED` | 地址搜索失败；稍后再试。 |
+| `ADDRESS_INCOMPLETE` | 存址缺地址或坐标。 |
+| `SMS_COOLDOWN` | 验证码发送过频，60 秒后再试。 |
+| `SMS_CODE_INVALID` | 验证码错误或已过期；重新发码。 |
+| `BINDING_LIMIT_REACHED` | Agent 已达可绑定用户数上限。 |
+| `CONTACT_REQUIRED` | 收/发端缺联系人姓名或电话。 |
+| `COORDS_REQUIRED` | 只给了地址文本没给坐标；先做 POI 解析补 `lat`/`lng` 或传 `address_id`。 |
+| `ADDRESS_TEXT_REQUIRED` | 给了坐标没给 `address_text`（门牌地址必填）。 |
+| `ADDRESS_NOT_FOUND` | `address_id` 不存在或不属于当前用户（含改址/删址）。 |
+| `ADDRESS_COORDS_PAIRED` | 改地址位置时，`address` 与 `lat`/`lng` 必须一起提供。 |
+| `ADDRESS_DUPLICATE` | 改后的地址与已有的另一条完全相同。 |
+| `ADDRESS_UPDATE_EMPTY` | 改址没有提供任何要修改的字段。 |
+| `ADDRESS_FIELD_TOO_LONG` | 地址/联系人/门牌/标签/电话超出长度上限。 |
+| `ERRAND_CROSS_CITY` | 收发地址跨城；跑腿仅同城配送。 |
+| `ERRAND_CITY_NOT_OPEN` | 该城市未开通跑腿服务。 |
+| `ADDRESS_LOCATE_FAILED` | 地址定位失败；换个地址重试。 |
+| `GOODS_REQUIRED` | 至少提供一件货品。 |
+| `ERRAND_NO_QUOTE` | 当前无可用运力报价；稍后再试或调整地址。 |
+| `QUOTE_INVALID_OR_EXPIRED` | `quote_id` 无效/已过期/已核销；重新询价。 |
+| `COMPANY_NOT_IN_QUOTE` | 所选运力不在本次报价中；重新询价。 |
+| `QUOTE_FEE_INVALID` | 报价金额异常；重新询价。 |
+| `ERRAND_FEE_CHANGED` | 配送费已变更；重新询价后再下单。 |
+| `PUBLIC_REFERENCE_INVALID` | `callback_url` 不是可用的公网 http(s) 地址（如填了 localhost 或内网地址）。 |
+| `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前用户。 |
+| `ERRAND_CANCEL_NOT_ALLOWED` | 当前状态不允许取消（终态或待支付预检）。 |
+| `ERRAND_NO_RIDER` | 当前订单无骑手信息（未派单/已终结）。 |
+| `ERRAND_TIP_NOT_ALLOWED` | 当前状态不允许加小费（骑手已接单）。 |
+| `CASHIER_UNAVAILABLE` | 收银台暂不可用；稍后重试下单。 |
+| `ERRAND_TEMPORARILY_UNAVAILABLE` | 配送服务暂时不可用；稍后再试。 |
+| `ERRAND_SHOP_NOT_CONFIGURED` | 跑腿服务未开通。 |
+| `ERRAND_PROVIDER_CONFIG_ERROR` | 配送服务配置异常；联系平台。 |
+| `ERRAND_UPSTREAM_ERROR` | 配送服务返回错误；稍后再试。 |
+| `AUTH_REQUIRED` | 缺 `Authorization` 请求头；带上 `Bearer <agent_credential>`。 |
+| `AUTH_INVALID` | agent 凭证无效或已停用；联系平台核对凭证。 |
+| `CAP_NOT_BOUND` | 该 agent 未开通跑腿能力；联系平台开通。 |
+| `CONSENT_GRANT_REQUIRED` | 缺 `consent_grant_id` 参数；每个业务工具都要带上。 |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` 不存在或不属于当前 agent；重新走授权。同手机号重新绑定会换发新值、旧值即刻失效。 |
+| `CONSENT_GRANT_EXPIRED` | 授权已过期（约 3 个月）；重新走授权即可。 |
+| `CONSENT_GRANT_WRONG_CAP` | 这枚凭证属于其他能力（如外卖）；跑腿需单独绑定。 |

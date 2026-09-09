@@ -1,0 +1,33 @@
+---
+title: "Status enums"
+description: "The full values for an Errand order's status (order status) and pay_status (payment status)"
+---
+
+`errand_create` / `errand_get_order` / `errand_list_orders` and status callbacks all share the same status enums.
+
+## Order status (status)
+
+| Value | Meaning |
+|---|---|
+| `pending_payment` | Pending payment (no rider is dispatched before payment). |
+| `dispatching` | Payment complete, dispatching a rider. |
+| `pending` | Submitted to the delivery provider, awaiting acceptance. |
+| `waiting_rider` | Waiting for a rider to be assigned. |
+| `rider_reassigning` | Rider being reassigned. |
+| `rider_accepted` | A rider has accepted the order. |
+| `rider_arrived` | The rider has arrived at the pickup point. |
+| `delivering` | Delivering. |
+| `completed` | Completed (final state). |
+| `cancelled` | Cancelled (final state). |
+| `failed` | Delivery failed (final state; the amount paid is refunded in full). |
+| `dispatch_failed` | Rider dispatch failed (final state; the amount paid is refunded in full). |
+
+## Payment status (pay_status)
+
+| Value | Meaning |
+|---|---|
+| `unpaid` | Not paid. |
+| `paid` | Paid. |
+| `refunded` | Refunded (returned via the original payment method). |
+| `pending_refund` | Refund in progress (the platform retries automatically; no action needed). |
+| `expired` | Expired after payment timed out. |

@@ -1,0 +1,160 @@
+---
+title: "errand_get_order"
+description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在途订单附带实时状态与骑手信息"
+---
+
+## errand_get_order
+
+查询单笔跑腿订单的详情。**在途订单**（已派单、未完结）会实时同步配送方最新状态，返回时附加 `status_desc` / `timeline` / `rider` 等在途字段；已完结订单只返回本地记录。在途查询大致耗时 0.8 秒左右，已完结订单在 0.1 秒以内。
+
+<Note>
+  **本页是跑腿订单字段的统一口径**：`errand_create` 下单成功后的返回、`errand_get_order` 查询、`errand_list_orders` 历史单列表，三处的订单字段完全一致（`errand_list_orders` 里每条订单只是不含仅在途才有的附加字段）。看懂这一页的字段表，另外两处照此理解即可。
+</Note>
+
+<Note>
+  **`total_weight_g` / `person_direct` / `insured` 对 2026-09-09 之前下的历史单为 `null`**，表示当时未记录，不代表实际值为假或为零。
+</Note>
+
+<Note>
+  **收发两端的联系电话只回脱敏号码**（`from.contact_phone_masked` / `to.contact_phone_masked`，如 `138****5678`），无法直接拨打；复用本单信息重新下单时需要用户重新填写完整号码。骑手电话是另一回事，见 [errand_get_rider](/errand/orders/rider)。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
+
+### 返回
+
+<Warning>
+  金额字段（`quote_fee` / `actual_fee` / `tip_fee` / `cancel_fee` / `goods_total_amount_fen`）单位均为**分（整数）**；重量单位为**克**；坐标为**高德地图 GCJ-02** 坐标系。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 订单 ID |
+| `status` | string | 订单状态，见下方订单状态枚举 |
+| `pay_status` | string | 支付状态，见下方支付状态枚举 |
+| `quote_fee` | integer | 下单报价，即实付金额（分）|
+| `actual_fee` | integer \| null | 配送方实际扣费金额（分），完结后回填；在途时为 `null` |
+| `tip_fee` | integer | 已累计小费金额（分）|
+| `cancel_fee` | integer \| null | 取消违约金（分）；未取消时为 `null` |
+| `company_code` | integer | 承运运力编码 |
+| `company_name` | string | 承运运力名称，如「京东秒送」。少数运力暂无名称，会显示为「其他运力」，这是正常取值 |
+| `from` | object | 发件人信息：`contact_name` / `contact_phone_masked` / `address_text` / `lat` / `lng` |
+| `from.contact_name` | string | 发件人姓名 |
+| `from.contact_phone_masked` | string | 发件人脱敏电话，如 `138****5678` |
+| `from.address_text` | string | 发件地址文本 |
+| `from.lat` | number | 纬度 |
+| `from.lng` | number | 经度 |
+| `to` | object | 收件人信息，字段结构与 `from` 完全相同 |
+| `goods` | array | 货品列表 |
+| `goods[].name` | string | 货品名称 |
+| `goods[].qty` | integer | 数量 |
+| `goods[].price_fen` | integer | 单价（分）|
+| `goods_category_code` | integer \| null | 下单时选择的物品品类码；未选择时为 `null`。复用本单重新询价时**原样回填**该值，否则会退回默认品类 |
+| `goods_category_name` | string \| null | 物品品类名称，与品类清单接口给出的名称一致；未选择品类时为 `null` |
+| `goods_total_amount_fen` | integer | 全部货品的预估总价值（单价 × 件数之和，分）|
+| `total_weight_g` | integer \| null | 下单时申报的总重量（克）；下单时未填写的，这里返回系统默认重量（1000 克），不是 `null` |
+| `person_direct` | boolean \| null | 是否专人直送（骑手不拼单，只送本单）|
+| `insured` | boolean \| null | 本单是否保价 |
+| `remark` | string | 下单时填写的骑手留言；未填写时为空串 |
+| `scheduled_at` | integer \| null | 下单时约定的送达时间（毫秒时间戳）；立即配送的单为 `null` |
+| `pickup_photos` | array | 取件照片链接列表；骑手尚未取件时为空数组 |
+| `finish_photos` | array | 送达照片链接列表；订单完成前为空数组 |
+| `created_at` | string | 创建时间（ISO 8601）|
+| `status_desc` | string | （仅在途订单返回）配送方当前状态的文案，如「等待分配骑士」|
+| `timeline` | array | （仅在途订单返回）状态变化时间线 |
+| `timeline[].status` | string | 状态文案 |
+| `timeline[].time` | integer | 时间戳（毫秒）|
+| `rider` | object | （仅在途订单、且已接单后返回）骑手信息 |
+| `rider.name` | string | 骑手姓名 |
+| `rider.phone` | string | 骑手联系电话 |
+| `cancel` | object | （仅订单发生过取消时返回）取消相关信息 |
+| `cancel.cancel_fee` | integer | 取消违约金（分）|
+| `cancel.cancel_reason` | string | 取消原因 |
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "waiting_rider",
+  "pay_status": "paid",
+  "quote_fee": 200,
+  "actual_fee": null,
+  "tip_fee": 100,
+  "cancel_fee": null,
+  "company_code": 1,
+  "company_name": "京东秒送",
+  "from": { "contact_name": "王先生", "contact_phone_masked": "157****2669", "address_text": "长沙市岳麓区观沙岭街道100号", "lat": 28.23, "lng": 112.96 },
+  "to": { "contact_name": "李女士", "contact_phone_masked": "165****6952", "address_text": "长沙市岳麓区望月湖街道22号", "lat": 28.205, "lng": 112.935 },
+  "goods": [{ "name": "文件袋", "qty": 1, "price_fen": 1000 }],
+  "goods_category_code": 1595,
+  "goods_category_name": "日用百货",
+  "goods_total_amount_fen": 1000,
+  "total_weight_g": 1000,
+  "person_direct": false,
+  "insured": false,
+  "remark": "",
+  "scheduled_at": null,
+  "pickup_photos": [],
+  "finish_photos": [],
+  "created_at": "2026-07-12T01:05:46",
+  "status_desc": "等待分配骑士",
+  "timeline": [
+    { "status": "待下单", "time": 1783783044897 },
+    { "status": "等待分配骑士", "time": 1783783107917 }
+  ]
+}
+```
+
+### 订单状态枚举（`status`）
+
+| 值 | 含义 |
+|------|------|
+| `pending_payment` | 待支付（未付款不派单）|
+| `dispatching` | 支付完成，正在呼叫骑手 |
+| `pending` | 已提交配送方，等待受理 |
+| `waiting_rider` | 等待分配骑士 |
+| `rider_reassigning` | 骑士转单中（重新分配）|
+| `rider_accepted` | 骑士已接单 |
+| `rider_arrived` | 骑士已到店/到取货点 |
+| `delivering` | 配送中 |
+| `completed` | 已完成（终态）|
+| `cancelled` | 已取消（终态）|
+| `failed` | 配送失败（终态；已付款项全额退回）|
+| `dispatch_failed` | 呼叫骑手失败（终态；已付款项全额退回）|
+
+### 支付状态枚举（`pay_status`）
+
+| 值 | 含义 |
+|------|------|
+| `unpaid` | 未支付 |
+| `paid` | 已支付 |
+| `refunded` | 已退款（原路退回）|
+| `pending_refund` | 退款处理中（平台自动补偿重试，无需干预）|
+| `expired` | 超时未支付，已过期 |
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+| `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前授权用户 |
+
+### 调用示例
+
+```json
+{
+  "name": "errand_get_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>"
+  }
+}
+```

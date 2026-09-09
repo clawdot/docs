@@ -1,0 +1,157 @@
+---
+title: "errand_quote"
+description: "MCP tool errand_quote — submits pickup/dropoff details and items, returns real-time quotes from multiple couriers"
+---
+
+## errand_quote
+
+Submits the pickup and dropoff details plus the items to send, and returns real-time quotes from multiple couriers. The quotes are packaged into a single-use confirmation token `quote_id` — pick a courier and pass it to `errand_create` to place the order.
+
+<Note>
+  **Order flow**: `errand_request_user_bind` → `errand_verify_user_bind` for `consent_grant_id` → (optional) `errand_search_addresses` / `errand_list_goods_categories` / `errand_list_schedule_slots` → **`errand_quote`** → `quote_id` + each courier's `company_code` / `fee` → `errand_create` to place the order → the user opens `cashier_url` to pay.
+</Note>
+
+<Note>
+  **`quote_id` is single-use and must be redeemed before it expires.** It's valid for `expires_in_seconds` seconds (currently 600). Using an expired or already-redeemed `quote_id` with `errand_create` returns `QUOTE_INVALID_OR_EXPIRED` — get a new quote.
+</Note>
+
+<Note>
+  **Pickup and dropoff must be in the same city.** Cross-city requests return `ERRAND_CROSS_CITY`.
+</Note>
+
+<Note>
+  **The item name and courier note are screened for prohibited items.** Anything involving drugs and controlled medication, firearms and controlled devices, flammable/explosive or hazardous chemicals, or illegal goods is rejected with `GOODS_PROHIBITED`; the error message names the matched word and category. If a legitimate item name is flagged by mistake, rephrase it more precisely and quote again.
+</Note>
+
+Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents).
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `from_address` | object | Yes | — | Pickup details, structured as EndpointParty below |
+| `to_address` | object | Yes | — | Dropoff details, structured as EndpointParty below |
+| `goods` | array | Yes | — | Item list, at least one entry |
+| `total_weight_g` | integer | No | `1000` | Total weight (grams); defaults to 1000g when omitted |
+| `scheduled_at` | integer | No | — | Scheduled delivery time, a 13-digit millisecond timestamp; omit or pass `0` for immediate delivery. **Only a `value` from `errand_list_schedule_slots` is accepted** (15-minute slots, from 45 minutes out through 23:45 tomorrow) — a timestamp you compute yourself is rejected. When reusing a past order, don't reuse its value; that time has already passed and will be rejected |
+| `person_direct` | boolean | No | `false` | Dedicated delivery (the courier carries only this order, no bundling); higher fee. Defaults to standard delivery |
+| `insured` | boolean | No | `false` | Whether to insure the shipment (based on `goods` value). Defaults to uninsured |
+| `goods_category_code` | integer | No | — | Item category code, from `errand_list_goods_categories`; omit to bill under the default category. **Claims are decided by this category, not the item name** — make sure the user picks the right one. A code outside the list returns `GOODS_CATEGORY_INVALID` |
+| `remark` | string | No | — | Note for the courier (e.g. "leave at the door, don't knock, there's a dog"), up to 200 characters. Delivered with the order and echoed back on order lookups |
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+
+**EndpointParty** (shared shape for `from_address` / `to_address`):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `address_text` | string | Conditional | Detailed street address; provided together with `lat` / `lng` |
+| `lat` | number | Conditional | Latitude (GCJ-02) |
+| `lng` | number | Conditional | Longitude (GCJ-02) |
+| `address_id` | string | Conditional | Platform address ID, from `errand_save_address` / `errand_list_addresses`; either this or "`address_text` + `lat` + `lng`" |
+| `contact_name` | string | Conditional | Contact name; can be omitted when `address_id` is used and the saved address already has one |
+| `contact_phone` | string | Conditional | Contact phone; can be omitted when `address_id` is used and the saved address already has one. Stored encrypted, never returned in plaintext |
+
+<Note>
+  **Plain address text without coordinates is not supported yet** — it returns `COORDS_REQUIRED`. Get coordinates via `errand_search_addresses` first, or pass `address_id`.
+</Note>
+
+**`goods[]`**:
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | string | Yes | — | Item name |
+| `qty` | integer | No | `1` | Quantity |
+| `price_fen` | integer | No | — | Declared value (fen); affects the insurance basis a courier applies; omit to use the platform default |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `quote_id` | string | Quote confirmation token (`equote_` prefix), valid for a single use within its expiry window |
+| `quotes` | array | Per-courier quotes |
+| `expires_in_seconds` | integer | Token validity in seconds, currently `600` |
+
+**`quotes[]`**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `company_code` | integer | Courier code, passed back to `errand_create` when placing the order |
+| `company_name` | string | Courier name (e.g. JD Now, SF Express, Meituan Errand, Fengniao Premium) |
+| `fee` | integer | This courier's delivery fee (fen); **choosing this courier makes this the amount charged** |
+| `distance` | integer | Delivery distance, in meters |
+| `coupon_fee` | integer | Courier-side discount amount, in fen (display only) |
+| `estimated_minutes` | integer \| null | Estimated delivery duration in minutes; `null` when distance is unknown |
+| `estimated_arrival_time` | string \| null | Estimated arrival time, `HH:MM` format (Beijing time). For scheduled orders this is the agreed delivery time; `null` when distance is unknown |
+
+<Note>
+  The estimate is derived from the delivery distance (45 minutes within 3 km, plus 5 minutes per additional km), so **every courier in one quote shows the same duration** — those are not duplicate values.
+
+  `fee` is the price quoted here; if the delivery fee has changed by the time you place the order, `errand_create` returns `ERRAND_FEE_CHANGED` — just request a new quote.
+</Note>
+
+**Example response**:
+
+```json
+{
+  "quote_id": "equote_ggzcyYA4XSwjTQw_heQSXw",
+  "quotes": [
+    { "company_code": 1, "company_name": "京东秒送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
+    { "company_code": 2, "company_name": "顺丰", "fee": 450, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
+    { "company_code": 14, "company_name": "蜂鸟品质达", "fee": 480, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
+    { "company_code": 5, "company_name": "美团帮送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" }
+  ],
+  "expires_in_seconds": 600
+}
+```
+
+### Error codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+| `COORDS_REQUIRED` | Address text was given without coordinates |
+| `ADDRESS_TEXT_REQUIRED` | Coordinates were given without the street address text |
+| `ADDRESS_NOT_FOUND` | `address_id` does not exist or does not belong to the current user |
+| `CONTACT_REQUIRED` | Pickup or dropoff is missing a contact name or phone |
+| `GOODS_REQUIRED` | At least one item is required |
+| `GOODS_PROHIBITED` | The item name or note involves a prohibited item; this order cannot be delivered |
+| `GOODS_CATEGORY_INVALID` | `goods_category_code` is not in the category list; get a fresh value from `errand_list_goods_categories` |
+| `REMARK_TOO_LONG` | The courier note exceeds 200 characters |
+| `SCHEDULED_AT_INVALID` | `scheduled_at` is not a 13-digit millisecond timestamp |
+| `SCHEDULED_AT_PAST` | `scheduled_at` is earlier than the current time; most common when reusing a past order |
+| `SCHEDULED_AT_NOT_ON_GRID` | `scheduled_at` is not on an available slot; take a `value` from `errand_list_schedule_slots` instead of computing it yourself |
+| `SCHEDULED_AT_TOO_SOON` | `scheduled_at` is too close to now; the error message includes the earliest schedulable time |
+| `SCHEDULED_AT_TOO_FAR` | `scheduled_at` is out of range; the latest schedulable time is 23:45 tomorrow (Beijing time) |
+| `ERRAND_CROSS_CITY` | Pickup and dropoff are in different cities; errand delivery is same-city only |
+| `ERRAND_CITY_NOT_OPEN` | Errand delivery is not available in this city |
+| `ERRAND_NO_QUOTE` | No courier quotes are currently available; retry later or adjust the addresses |
+| `ERRAND_SHOP_NOT_CONFIGURED` | Errand delivery is not enabled |
+| `ERRAND_TEMPORARILY_UNAVAILABLE` | Delivery service is temporarily unavailable; retry later |
+| `ERRAND_UPSTREAM_ERROR` | Delivery service returned an error; retry later |
+
+See [Error Handling](/en/errand/errors) for the full list.
+
+### Example call
+
+```json
+{
+  "name": "errand_quote",
+  "arguments": {
+    "from_address": {
+      "address_text": "长沙市岳麓区观沙岭街道100号",
+      "lat": 28.23, "lng": 112.96,
+      "contact_name": "王先生", "contact_phone": "157****2669"
+    },
+    "to_address": {
+      "address_text": "长沙市岳麓区望月湖街道22号",
+      "lat": 28.205, "lng": 112.935,
+      "contact_name": "李女士", "contact_phone": "165****6952"
+    },
+    "goods": [{ "name": "文件袋", "qty": 1, "price_fen": 1000 }],
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

@@ -1,0 +1,85 @@
+---
+title: "errand_list_goods_categories"
+description: "MCP 工具 errand_list_goods_categories —— 返回可选的物品品类清单，选中项回填 errand_quote"
+---
+
+## errand_list_goods_categories
+
+返回可选的物品品类清单，摆给用户挑要寄送的东西属于哪一类。选中项的 `code` 回填 `errand_quote` 的 `goods_category_code`。
+
+清单共 15 项，前 7 项为贵重品类（`valuable: true`），后 8 项为普通品类，按返回顺序展示即可分成两组。挑最接近的一项即可，没有贴合的选「其他」。
+
+<Note>
+  **物品名称不影响理赔**：`errand_quote` 里的 `goods[].name` 按用户原话填写即可，平台不解析名称，理赔只看品类，所以品类务必选对。
+</Note>
+
+<Note>
+  **贵重品类建议询问是否保价**：`valuable: true` 的品类单件货值通常较高，建议此时询问用户是否需要保价（下单时传 `insured: true`）。保价会额外收费，请勿代用户开启。
+</Note>
+
+清单固定不变，可以缓存，但请始终按接口返回的 `code` 渲染，不要按下标或写死的清单取值——品类清单历史上调整过数量，写死会在下次调整时失效。
+
+### 参数
+
+本工具无需参数，直接调用即可返回完整清单。
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `categories` | array | 品类清单，共 15 项；前 7 项为贵重品类 |
+| `categories[].code` | integer | 品类码，回填 `errand_quote` 的 `goods_category_code` |
+| `categories[].name` | string | 品类名称，展示给用户挑选 |
+| `categories[].valuable` | boolean | 该品类单件货值较高；为 `true` 时建议询问用户是否需要保价 |
+
+**响应示例**（节选，实际返回 15 项）：
+
+```json
+{
+  "categories": [
+    { "code": 1672215005, "name": "数码电器", "valuable": true },
+    { "code": 1851862003, "name": "药品", "valuable": true },
+    { "code": 1917869373, "name": "生鲜肉蛋水产", "valuable": true },
+    { "code": 8889, "name": "餐饮食品", "valuable": false },
+    { "code": 1917869379, "name": "其他", "valuable": false }
+  ]
+}
+```
+
+**物品品类全表**（15 项，供参考，仍以接口实际返回为准）：
+
+| 品类码 | 名称 | 贵重 |
+|---|---|---|
+| 1672215005 | 数码电器 | 是 |
+| 1672215009 | 服饰箱包 | 是 |
+| 1672214914 | 酒水 | 是 |
+| 1851862003 | 药品 | 是 |
+| 1852332002 | 滋补保健品 | 是 |
+| 1852332003 | 眼镜 | 是 |
+| 1917869373 | 生鲜肉蛋水产 | 是 |
+| 8889 | 餐饮食品 | |
+| 1672214915 | 饮品茶水 | |
+| 1917867465 | 水果 | |
+| 8888 | 蛋糕 | |
+| 1603 | 商超便利 | |
+| 1672215006 | 日用百货 | |
+| 1721733001 | 鲜花绿植 | |
+| 1917869379 | 其他 | |
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+
+完整错误码见 [错误处理](/errand/errors)。
+
+### 调用示例
+
+```json
+{
+  "name": "errand_list_goods_categories",
+  "arguments": {}
+}
+```

@@ -160,6 +160,65 @@
                                 ]
                             }
                         ]
+                    },
+                    {
+                        "tab": "跑腿 Errand",
+                        "groups": [
+                            {
+                                "group": "概览",
+                                "pages": [
+                                    "errand/overview"
+                                ]
+                            },
+                            {
+                                "group": "授权",
+                                "pages": [
+                                    "errand/user/bind-request",
+                                    "errand/user/bind-verify",
+                                    "errand/user/auth-status",
+                                    "errand/user/unbind"
+                                ]
+                            },
+                            {
+                                "group": "地址",
+                                "pages": [
+                                    "errand/addresses/search",
+                                    "errand/addresses/save",
+                                    "errand/addresses/list",
+                                    "errand/addresses/update",
+                                    "errand/addresses/delete"
+                                ]
+                            },
+                            {
+                                "group": "询价与下单",
+                                "pages": [
+                                    "errand/order/goods-categories",
+                                    "errand/order/schedule-slots",
+                                    "errand/order/quote",
+                                    "errand/order/create"
+                                ]
+                            },
+                            {
+                                "group": "订单管理",
+                                "pages": [
+                                    "errand/orders/list",
+                                    "errand/orders/get",
+                                    "errand/orders/rider",
+                                    "errand/orders/pre-cancel",
+                                    "errand/orders/cancel",
+                                    "errand/orders/tip"
+                                ]
+                            },
+                            {
+                                "group": "回调与参考",
+                                "pages": [
+                                    "errand/callbacks",
+                                    "errand/status",
+                                    "errand/errors",
+                                    "errand/faq"
+                                ]
+                            }
+                        ]
                     }
                 ]
             },
@@ -298,6 +357,65 @@
                                 "pages": [
                                     "en/mcp/payment/sign-action",
                                     "en/mcp/payment/sign-status"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Errand",
+                        "groups": [
+                            {
+                                "group": "Overview",
+                                "pages": [
+                                    "en/errand/overview"
+                                ]
+                            },
+                            {
+                                "group": "Authorization",
+                                "pages": [
+                                    "en/errand/user/bind-request",
+                                    "en/errand/user/bind-verify",
+                                    "en/errand/user/auth-status",
+                                    "en/errand/user/unbind"
+                                ]
+                            },
+                            {
+                                "group": "Addresses",
+                                "pages": [
+                                    "en/errand/addresses/search",
+                                    "en/errand/addresses/save",
+                                    "en/errand/addresses/list",
+                                    "en/errand/addresses/update",
+                                    "en/errand/addresses/delete"
+                                ]
+                            },
+                            {
+                                "group": "Quote & order",
+                                "pages": [
+                                    "en/errand/order/goods-categories",
+                                    "en/errand/order/schedule-slots",
+                                    "en/errand/order/quote",
+                                    "en/errand/order/create"
+                                ]
+                            },
+                            {
+                                "group": "Order management",
+                                "pages": [
+                                    "en/errand/orders/list",
+                                    "en/errand/orders/get",
+                                    "en/errand/orders/rider",
+                                    "en/errand/orders/pre-cancel",
+                                    "en/errand/orders/cancel",
+                                    "en/errand/orders/tip"
+                                ]
+                            },
+                            {
+                                "group": "Callbacks & reference",
+                                "pages": [
+                                    "en/errand/callbacks",
+                                    "en/errand/status",
+                                    "en/errand/errors",
+                                    "en/errand/faq"
                                 ]
                             }
                         ]

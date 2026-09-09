@@ -1,0 +1,59 @@
+---
+title: "errand_pre_cancel"
+description: "MCP 工具 errand_pre_cancel —— 取消前查询违约金与预计可退金额，不执行取消"
+---
+
+## errand_pre_cancel
+
+取消订单前的预检：查询取消这笔订单需要支付的违约金、以及预计可退金额。**本工具只查询，不执行取消。**
+
+<Note>
+  **建议流程**：骑手已接单后取消可能产生违约金。建议先调用本工具，把违约金与可退金额展示给用户确认，再调用 `errand_cancel` 真正执行取消。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
+
+### 返回
+
+<Warning>
+  金额字段（`cancel_fee` / `quote_fee` / `refund_amount`）单位均为**分（整数）**。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 订单 ID |
+| `cancel_fee` | integer | 取消该单需要支付的违约金（分）|
+| `quote_fee` | integer | 该单的实付金额（分）|
+| `refund_amount` | integer | 预计可退金额（= `quote_fee` − `cancel_fee`，分）|
+
+```json
+{ "order_id": "err_1f5108ee7dc54730aee29d20db789d64", "cancel_fee": 0, "quote_fee": 200, "refund_amount": 200 }
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+| `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前授权用户 |
+
+### 调用示例
+
+```json
+{
+  "name": "errand_pre_cancel",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>"
+  }
+}
+```

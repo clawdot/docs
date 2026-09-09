@@ -1,0 +1,160 @@
+---
+title: "跑腿概览"
+description: "跑腿（同城帮送）MCP 服务：连接方式、授权模型，以及 19 个工具组成的完整下单链路"
+icon: "bike"
+---
+
+跑腿（同城帮送）是一项独立于外卖点餐的能力：帮用户把物品从一个地点送到另一个地点（代取快递、送文件、捎带物品……），本身不涉及点餐或购物。跑腿通过 **MCP (Model Context Protocol)** 对外提供 Agent 接口，使用 **Streamable HTTP** 传输协议，暴露 **19 个工具**（均带 `errand_` 前缀），覆盖用户授权、备地址、询价、下单、支付到履约跟踪的完整链路。
+
+## 连接方式
+
+**Endpoint：**
+
+```
+https://paotui.hicaspian.com/mcp/v1
+```
+
+<Note>
+  跑腿与外卖是**两个独立的 MCP 服务**（不同 endpoint），凭证相同，需分别接入。MCP Client 通过 `tools/list` 发现工具、`tools/call` 调用工具。
+</Note>
+
+## 认证
+
+两层认证——**Agent 身份**走连接层，**用户授权**走工具参数：
+
+<Tabs>
+  <Tab title="Agent 身份（API Key）">
+    在**连接层**通过 `Authorization: Bearer <agent_credential>` 请求头传递，每个 MCP 请求都需要，与外卖使用同一凭证。
+  </Tab>
+  <Tab title="用户授权（consent grant）">
+    作为**每个业务工具的 `consent_grant_id` 参数**传入（`cg_` 前缀），不走请求头。通过短信验证码绑定获取，一次绑定长期复用。
+
+    ```json
+    {
+      "consent_grant_id": "cg_...",
+      "...": "..."
+    }
+    ```
+
+    `errand_request_user_bind` / `errand_verify_user_bind` 除外——它们是获取授权的入口，只需 Agent 身份，本身不传 `consent_grant_id`。
+  </Tab>
+</Tabs>
+
+<Note>
+  跑腿的 `consent_grant_id` 与外卖各自独立发放，不能混用；把跑腿的凭证传给外卖工具（或反过来）会返回 `CONSENT_GRANT_WRONG_CAP`。如所在 Agent 已开通跨能力互通，解绑时两者会共用同一枚凭证并一并失效，详见授权工具页。
+</Note>
+
+## 单位与坐标系
+
+<Warning>
+  **金额字段一律为分（整数）**，不是元；**距离为米，重量为克**；坐标系一律为 **GCJ-02**。
+</Warning>
+
+## 完整流程
+
+最小闭环：
+
+```
+首次 errand_request_user_bind → errand_verify_user_bind   # 短信验证码绑定 → 拿 consent_grant_id（长期复用）
+0. errand_search_addresses            # (可选) 关键词搜地址 → 拿候选坐标；可 errand_save_address 存起来复用
+0. errand_list_goods_categories       # (可选) 物品品类清单 → 让用户挑一个，回填 errand_quote
+0. errand_list_schedule_slots         # (可选) 预约时间清单 → 用户挑一档，回填 errand_quote 的 scheduled_at
+1. errand_quote                       # 多运力报价 → 拿 quote_id + 各运力 company_code/fee
+2. errand_create                      # 核销 quote_id 下单 → 拿 order_id + cashier_url
+3. 用户打开 cashier_url 完成支付       # 支付成功后平台自动呼叫骑手（无需再调工具）
+4. errand_get_order                   # 跟踪状态（等待接单/配送中/已完成）
+```
+
+| 阶段 | 工具顺序 | 说明 |
+|---|---|---|
+| 授权（首次） | `errand_request_user_bind` → `errand_verify_user_bind` | 短信验证码绑定用户，换发 `consent_grant_id`；一次绑定长期复用，之后所有工具参数携带。 |
+| 备址（可选） | `errand_search_addresses` → `errand_save_address` | 关键词搜地址拿坐标；选中可存入地址簿供复用。下单已知坐标可跳过。 |
+| 询价 | `errand_quote` | 提交收发两端要素与货品，返回多家运力实时报价；`quote_id` 有效期 600 秒、**单次有效**。**收发地址须同城**。 |
+| 下单 | `errand_create` | 选定运力（`company_code`）核销 `quote_id`；此步只建**待支付单**，返回收银台链接 `cashier_url`。**支付成功前不会呼叫骑手**。 |
+| 支付 | （无工具） | 用户打开 `cashier_url`，在收银台页面选支付宝/微信完成支付；支付结果由收银台回写平台，平台**自动派单**。 |
+| 跟踪 | `errand_get_order` / `errand_get_rider` | 订单详情实时同步配送方最新状态（含中文状态、时间线）；配送中可查骑手实时位置。 |
+| 加小费 | `errand_add_tip`（可选） | 等待接单阶段可加小费催单（小费为独立支付单，付成才生效），可多次。 |
+| 取消 | `errand_pre_cancel` → `errand_cancel` | 先预检违约金（骑手已接单后取消可能产生违约金），用户确认后再取消；已支付的单自动按「实付 − 违约金」原路退款。 |
+| 复用 | `errand_list_orders` | 历史单列表返回可回填 quote 的 from/to/goods（支撑"还是上次那样"）。 |
+
+```mermaid
+flowchart LR
+  A["errand_verify_user_bind"] -->|"consent_grant_id"| B["errand_quote"]
+  B -->|"quote_id + company_code"| C["errand_create"]
+  C -->|"cashier_url"| D["用户支付"]
+  D -->|"支付成功，平台自动派单"| E["errand_get_order"]
+```
+
+## 关键字段流转
+
+| 字段 | 来源工具 | 后续用途 | 说明 |
+|---|---|---|---|
+| `consent_grant_id` | `errand_verify_user_bind` | 所有工具参数 | 用户授权记录 ID；同手机号重复绑定=轮换换发，旧值失效。 |
+| `lat` / `lng` | `errand_search_addresses`（`candidates[]`） | `errand_quote` 的 `from_address`/`to_address` | POI 搜到的坐标，回填收发端。 |
+| `address_id` | `errand_save_address` / `errand_list_addresses` / `errand_search_addresses`（`saved_matches`） | `errand_quote` 的 `from_address`/`to_address` | 地址 ID（`plat_` 前缀）；与「`address_text`+`lat`+`lng`」二选一。 |
+| `goods_category_code` | `errand_list_goods_categories` | `errand_quote`；订单详情回读 | 物品品类码。**理赔以此为准，与物品名称无关**；复用历史单时记得原样回填。 |
+| `quote_id` | `errand_quote` | `errand_create` | 报价确认令牌，**600 秒内单次有效**；核销后失效，重复使用报 `QUOTE_INVALID_OR_EXPIRED`。 |
+| `company_code` | `errand_quote`（`quotes[]`） | `errand_create` | 选定运力编码，必须在本次报价集内；**决定支付金额 = 该运力 fee**。 |
+| `order_id` | `errand_create` | 订单详情 / 骑手 / 取消 / 小费 | 跑腿订单 ID（`err_` 前缀）。 |
+| `cashier_url` | `errand_create` | 交给用户打开 | 收银台支付页链接；支付成功平台自动派单。 |
+| `callback_url` | `errand_create`（可选） | 状态回调推送 | 订单状态变化时平台主动 POST 到该地址，见[状态回调推送](/errand/callbacks)。 |
+
+## 工具列表
+
+按功能分组，共 19 个工具。
+
+### 授权
+
+| 工具 | 说明 |
+|---|---|
+| `errand_request_user_bind` | 发送短信验证码（获取 consent 的入口，仅需 agent 凭证）。 |
+| `errand_verify_user_bind` | 校验验证码建立授权，返回 `consent_grant_id`。 |
+| `errand_get_auth_status` | 查询某枚授权凭证是否仍有效。 |
+| `errand_revoke_user_bind` | 撤销用户授权（解绑）。 |
+
+### 地址
+
+| 工具 | 说明 |
+|---|---|
+| `errand_search_addresses` | 关键词搜地址，返回候选坐标 + 用户已存过的匹配地址。 |
+| `errand_save_address` | 存地址进地址簿供复用。 |
+| `errand_list_addresses` | 列地址簿（跑腿自己存的地址）。 |
+| `errand_update_address` | 修改地址簿里的某条地址。 |
+| `errand_delete_address` | 从地址簿删除某条地址。 |
+
+### 询价
+
+| 工具 | 说明 |
+|---|---|
+| `errand_list_goods_categories` | 物品品类清单，供用户挑选。 |
+| `errand_list_schedule_slots` | 可选预约送达时间清单（一档 15 分钟），供用户挑「几点送到」。 |
+| `errand_quote` | 多运力实时报价 + 单次确认令牌。 |
+
+### 下单
+
+| 工具 | 说明 |
+|---|---|
+| `errand_create` | 核销令牌落待支付单，返回收银台链接。 |
+
+### 订单
+
+| 工具 | 说明 |
+|---|---|
+| `errand_list_orders` | 历史单列表（可回填 quote 的全要素）。支持按下单时间、状态筛选与翻页。 |
+| `errand_get_order` | 订单详情 + 在途单实时状态/时间线/骑手。 |
+| `errand_get_rider` | 骑手实时位置。 |
+
+### 取消
+
+| 工具 | 说明 |
+|---|---|
+| `errand_pre_cancel` | 取消预检：违约金与可退金额（不执行取消）。 |
+| `errand_cancel` | 取消订单；已支付自动退款（实付 − 违约金）。 |
+
+### 小费
+
+| 工具 | 说明 |
+|---|---|
+| `errand_add_tip` | 加小费催单（接单前，可累加）。 |
+
+各工具的完整参数与返回字段见对应工具页。状态枚举见[状态枚举](/errand/status)，错误码见[错误处理](/errand/errors)，回调格式见[状态回调推送](/errand/callbacks)。

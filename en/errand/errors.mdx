@@ -1,0 +1,71 @@
+---
+title: "Error handling"
+description: "The unified error structure and common error codes for Errand tools"
+---
+
+When a tool call fails at the business level, `content` carries an `error` structure — **check for an `error` field in `content` to determine success or failure**:
+
+```json
+{ "error": { "code": "ERRAND_CANCEL_NOT_ALLOWED", "message": "当前订单状态不允许取消。", "request_id": "4c86fff3-..." } }
+```
+
+<Warning>
+  On a failed tool call, HTTP is always 200 and `isError` is always `false` — **neither tells you the call failed at the business level**; check `content` for an `error` field instead. (This is by design, so your flow can read the error and keep going instead of being interrupted outright.) When troubleshooting, include the `request_id` when contacting the platform.
+</Warning>
+
+## Common error codes
+
+| Code | Description |
+|---|---|
+| `GOODS_PROHIBITED` | The item name or note mentions a prohibited item; this order can't be delivered. The error message names the specific term and category. |
+| `GOODS_CATEGORY_INVALID` | The item category code isn't in the list; call `errand_list_goods_categories` to get a valid value. |
+| `REMARK_TOO_LONG` | The note to the rider exceeds 200 characters. |
+| `SCHEDULED_AT_INVALID` | The scheduled delivery time isn't a 13-digit millisecond timestamp (passing seconds, a decimal, or a negative number all trigger this). |
+| `SCHEDULED_AT_PAST` | The scheduled delivery time is earlier than now; this is the most common one hit when reusing a past order — ask the user for a new time. |
+| `SCHEDULED_AT_NOT_ON_GRID` | The scheduled delivery time isn't on an available slot; take `value` from the schedule slot list instead of computing it yourself. |
+| `SCHEDULED_AT_TOO_SOON` | The scheduled delivery time is too soon; the error message gives the earliest time currently bookable. |
+| `SCHEDULED_AT_TOO_FAR` | The scheduled delivery time is out of range; the latest bookable time is 23:45 tomorrow (Beijing time). |
+| `ERRAND_STATUS_INVALID` | The `status` value used to filter order history isn't supported; the error message lists all valid values. |
+| `ERRAND_TIME_RANGE_INVALID` | The time format used to filter order history is wrong; use `2026-08-01` or `2026-08-01 10:30:00`. |
+| `ERRAND_TIP_INVALID` | The tip amount is invalid; it must be a positive integer (in cents). |
+| `KEYWORD_REQUIRED` | The address search keyword is empty. |
+| `ERRAND_LOCATE_UNAVAILABLE` | Address search isn't enabled yet. |
+| `ADDRESS_SEARCH_FAILED` | Address search failed; try again later. |
+| `ADDRESS_INCOMPLETE` | The address to save is missing the address text or coordinates. |
+| `SMS_COOLDOWN` | Verification codes are being requested too often; try again in 60 seconds. |
+| `SMS_CODE_INVALID` | The verification code is wrong or has expired; request a new one. |
+| `BINDING_LIMIT_REACHED` | The Agent has reached its user-binding limit. |
+| `CONTACT_REQUIRED` | The pickup or drop-off end is missing a contact name or phone number. |
+| `COORDS_REQUIRED` | Only address text was given, no coordinates; resolve the POI to get `lat`/`lng` first, or pass `address_id`. |
+| `ADDRESS_TEXT_REQUIRED` | Coordinates were given but not `address_text` (the street address is required). |
+| `ADDRESS_NOT_FOUND` | `address_id` doesn't exist or doesn't belong to the current user (including when editing/deleting an address). |
+| `ADDRESS_COORDS_PAIRED` | When changing an address's location, `address` and `lat`/`lng` must be provided together. |
+| `ADDRESS_DUPLICATE` | The updated address is identical to another existing one. |
+| `ADDRESS_UPDATE_EMPTY` | The address update didn't provide any field to change. |
+| `ADDRESS_FIELD_TOO_LONG` | The address / contact name / unit detail / label / phone number exceeds the length limit. |
+| `ERRAND_CROSS_CITY` | Pickup and drop-off are in different cities; Errand only delivers within the same city. |
+| `ERRAND_CITY_NOT_OPEN` | Errand isn't available in this city yet. |
+| `ADDRESS_LOCATE_FAILED` | Locating the address failed; try a different address. |
+| `GOODS_REQUIRED` | At least one item must be provided. |
+| `ERRAND_NO_QUOTE` | No provider quote is available right now; try again later or adjust the addresses. |
+| `QUOTE_INVALID_OR_EXPIRED` | `quote_id` is invalid, expired, or already redeemed; get a new quote. |
+| `COMPANY_NOT_IN_QUOTE` | The chosen provider isn't in this quote's result set; get a new quote. |
+| `QUOTE_FEE_INVALID` | The quoted amount is abnormal; get a new quote. |
+| `ERRAND_FEE_CHANGED` | The delivery fee has changed; get a new quote before placing the order. |
+| `PUBLIC_REFERENCE_INVALID` | `callback_url` isn't a usable public http(s) address (e.g. localhost or an internal address was given). |
+| `ERRAND_ORDER_NOT_FOUND` | The order doesn't exist or doesn't belong to the current user. |
+| `ERRAND_CANCEL_NOT_ALLOWED` | Cancellation isn't allowed in the current state (a final state, or still at the pre-check stage). |
+| `ERRAND_NO_RIDER` | The order has no rider information (not yet dispatched, or already finalized). |
+| `ERRAND_TIP_NOT_ALLOWED` | Adding a tip isn't allowed in the current state (a rider has already accepted the order). |
+| `CASHIER_UNAVAILABLE` | The cashier is temporarily unavailable; retry placing the order later. |
+| `ERRAND_TEMPORARILY_UNAVAILABLE` | The delivery service is temporarily unavailable; try again later. |
+| `ERRAND_SHOP_NOT_CONFIGURED` | Errand isn't enabled. |
+| `ERRAND_PROVIDER_CONFIG_ERROR` | The delivery service configuration is broken; contact the platform. |
+| `ERRAND_UPSTREAM_ERROR` | The delivery service returned an error; try again later. |
+| `AUTH_REQUIRED` | Missing the `Authorization` header; add `Bearer <agent_credential>`. |
+| `AUTH_INVALID` | The Agent credential is invalid or disabled; contact the platform to check it. |
+| `CAP_NOT_BOUND` | This Agent hasn't enabled the Errand capability; contact the platform to enable it. |
+| `CONSENT_GRANT_REQUIRED` | Missing the `consent_grant_id` parameter; every business tool requires it. |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` doesn't exist or doesn't belong to the current Agent; go through authorization again. Re-binding the same phone number issues a new value and invalidates the old one immediately. |
+| `CONSENT_GRANT_EXPIRED` | The authorization has expired (about 3 months); go through authorization again. |
+| `CONSENT_GRANT_WRONG_CAP` | This grant belongs to a different capability (e.g. food ordering); Errand needs its own binding. |

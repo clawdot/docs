@@ -1,0 +1,133 @@
+---
+title: "errand_create"
+description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，返回订单 ID、收银台链接与整单信息"
+---
+
+## errand_create
+
+核销 `errand_quote` 返回的 `quote_id`，落一笔**待支付单**，返回订单 ID、收银台支付链接，以及可直接摆给用户核对的**整单信息**。
+
+<Note>
+  **下单链路**：`errand_quote` 得 `quote_id` + 各运力 `company_code` / `fee` → **`errand_create`** 得 `order_id` + `cashier_url` → 用户打开 `cashier_url` 完成支付 → 支付成功后平台自动呼叫骑手。
+</Note>
+
+<Note>
+  **资金门禁：此步不呼叫骑手。** 用户在收银台支付成功后，平台才会自动派单；调用本工具只是把报价落成一笔待支付单。
+</Note>
+
+<Note>
+  **`quote_id` 单次有效**：核销后立即失效，重复使用同一个 `quote_id` 会返回 `QUOTE_INVALID_OR_EXPIRED`，需要重新 `errand_quote`。
+</Note>
+
+<Note>
+  **`company_code` 必须取自本次报价集**：须是这次 `errand_quote` 返回的 `quotes[].company_code` 之一，且它决定实际支付金额（= 该运力的 `fee`）。传一个不在本次报价里的 `company_code` 返回 `COMPANY_NOT_IN_QUOTE`。
+</Note>
+
+<Note>
+  **待支付单 15 分钟未支付会自动关闭**（`status` 变为 `cancelled`，`pay_status` 变为 `expired`）。关闭后若用户仍完成支付，款项会自动全额原路退回。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `quote_id` | string | 是 | — | `errand_quote` 返回的确认令牌；单次有效，核销即失效 |
+| `company_code` | integer | 是 | — | 选定运力编码，须在本次报价集内；决定支付金额（= 该运力 `fee`）|
+| `callback_url` | string | 否 | — | 订单状态回调推送地址；须为公网可访问的 http(s) 地址，`localhost` 与内网地址会被拒绝。详见[状态回调](/errand/callbacks) |
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+
+### 返回
+
+<Warning>
+  金额字段单位一律为**分**，不是元。例如 `quote_fee: 200` 表示 ¥2.00。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 跑腿订单 ID（`err_` 前缀），后续查单 / 取消 / 加小费使用 |
+| `status` | string | 恒为 `pending_payment`（待支付）|
+| `pay_status` | string | 恒为 `unpaid`（未支付）|
+| `quote_fee` | integer | 应付金额（= 所选运力 `fee`），单位分 |
+| `cashier_url` | string | 收银台支付页链接，交给用户打开完成支付 |
+
+**响应同时带上这笔订单的整单信息**，与 [errand_get_order](/errand/orders/get) 订单详情的基础字段、`errand_list_orders` 的列表条目完全一致（`status_desc` / `timeline` / `rider` 只在查询在途订单时才有，待支付单不带）——创建后立即可用，不必再查一次。整单信息包括：
+
+| 字段 | 说明 |
+|------|------|
+| `company_code` / `company_name` | 承运运力编码与名称（少数订单 `company_name` 会是「其他运力」，属正常取值）|
+| `from` / `to` | 收发两端信息：联系人、脱敏电话（如 `157****2669`，不能直接拨打）、地址文本、经纬度 |
+| `goods` | 货品清单：名称、件数、单价（分）|
+| `goods_category_code` / `goods_category_name` | 物品品类码与名称 |
+| `goods_total_amount_fen` | 货品预估总货值（分）|
+| `total_weight_g` | 总重量（克）|
+| `person_direct` | 是否专人直送 |
+| `insured` | 是否保价 |
+| `scheduled_at` | 预约送达时间（毫秒时间戳）；未预约为 `null` |
+| `remark` | 给骑手的留言 |
+| `actual_fee` / `tip_fee` / `cancel_fee` | 实际扣款、已付小费、取消费用，单位分 |
+| `pickup_photos` / `finish_photos` | 取件 / 送达照片 |
+| `created_at` | 下单时间 |
+
+各字段的精确类型与何时为 `null`，见 [errand_get_order](/errand/orders/get) 订单详情。
+
+**响应示例**：
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "pending_payment",
+  "pay_status": "unpaid",
+  "quote_fee": 200,
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=...",
+  "company_code": 1,
+  "company_name": "京东秒送",
+  "from": { "contact_name": "王先生", "contact_phone_masked": "157****2669", "address_text": "长沙市岳麓区观沙岭街道100号", "lat": 28.23, "lng": 112.96 },
+  "to": { "contact_name": "李女士", "contact_phone_masked": "165****6952", "address_text": "长沙市岳麓区望月湖街道22号", "lat": 28.205, "lng": 112.935 },
+  "goods": [{ "name": "文件袋", "qty": 1, "price_fen": 1000 }],
+  "goods_category_code": 1595,
+  "goods_category_name": "日用百货",
+  "goods_total_amount_fen": 1000,
+  "total_weight_g": 1000,
+  "person_direct": false,
+  "insured": false,
+  "scheduled_at": null,
+  "remark": "放前台，别敲门",
+  "actual_fee": null,
+  "tip_fee": 0,
+  "cancel_fee": null,
+  "pickup_photos": [],
+  "finish_photos": [],
+  "created_at": "2026-09-09T10:12:03"
+}
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `QUOTE_INVALID_OR_EXPIRED` | `quote_id` 无效 / 已过期 / 已核销；重新询价 |
+| `COMPANY_NOT_IN_QUOTE` | 所选 `company_code` 不在本次报价中；重新询价 |
+| `QUOTE_FEE_INVALID` | 报价金额异常；重新询价 |
+| `ERRAND_FEE_CHANGED` | 配送费已变更；重新询价后再下单 |
+| `PUBLIC_REFERENCE_INVALID` | `callback_url` 不是可用的公网 http(s) 地址（如填了 `localhost` 或内网地址）|
+| `CASHIER_UNAVAILABLE` | 收银台暂不可用；稍后重试下单 |
+| `ERRAND_UPSTREAM_ERROR` | 配送服务返回错误；稍后再试 |
+
+完整错误码见 [错误处理](/errand/errors)。
+
+### 调用示例
+
+```json
+{
+  "name": "errand_create",
+  "arguments": {
+    "quote_id": "<来自 errand_quote>",
+    "company_code": 1,
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

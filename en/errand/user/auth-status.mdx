@@ -1,0 +1,68 @@
+---
+title: "errand_get_auth_status"
+description: "MCP tool errand_get_auth_status — checks whether an errand consent grant is still valid"
+---
+
+## errand_get_auth_status
+
+Checks whether a given `consent_grant_id` still has a valid errand authorization.
+
+<Note>
+  **An invalid credential does not error**: check the `bound` field on the response directly — the caller decides whether to re-run the bind flow based on it, with no need for try/catch.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | The user consent grant ID to check |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bound` | boolean | Whether the grant is valid. `false` = not bound / expired / revoked |
+| `consent_grant_id` | string \| null | Echoed back as-is when valid; `null` when invalid |
+| `scopes` | string[] | Authorization scope; empty array when invalid |
+| `expires_at` | string \| null | Grant expiration time (ISO 8601); `null` when invalid |
+| `next_action` | string \| null | `"request_user_bind"` when `bound=false`, suggesting a re-bind; `null` when valid |
+
+When bound:
+
+```json
+{
+  "bound": true,
+  "consent_grant_id": "cg_55fdaa2739314530a261f7af1d3ba3b7",
+  "scopes": ["dayoudan.errand"],
+  "expires_at": "2026-10-18T15:26:54+00:00",
+  "next_action": null
+}
+```
+
+When invalid / expired / revoked:
+
+```json
+{
+  "bound": false,
+  "consent_grant_id": null,
+  "scopes": [],
+  "expires_at": null,
+  "next_action": "request_user_bind"
+}
+```
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid Agent credential |
+| `CONSENT_GRANT_REQUIRED` | Missing `consent_grant_id` parameter |
+| `CAP_NOT_BOUND` | The Agent is not provisioned for the errand capability |
+
+An invalid / expired / revoked `consent_grant_id` **does not error**; it returns `bound: false` instead (see above). See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+```json
+{ "name": "errand_get_auth_status", "arguments": { "consent_grant_id": "<consent_grant_id>" } }
+```

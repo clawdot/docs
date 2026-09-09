@@ -1,0 +1,66 @@
+---
+title: "errand_cancel"
+description: "MCP 工具 errand_cancel —— 取消跑腿订单，已支付订单按实付减违约金自动原路退款"
+---
+
+## errand_cancel
+
+取消订单。未支付的单会直接关闭；已支付的单取消后会**自动按「实付 − 违约金」原路退款**，无需另外发起退款。已完成、已取消、配送失败的单不可再取消。
+
+<Note>
+  **建议先查询违约金**：骑手接单后取消可能产生违约金。建议先调用 `errand_pre_cancel` 查询违约金与预计可退金额，向用户确认后再调用本工具。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
+| `reason` | string | 否 | — | 取消原因，会原样转给配送方 |
+
+### 返回
+
+<Warning>
+  金额字段（`cancel_fee` / `refund_amount`）单位均为**分（整数）**。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 订单 ID |
+| `status` | string | 恒为 `cancelled` |
+| `cancel_fee` | integer | 实际产生的取消违约金（分）|
+| `refund_amount` | integer | 退款金额（分）；`0` 表示未支付单，本就无需退款 |
+
+```json
+{ "order_id": "err_1f5108ee7dc54730aee29d20db789d64", "status": "cancelled", "cancel_fee": 0, "refund_amount": 200 }
+```
+
+<Note>
+  退款到账后，订单的 `pay_status` 会变为 `refunded`；退款处理中或待补偿阶段为 `pending_refund`（平台自动重试，无需调用方干预）。
+</Note>
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+| `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前授权用户 |
+| `ERRAND_CANCEL_NOT_ALLOWED` | 当前状态不允许取消（订单已是终态，或本身不可取消）|
+
+### 调用示例
+
+```json
+{
+  "name": "errand_cancel",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>",
+    "reason": "用户临时改主意"
+  }
+}
+```

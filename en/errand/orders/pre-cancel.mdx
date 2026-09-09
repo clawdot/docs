@@ -1,0 +1,59 @@
+---
+title: "errand_pre_cancel"
+description: "MCP tool errand_pre_cancel — checks the cancellation penalty and expected refund before cancelling, without cancelling"
+---
+
+## errand_pre_cancel
+
+A pre-check before cancelling: looks up the penalty required to cancel this order and the expected refund amount. **This tool only queries — it does not cancel the order.**
+
+<Note>
+  **Recommended flow**: cancelling after a rider has accepted the order may incur a penalty. Call this tool first, show the penalty and expected refund to the user for confirmation, then call `errand_cancel` to actually cancel.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+| `order_id` | string | Yes | — | Order ID (`err_` prefix) |
+
+### Returns
+
+<Warning>
+  The amount fields (`cancel_fee` / `quote_fee` / `refund_amount`) are all in **cents (integer)**.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Order ID |
+| `cancel_fee` | integer | Penalty required to cancel this order (cents) |
+| `quote_fee` | integer | Amount paid for this order (cents) |
+| `refund_amount` | integer | Expected refund (= `quote_fee` − `cancel_fee`, cents) |
+
+```json
+{ "order_id": "err_1f5108ee7dc54730aee29d20db789d64", "cancel_fee": 0, "quote_fee": 200, "refund_amount": 200 }
+```
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The errand capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+| `ERRAND_ORDER_NOT_FOUND` | Order not found, or not owned by the consenting user |
+
+### Example Call
+
+```json
+{
+  "name": "errand_pre_cancel",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from errand_create / errand_list_orders>"
+  }
+}
+```

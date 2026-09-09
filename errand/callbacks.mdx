@@ -1,0 +1,104 @@
+---
+title: "状态回调推送"
+description: "errand_create 传入 callback_url 后，订单状态变化时平台主动推送的三类事件与字段"
+---
+
+`errand_create` 传入 `callback_url` 后，订单状态变化时平台主动 POST JSON 到该地址。收到后返回 HTTP 200 即可（响应体不校验）。
+
+除配送过程中的状态推进外，**支付成功开始呼叫骑手**（`dispatching`）、**呼叫骑手失败**（`dispatch_failed`，已付款项全额退回）、**待支付单超 15 分钟未支付自动关闭**（`cancelled`）同样会推送。只有你自己调用取消接口取消成功不再推送——接口响应里已经给了结果。
+
+<Warning>
+  **回调是提醒，不是事实源。**单次投递、不重试，网络抖动就会丢；订单的真实状态一律以 `errand_get_order` 为准。**下发时机由配送方决定，平台不承诺送达时限**——请勿据此设置超时判断，需要确定状态时主动查询。
+</Warning>
+
+事件可能重复或不按顺序到达——配送方推送失败会重试。请按 `order_id` 做幂等处理，并用 `time` 判断先后：收到比已处理事件更早的 `time` 时应忽略。
+
+三类事件的字段各不相同，**请按 `event` 分支处理**，不要假设某个字段一定存在。
+
+<Note>
+  **回调需要先在配送方侧完成推送地址配置才会下发**——接入前请与平台确认是否已为你的账号开通，不要把回调当作订单状态的唯一来源。其中 `rider_changed`（骑手变更）**默认关闭**，需单独开通。
+</Note>
+
+## 公共字段（三类事件都有）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `event` | string | 事件类型：`status_changed`（状态推进）/ `exception`（配送异常报备）/ `rider_changed`（骑手变更）。 |
+| `order_id` | string | 订单 ID（`err_` 前缀）。 |
+| `status` | string | 当前订单状态（见[状态枚举](/errand/status)）。配送异常报备（`event=exception`）时为**异常发生时订单所处的状态**，订单本身不会因为一次异常报备而改变状态。 |
+| `time` | integer | 事件发生时间（毫秒时间戳）。 |
+
+## status_changed —— 状态推进
+
+订单状态发生变化时下发，是最常用的一类。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `status_desc` | string | 中文状态描述，可直接展示，如「配送中」。 |
+| `cancel_fee` | integer | 仅订单取消时出现：违约金，单位分。已支付的单会自动按「实付 − 违约金」原路退款，无需另行申请。 |
+| `error_reason` | string | 仅配送失败时出现：失败原因说明。 |
+| `rider` | object | 骑手信息：`{ name 姓名, phone 电话 }`。骑手接单后才会出现。电话中间四位以 `*` 隐藏（如 `186****1111`），用于向用户核对是哪位骑手。 |
+| `pickup_photos` | array | 取件照片链接列表；有取件照片时下发。 |
+| `finish_photos` | array | 送达照片链接列表；有送达照片时下发。 |
+| `failure` | object | 订单取消或配送异常时出现：`{ kind, reason, code, fee }`。`kind`：`cancelled` 取消 / `failed` 配送失败 / `exception` 配送异常；`reason` 为中文原因，可直接展示。`code` 为配送方原因码，仅供留痕；**判断原因请以 `reason` 为准**——同一个码在回调与订单详情里含义不同。`fee` 为违约金（分），仅取消时有。 |
+
+```json
+{
+  "event": "status_changed",
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "delivering",
+  "status_desc": "配送中",
+  "rider": { "name": "张师傅", "phone": "186****1111" },
+  "pickup_photos": ["https://img.example.com/pickup-1.jpg"],
+  "time": 1783783107917
+}
+```
+
+## exception —— 配送异常报备
+
+配送过程中出现意外情况时下发。**这类事件只是知会，订单状态不变**（不会因为一次异常报备就变成失败），后续可能恢复正常配送。建议展示给用户并询问如何处理。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `error_reason` | string | 异常原因，中文可直接展示，如「商家出餐慢」。取值见下表。 |
+| `failure` | object | 订单取消或配送异常时出现：`{ kind, reason, code, fee }`。`kind`：`cancelled` 取消 / `failed` 配送失败 / `exception` 配送异常；`reason` 为中文原因，可直接展示。`code` 为配送方原因码，仅供留痕；**判断原因请以 `reason` 为准**——同一个码在回调与订单详情里含义不同。`fee` 为违约金（分），仅取消时有。 |
+| `rider` | object | 骑手信息：`{ name 姓名, phone 电话 }`；骑手已接单时才带。电话中间四位以 `*` 隐藏（如 `186****1111`）。 |
+
+```json
+{
+  "event": "exception",
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "delivering",
+  "error_reason": "商家出餐慢",
+  "time": 1783783107917
+}
+```
+
+## rider_changed —— 骑手变更
+
+换了骑手时下发，通常直接带上新骑手；个别情况下不带 `rider` 字段。需要实时位置、或本次没带骑手时，调 `errand_get_rider`。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `rider` | object | 新骑手信息：`{ name 姓名, phone 电话 }`。电话中间四位以 `*` 隐藏（如 `139****2222`），用于向用户核对是哪位骑手。 |
+
+```json
+{
+  "event": "rider_changed",
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "delivering",
+  "rider": { "name": "李师傅", "phone": "139****2222" },
+  "time": 1783783107917
+}
+```
+
+## 异常原因取值（error_reason）
+
+| 归类 | 可能的原因 |
+|---|---|
+| 顾客侧 | 顾客电话关机 / 已停机 / 无人接听 / 空号 / 留错电话 / 其他联系不上 |
+| 顾客侧 | 顾客更改收货地址 / 配送地址错误 / 送货地址超区 |
+| 顾客侧 | 顾客拒收货品 / 要求延迟配送 |
+| 取件方 | 拒出餐 / 出餐慢 / 关店未营业 / 联系不上 / 定位错误 |
+| 骑手侧 | 骑手恶意取消订单 / 托寄物丢失或损坏 |
+| 其他 | 其他（配送方自定义描述） |

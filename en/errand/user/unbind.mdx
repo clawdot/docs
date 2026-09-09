@@ -1,0 +1,53 @@
+---
+title: "errand_revoke_user_bind"
+description: "MCP tool errand_revoke_user_bind — revokes errand user authorization, with an option to retire the address book and order history"
+---
+
+## errand_revoke_user_bind
+
+Revokes the user's authorization (call this when the user asks to "cancel authorization" or "unbind"). The `consent_grant_id` is invalidated immediately after revocation. By default the address book and order history are kept and become reachable again after re-binding; pass `reset_history=true` to retire them instead — after re-binding, the previous address book and order history are no longer visible.
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | The user consent grant ID to revoke |
+| `reset_history` | boolean | No | `false` | When `true`, revoke and retire: after the same phone number re-binds, previously saved addresses and order history are no longer visible. **Irreversible**. Pass `true` when the phone number or device is handed to a different person |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `revoked` | boolean | Always `true` |
+| `revoked_scopes` | string[] | The capabilities actually invalidated by this call. Customers with cross-capability sharing enabled share one grant between errand and delivery, so both are **revoked together**; otherwise only errand is revoked |
+| `reset_history` | boolean | Returned only when `true` was passed; always `true` |
+| `next_action` | string | Always `"request_user_bind"`, pointing to the re-bind entry point |
+
+```json
+{ "revoked": true, "revoked_scopes": ["dayoudan.errand"], "reset_history": true, "next_action": "request_user_bind" }
+```
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid Agent credential |
+| `CONSENT_GRANT_REQUIRED` | Missing `consent_grant_id` |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` invalid or no longer valid (e.g. already revoked) |
+| `CONSENT_GRANT_EXPIRED` | The user authorization has expired |
+| `CAP_NOT_BOUND` | The Agent is not provisioned for the errand capability |
+| `CONSENT_GRANT_WRONG_CAP` | This grant belongs to another capability (takeout, for example) and cannot be used for errand |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+```json
+{ "name": "errand_revoke_user_bind", "arguments": { "consent_grant_id": "<consent_grant_id>" } }
+```
+
+Revoke and retire (previous address book and order history are not visible after re-binding):
+
+```json
+{ "name": "errand_revoke_user_bind", "arguments": { "consent_grant_id": "<consent_grant_id>", "reset_history": true } }
+```

@@ -1,0 +1,53 @@
+---
+title: "errand_revoke_user_bind"
+description: "MCP 工具 errand_revoke_user_bind — 撤销跑腿用户授权，可选清退地址簿与历史订单"
+---
+
+## errand_revoke_user_bind
+
+撤销用户授权（用户要求「取消授权 / 解绑」时调用）。撤销后该 `consent_grant_id` 立即失效。默认地址簿与历史订单仍然保留，用户重新绑定即可恢复；传 `reset_history=true` 则清退，重新绑定后看不到此前的地址簿与历史订单。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 要撤销的用户授权记录 ID |
+| `reset_history` | boolean | 否 | `false` | 为 `true` 时解绑并清退：同一手机号之后重新绑定，看不到此前保存的地址簿与历史订单，**不可逆**。手机号或设备交给其他人使用时传 `true` |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `revoked` | boolean | 恒为 `true` |
+| `revoked_scopes` | string[] | 本次实际失效的能力。开通跨能力互通的客户跑腿与外卖共用一枚凭证，会**一并撤销**；未开通则只撤跑腿 |
+| `reset_history` | boolean | 仅在传 `true` 时返回，固定为 `true` |
+| `next_action` | string | 恒为 `"request_user_bind"`，提示重新绑定的入口 |
+
+```json
+{ "revoked": true, "revoked_scopes": ["dayoudan.errand"], "reset_history": true, "next_action": "request_user_bind" }
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 Agent 凭据 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` |
+| `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已失效（例如已被撤销）|
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期 |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 这枚授权属于另一个能力（例如外卖），不能用在跑腿上 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{ "name": "errand_revoke_user_bind", "arguments": { "consent_grant_id": "<consent_grant_id>" } }
+```
+
+撤销并清退（重新绑定后看不到此前的地址簿与历史订单）：
+
+```json
+{ "name": "errand_revoke_user_bind", "arguments": { "consent_grant_id": "<consent_grant_id>", "reset_history": true } }
+```

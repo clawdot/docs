@@ -1,0 +1,160 @@
+---
+title: "errand_get_order"
+description: "MCP tool errand_get_order — fetches errand order details; open orders include real-time status and rider info"
+---
+
+## errand_get_order
+
+Fetches the details of a single errand order. **Open orders** (dispatched but not yet settled) have their status synced in real time from the delivery provider, adding `status_desc` / `timeline` / `rider` fields to the response; settled orders return only the local record. An open-order lookup takes roughly 0.8 seconds; a settled one, under 0.1 seconds.
+
+<Note>
+  **This page is the single source of truth for errand order fields**: the response from a successful `errand_create`, an `errand_get_order` lookup, and each entry in `errand_list_orders` all use exactly the same field set (`errand_list_orders` entries simply omit the fields that only appear on open orders). Once you understand the field table here, the other two follow the same shape.
+</Note>
+
+<Note>
+  **`total_weight_g` / `person_direct` / `insured` are `null` for orders placed before 2026-09-09** — meaning they weren't recorded at the time, not that the actual value is false or zero.
+</Note>
+
+<Note>
+  **The sender's and recipient's phone numbers are only returned masked** (`from.contact_phone_masked` / `to.contact_phone_masked`, e.g. `138****5678`) and cannot be dialed directly. Reordering from this order's data requires the user to re-enter the full phone number. The courier's phone is a separate matter — see [errand_get_rider](/en/errand/orders/rider).
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+| `order_id` | string | Yes | — | Order ID (`err_` prefix) |
+
+### Returns
+
+<Warning>
+  The amount fields (`quote_fee` / `actual_fee` / `tip_fee` / `cancel_fee` / `goods_total_amount_fen`) are all in **cents (integer)**; weight is in **grams**; coordinates use the **AMap GCJ-02** coordinate system.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Order ID |
+| `status` | string | Order status, see the status enum below |
+| `pay_status` | string | Payment status, see the payment status enum below |
+| `quote_fee` | integer | Quoted fee at order time, i.e. the amount paid (cents) |
+| `actual_fee` | integer \| null | Actual amount charged by the delivery provider (cents), filled in after completion; `null` while open |
+| `tip_fee` | integer | Total tip amount added so far (cents) |
+| `cancel_fee` | integer \| null | Cancellation penalty (cents); `null` if not cancelled |
+| `company_code` | integer | Delivery provider code |
+| `company_name` | string | Delivery provider name, e.g. "JD Now". A few providers have no name on file and show as "Other carrier" — this is a normal value, not an error |
+| `from` | object | Pickup contact info: `contact_name` / `contact_phone_masked` / `address_text` / `lat` / `lng` |
+| `from.contact_name` | string | Pickup contact name |
+| `from.contact_phone_masked` | string | Pickup contact's masked phone, e.g. `138****5678` |
+| `from.address_text` | string | Pickup address text |
+| `from.lat` | number | Latitude |
+| `from.lng` | number | Longitude |
+| `to` | object | Dropoff contact info, same field structure as `from` |
+| `goods` | array | Goods list |
+| `goods[].name` | string | Goods name |
+| `goods[].qty` | integer | Quantity |
+| `goods[].price_fen` | integer | Unit price (cents) |
+| `goods_category_code` | integer \| null | Goods category code chosen at order time; `null` if none was chosen. When reusing this order for a new quote, pass this value back **as-is** — otherwise it falls back to the default category |
+| `goods_category_name` | string \| null | Goods category name, matching the name given by the category list tool; `null` if no category was chosen |
+| `goods_total_amount_fen` | integer | Estimated total value of all goods (unit price × quantity, summed; cents) |
+| `total_weight_g` | integer \| null | Declared total weight at order time (grams); if it was not provided at order time, this returns the system default weight (1000 g), not `null` |
+| `person_direct` | boolean \| null | Whether the order is dedicated (the rider carries only this order, no batching) |
+| `insured` | boolean \| null | Whether this order is insured |
+| `remark` | string | Note left for the rider at order time; empty string if none |
+| `scheduled_at` | integer \| null | Agreed delivery time set at order time (millisecond timestamp); `null` for immediate delivery |
+| `pickup_photos` | array | Pickup photo links; empty array before the rider picks up the goods |
+| `finish_photos` | array | Delivery photo links; empty array before the order is completed |
+| `created_at` | string | Creation time (ISO 8601) |
+| `status_desc` | string | (open orders only) Localized status text from the delivery provider, e.g. "Waiting for rider assignment" |
+| `timeline` | array | (open orders only) Status change timeline |
+| `timeline[].status` | string | Status text |
+| `timeline[].time` | integer | Timestamp (milliseconds) |
+| `rider` | object | (open orders only, once accepted) Rider info |
+| `rider.name` | string | Rider name |
+| `rider.phone` | string | Rider contact phone |
+| `cancel` | object | (only present if the order was cancelled) Cancellation info |
+| `cancel.cancel_fee` | integer | Cancellation penalty (cents) |
+| `cancel.cancel_reason` | string | Cancellation reason |
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "waiting_rider",
+  "pay_status": "paid",
+  "quote_fee": 200,
+  "actual_fee": null,
+  "tip_fee": 100,
+  "cancel_fee": null,
+  "company_code": 1,
+  "company_name": "JD Now",
+  "from": { "contact_name": "Mr. Wang", "contact_phone_masked": "157****2669", "address_text": "No.100, Guanshaling Subdistrict, Yuelu District, Changsha", "lat": 28.23, "lng": 112.96 },
+  "to": { "contact_name": "Ms. Li", "contact_phone_masked": "165****6952", "address_text": "No.22, Wangyuehu Subdistrict, Yuelu District, Changsha", "lat": 28.205, "lng": 112.935 },
+  "goods": [{ "name": "Document envelope", "qty": 1, "price_fen": 1000 }],
+  "goods_category_code": 1595,
+  "goods_category_name": "Daily necessities",
+  "goods_total_amount_fen": 1000,
+  "total_weight_g": 1000,
+  "person_direct": false,
+  "insured": false,
+  "remark": "",
+  "scheduled_at": null,
+  "pickup_photos": [],
+  "finish_photos": [],
+  "created_at": "2026-07-12T01:05:46",
+  "status_desc": "Waiting for rider assignment",
+  "timeline": [
+    { "status": "Order placed", "time": 1783783044897 },
+    { "status": "Waiting for rider assignment", "time": 1783783107917 }
+  ]
+}
+```
+
+### Order status enum (`status`)
+
+| Value | Meaning |
+|------|------|
+| `pending_payment` | Awaiting payment (no rider is dispatched until paid) |
+| `dispatching` | Payment complete, calling a rider |
+| `pending` | Submitted to the delivery provider, awaiting acceptance |
+| `waiting_rider` | Waiting for a rider to be assigned |
+| `rider_reassigning` | Reassigning to a different rider |
+| `rider_accepted` | Rider has accepted the order |
+| `rider_arrived` | Rider has arrived at the pickup point |
+| `delivering` | Out for delivery |
+| `completed` | Completed (terminal) |
+| `cancelled` | Cancelled (terminal) |
+| `failed` | Delivery failed (terminal; any payment is fully refunded) |
+| `dispatch_failed` | Failed to find a rider (terminal; any payment is fully refunded) |
+
+### Payment status enum (`pay_status`)
+
+| Value | Meaning |
+|------|------|
+| `unpaid` | Not paid |
+| `paid` | Paid |
+| `refunded` | Refunded (to the original payment method) |
+| `pending_refund` | Refund in progress (the platform retries automatically; no action needed) |
+| `expired` | Payment window expired |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The errand capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+| `ERRAND_ORDER_NOT_FOUND` | Order not found, or not owned by the consenting user |
+
+### Example Call
+
+```json
+{
+  "name": "errand_get_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from errand_create / errand_list_orders>"
+  }
+}
+```

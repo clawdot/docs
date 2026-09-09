@@ -1,0 +1,76 @@
+---
+title: "errand_list_schedule_slots"
+description: "MCP 工具 errand_list_schedule_slots —— 返回可选的预约送达时间清单，选中项回填 errand_quote"
+---
+
+## errand_list_schedule_slots
+
+返回可选的预约送达时间清单，摆给用户挑「几点送到」。选中项的 `value` 回填 `errand_quote` 的 `scheduled_at`。
+
+一档 15 分钟，最早 45 分钟后、最晚明天 23:45（北京时间）。用户说「尽快」就不传 `scheduled_at`，不要传 `0`。
+
+<Note>
+  **只能回填清单里给出的 `value`**，自己按分钟数换算出来的时间戳会被拒（`SCHEDULED_AT_NOT_ON_GRID`）。清单按调用时刻生成，隔久了要重新取一次；复用历史单时更不要照抄上一单的 `value`，那个时间大概率已经过去。
+</Note>
+
+### 参数
+
+本工具无需参数，直接调用即可返回当前可选的时间清单。
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `timezone` | string | 清单里所有时间的时区，固定为 `Asia/Shanghai`（北京时间）|
+| `step_minutes` | integer | 相邻两档相差的分钟数，固定 `15` |
+| `earliest` | integer | 最早可约的时间点（毫秒时间戳），与第一档的 `value` 相同 |
+| `latest` | integer | 最晚可约的时间点（毫秒时间戳），与最后一档的 `value` 相同 |
+| `days` | array | 按天分组的可选时间，最多两组（今天、明天）。今天已没有可约时间时只返回明天一组，不要假定固定两组 |
+| `days[].label` | string | 分组标题，如「今日(周二)」|
+| `days[].slots` | array | 该天的可选时间档，按时间先后排列 |
+| `days[].slots[].value` | integer | 回填 `errand_quote` 的 `scheduled_at`（毫秒时间戳）|
+| `days[].slots[].label` | string | 展示给用户的时间，如 `11:00` |
+
+**响应示例**（节选，实际每天最多 96 档，全部按 15 分钟排列）：
+
+```json
+{
+  "timezone": "Asia/Shanghai",
+  "step_minutes": 15,
+  "earliest": 1787023800000,
+  "latest": 1787154300000,
+  "days": [
+    {
+      "label": "今日(周二)",
+      "slots": [
+        { "value": 1787023800000, "label": "11:30" },
+        { "value": 1787024700000, "label": "11:45" }
+      ]
+    },
+    {
+      "label": "明日(周三)",
+      "slots": [
+        { "value": 1787068800000, "label": "00:00" }
+      ]
+    }
+  ]
+}
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 API Key |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+
+完整错误码见 [错误处理](/errand/errors)。
+
+### 调用示例
+
+```json
+{
+  "name": "errand_list_schedule_slots",
+  "arguments": {}
+}
+```

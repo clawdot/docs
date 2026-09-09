@@ -1,0 +1,49 @@
+---
+title: "errand_request_user_bind"
+description: "MCP tool errand_request_user_bind — sends a verification code to the user's phone to start errand authorization"
+---
+
+## errand_request_user_bind
+
+Sends an SMS verification code to the user's phone. This is the entry point for getting errand consent, and only needs the Agent credential (`Authorization: Bearer`) — it takes no `consent_grant_id` parameter.
+
+<Note>
+  **Errand authorization flow (entry point)**: **`errand_request_user_bind`** → get `bind_id` → user receives the code → `errand_verify_user_bind` exchanges it for a `consent_grant_id` → subsequent errand tools carry that `consent_grant_id`. Errand and delivery consent are issued per capability: even if the user already bound for delivery, errand still needs its own run through this flow.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `phone` | string | Yes | — | User phone number |
+| `external_user_id` | string | No | — | Caller-side user identifier (1–128 characters); injected as the `open_id` for cashier single sign-on / payment links |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bind_id` | string | Binding session ID for this call; pass it to `errand_verify_user_bind` |
+| `expires_in` | integer | Verification code lifetime in seconds; currently `300` |
+| `masked_phone` | string | Masked phone number, for display |
+
+```json
+{ "bind_id": "586674fa-882d-42bc-834d-3561e6ea04d9", "expires_in": 300, "masked_phone": "188****2920" }
+```
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | Missing or invalid Agent credential |
+| `CAP_NOT_BOUND` | The Agent is not provisioned for the errand capability |
+| `SMS_COOLDOWN` | Verification code sent again for the same phone number within 60 seconds |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+**Typical latency**: ~0.5s.
+
+### Call Example
+
+```json
+{ "name": "errand_request_user_bind", "arguments": { "phone": "<user_phone>" } }
+```

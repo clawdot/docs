@@ -1,0 +1,133 @@
+---
+title: "errand_create"
+description: "MCP tool errand_create — redeems a quote_id into a pending-payment order, returning the order ID, cashier link, and full order info"
+---
+
+## errand_create
+
+Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order**, returning the order ID, the cashier payment link, and the **full order info** you can show the user to confirm.
+
+<Note>
+  **Order flow**: `errand_quote` → `quote_id` + each courier's `company_code` / `fee` → **`errand_create`** → `order_id` + `cashier_url` → the user opens `cashier_url` to pay → once paid, the platform automatically dispatches a courier.
+</Note>
+
+<Note>
+  **Payment gate: this step does not dispatch a courier.** A courier is only dispatched automatically after the user completes payment at the cashier. Calling this tool only turns the quote into a pending-payment order.
+</Note>
+
+<Note>
+  **`quote_id` is single-use.** It's invalidated the moment it's redeemed — reusing the same `quote_id` returns `QUOTE_INVALID_OR_EXPIRED`, and you'll need to call `errand_quote` again.
+</Note>
+
+<Note>
+  **`company_code` must come from this quote's results.** It must be one of the `quotes[].company_code` values from this same `errand_quote` call, and it determines the amount actually charged (= that courier's `fee`). Passing a `company_code` not in this quote returns `COMPANY_NOT_IN_QUOTE`.
+</Note>
+
+<Note>
+  **An unpaid order auto-closes after 15 minutes** (`status` becomes `cancelled`, `pay_status` becomes `expired`). If the user still completes payment after it closes, the full amount is automatically refunded.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `quote_id` | string | Yes | — | Confirmation token from `errand_quote`; single-use, invalidated on redemption |
+| `company_code` | integer | Yes | — | Selected courier code; must be within this quote's results — determines the amount charged (= that courier's `fee`) |
+| `callback_url` | string | No | — | Order-status callback URL; must be a publicly reachable http(s) address — `localhost` and private addresses are rejected. See [Status Callbacks](/en/errand/callbacks) |
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+
+### Returns
+
+<Warning>
+  Monetary fields are always in **fen**, not yuan. For example, `quote_fee: 200` means ¥2.00.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Errand order ID (`err_` prefix), used for subsequent order lookups, cancellation, and tipping |
+| `status` | string | Always `pending_payment` |
+| `pay_status` | string | Always `unpaid` |
+| `quote_fee` | integer | Amount payable (= the selected courier's `fee`), in fen |
+| `cashier_url` | string | Cashier payment page URL; hand this to the user to complete payment |
+
+**The response also carries this order's full order info**, using exactly the same base fields as the order detail from [errand_get_order](/en/errand/orders/get) and the entries returned by `errand_list_orders` (`status_desc` / `timeline` / `rider` appear only when you query an in-flight order — a pending-payment order carries none of them) — available immediately, no extra lookup needed. The full order info includes:
+
+| Field | Description |
+|-------|-------------|
+| `company_code` / `company_name` | Courier code and name (a small number of orders show `company_name` as "其他运力" — that's an expected value, not an error) |
+| `from` / `to` | Pickup and dropoff details: contact name, masked phone (e.g. `157****2669`, not dialable), address text, coordinates |
+| `goods` | Item list: name, quantity, unit price (fen) |
+| `goods_category_code` / `goods_category_name` | Item category code and name |
+| `goods_total_amount_fen` | Estimated total item value (fen) |
+| `total_weight_g` | Total weight (grams) |
+| `person_direct` | Whether this is a dedicated (no-bundling) delivery |
+| `insured` | Whether the shipment is insured |
+| `scheduled_at` | Scheduled delivery time (millisecond timestamp); `null` when not scheduled |
+| `remark` | Note left for the courier |
+| `actual_fee` / `tip_fee` / `cancel_fee` | Amount actually charged, tip paid, and cancellation fee, all in fen |
+| `pickup_photos` / `finish_photos` | Pickup and delivery photos |
+| `created_at` | Order creation time |
+
+For each field's exact type and when it can be `null`, see the order detail in [errand_get_order](/en/errand/orders/get).
+
+**Example response**:
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "status": "pending_payment",
+  "pay_status": "unpaid",
+  "quote_fee": 200,
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=...",
+  "company_code": 1,
+  "company_name": "京东秒送",
+  "from": { "contact_name": "王先生", "contact_phone_masked": "157****2669", "address_text": "长沙市岳麓区观沙岭街道100号", "lat": 28.23, "lng": 112.96 },
+  "to": { "contact_name": "李女士", "contact_phone_masked": "165****6952", "address_text": "长沙市岳麓区望月湖街道22号", "lat": 28.205, "lng": 112.935 },
+  "goods": [{ "name": "文件袋", "qty": 1, "price_fen": 1000 }],
+  "goods_category_code": 1595,
+  "goods_category_name": "日用百货",
+  "goods_total_amount_fen": 1000,
+  "total_weight_g": 1000,
+  "person_direct": false,
+  "insured": false,
+  "scheduled_at": null,
+  "remark": "放前台，别敲门",
+  "actual_fee": null,
+  "tip_fee": 0,
+  "cancel_fee": null,
+  "pickup_photos": [],
+  "finish_photos": [],
+  "created_at": "2026-09-09T10:12:03"
+}
+```
+
+### Error codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
+| `QUOTE_INVALID_OR_EXPIRED` | `quote_id` is invalid, expired, or already redeemed; get a new quote |
+| `COMPANY_NOT_IN_QUOTE` | The selected `company_code` is not part of this quote; get a new quote |
+| `QUOTE_FEE_INVALID` | The quoted fee is invalid; get a new quote |
+| `ERRAND_FEE_CHANGED` | The delivery fee has changed; get a new quote before placing the order |
+| `PUBLIC_REFERENCE_INVALID` | `callback_url` is not a usable public http(s) address (e.g. `localhost` or a private address) |
+| `CASHIER_UNAVAILABLE` | The cashier is temporarily unavailable; retry placing the order later |
+| `ERRAND_UPSTREAM_ERROR` | Delivery service returned an error; retry later |
+
+See [Error Handling](/en/errand/errors) for the full list.
+
+### Example call
+
+```json
+{
+  "name": "errand_create",
+  "arguments": {
+    "quote_id": "<from errand_quote>",
+    "company_code": 1,
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

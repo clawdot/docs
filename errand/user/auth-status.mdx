@@ -1,0 +1,68 @@
+---
+title: "errand_get_auth_status"
+description: "MCP 工具 errand_get_auth_status — 查询某枚跑腿授权凭证是否仍然有效"
+---
+
+## errand_get_auth_status
+
+查询某枚 `consent_grant_id` 的跑腿授权是否仍然有效。
+
+<Note>
+  **凭证无效不报错**：直接看返回体的 `bound` 字段——调用方据此判断要不要重新走绑定，不必 try/catch。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 要查的用户授权记录 ID |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bound` | boolean | 授权是否有效。`false` = 未绑定 / 已过期 / 已解绑 |
+| `consent_grant_id` | string \| null | 有效时原样返回；无效为 `null` |
+| `scopes` | string[] | 授权能力范围；无效时为空数组 |
+| `expires_at` | string \| null | 授权过期时间（ISO 8601）；无效为 `null` |
+| `next_action` | string \| null | `bound=false` 时为 `"request_user_bind"`，提示重新走绑定；有效时为 `null` |
+
+有效绑定时：
+
+```json
+{
+  "bound": true,
+  "consent_grant_id": "cg_55fdaa2739314530a261f7af1d3ba3b7",
+  "scopes": ["dayoudan.errand"],
+  "expires_at": "2026-10-18T15:26:54+00:00",
+  "next_action": null
+}
+```
+
+无效 / 已过期 / 已解绑时：
+
+```json
+{
+  "bound": false,
+  "consent_grant_id": null,
+  "scopes": [],
+  "expires_at": null,
+  "next_action": "request_user_bind"
+}
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 Agent 凭据 |
+| `CONSENT_GRANT_REQUIRED` | 缺少 `consent_grant_id` 参数 |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通跑腿能力 |
+
+`consent_grant_id` 无效 / 已过期 / 已解绑**不会报错**，而是返回 `bound: false`（见上文）。完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{ "name": "errand_get_auth_status", "arguments": { "consent_grant_id": "<consent_grant_id>" } }
+```

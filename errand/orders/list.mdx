@@ -1,0 +1,115 @@
+---
+title: "errand_list_orders"
+description: "MCP 工具 errand_list_orders —— 分页查询跑腿历史订单，支持按状态与下单时间筛选"
+---
+
+## errand_list_orders
+
+分页查询当前授权用户的跑腿历史订单，按下单时间倒序（新单在前）。返回内容可原样回填到询价里（收发地址、货品），方便实现"还是上次那样"的复用下单。
+
+<Note>
+  **联系电话只回脱敏号码**（如 `138****5678`），无法直接拨打；复用历史单重新下单时需要用户重新填写完整号码。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `limit` | integer | 否 | `5` | 返回条数，上限 20；按下单时间倒序 |
+| `offset` | integer | 否 | `0` | 翻页起点。把上次返回的 `next_offset` 原样传回即可取下一页 |
+| `status` | string | 否 | — | 只看指定状态的单，多个状态用英文逗号分隔，如 `dispatching,delivering`。取值见下方订单状态枚举；填了不存在的状态会报错，不会返回空列表 |
+| `created_after` | string | 否 | — | 只看这个时间之后下的单，**按北京时间**。写 `2026-08-01` 或 `2026-08-01 10:30:00` |
+| `created_before` | string | 否 | — | 只看这个时间之前下的单，写法同上；只写日期时包含当天全天（如筛到 8 月 10 号，含 10 号当天）|
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `orders` | array | 订单列表，按下单时间倒序（新单在前）。单条订单的字段结构与 `errand_get_order` 的返回一致，但不含仅在途订单才有的附加字段（`status_desc` / `timeline` / `rider`），完整字段说明见该页 |
+| `next_offset` | integer \| null | 下一页的 offset；为 `null` 表示没有更多了 |
+
+```json
+{
+  "orders": [
+    {
+      "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+      "status": "waiting_rider",
+      "pay_status": "paid",
+      "quote_fee": 200,
+      "actual_fee": null,
+      "tip_fee": 100,
+      "cancel_fee": null,
+      "company_code": 1,
+      "company_name": "京东秒送",
+      "from": { "contact_name": "王先生", "contact_phone_masked": "157****2669", "address_text": "长沙市岳麓区观沙岭街道100号", "lat": 28.23, "lng": 112.96 },
+      "to": { "contact_name": "李女士", "contact_phone_masked": "165****6952", "address_text": "长沙市岳麓区望月湖街道22号", "lat": 28.205, "lng": 112.935 },
+      "goods": [{ "name": "文件袋", "qty": 1, "price_fen": 1000 }],
+      "goods_category_code": 1595,
+      "goods_category_name": "日用百货",
+      "goods_total_amount_fen": 1000,
+      "total_weight_g": 1000,
+      "person_direct": false,
+      "insured": false,
+      "remark": "",
+      "scheduled_at": null,
+      "pickup_photos": [],
+      "finish_photos": [],
+      "created_at": "2026-07-12T01:05:46"
+    }
+  ],
+  "next_offset": 5
+}
+```
+
+<Warning>
+  金额字段（`quote_fee` / `actual_fee` / `tip_fee` / `cancel_fee` / `goods_total_amount_fen`）单位均为**分（整数）**，不是元。
+</Warning>
+
+### 订单状态枚举（`status`）
+
+| 值 | 含义 |
+|------|------|
+| `pending_payment` | 待支付（未付款不派单）|
+| `dispatching` | 支付完成，正在呼叫骑手 |
+| `pending` | 已提交配送方，等待受理 |
+| `waiting_rider` | 等待分配骑士 |
+| `rider_reassigning` | 骑士转单中（重新分配）|
+| `rider_accepted` | 骑士已接单 |
+| `rider_arrived` | 骑士已到店/到取货点 |
+| `delivering` | 配送中 |
+| `completed` | 已完成（终态）|
+| `cancelled` | 已取消（终态）|
+| `failed` | 配送失败（终态；已付款项全额退回）|
+| `dispatch_failed` | 呼叫骑手失败（终态；已付款项全额退回）|
+
+### 分页
+
+- 首次调用不传 `offset`（或传 `0`）取第一页。
+- 响应里的 `next_offset` 非 `null` 时，作为下一次调用的 `offset` 取下一页；为 `null` 表示已到末页。
+- `orders` 为空数组表示该用户暂无符合条件的订单。
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+| `ERRAND_STATUS_INVALID` | `status` 取值不支持；错误消息里会列出全部可选值 |
+| `ERRAND_TIME_RANGE_INVALID` | `created_after` / `created_before` 时间格式不对；写 `2026-08-01` 或 `2026-08-01 10:30:00` |
+
+### 调用示例
+
+```json
+{
+  "name": "errand_list_orders",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "limit": 5,
+    "status": "dispatching,delivering"
+  }
+}
+```
