@@ -1,0 +1,157 @@
+---
+title: "errand_quote"
+description: "MCP 工具 errand_quote —— 提交收发两端要素与货品，返回多家运力实时报价"
+---
+
+## errand_quote
+
+提交收发两端要素与货品，返回多家运力的实时报价。报价打包为单次确认令牌 `quote_id`，选定一家运力后传给 `errand_create` 完成下单。
+
+<Note>
+  **下单链路**：`errand_request_user_bind` → `errand_verify_user_bind` 拿到 `consent_grant_id` → （可选）`errand_search_addresses` / `errand_list_goods_categories` / `errand_list_schedule_slots` → **`errand_quote`** 得 `quote_id` + 各运力 `company_code` / `fee` → `errand_create` 下单 → 用户打开 `cashier_url` 完成支付。
+</Note>
+
+<Note>
+  **`quote_id` 单次核销、有效期内必须完成下单**：有效期 `expires_in_seconds` 秒（当前 600 秒），过期或已核销过一次的 `quote_id` 再次用于 `errand_create` 会返回 `QUOTE_INVALID_OR_EXPIRED`，需要重新询价。
+</Note>
+
+<Note>
+  **收发地址须同城**，跨城返回 `ERRAND_CROSS_CITY`。
+</Note>
+
+<Note>
+  **物品名称与骑手留言会做禁运物品校验**：涉及毒品与管制药品、枪支弹药与管制器具、易燃易爆与危险化学品、违法交易物的订单一律拒单，返回 `GOODS_PROHIBITED`，错误消息会指明命中的词与类别。正常商品名称含敏感字样被误判时，换用更准确的名称重新询价即可。
+</Note>
+
+坐标系一律为 **GCJ-02**；金额字段单位一律为**分**。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `from_address` | object | 是 | — | 发件端要素（取货点），结构见下方 EndpointParty |
+| `to_address` | object | 是 | — | 收件端要素（送达点），结构见下方 EndpointParty |
+| `goods` | array | 是 | — | 货品数组，至少一件 |
+| `total_weight_g` | integer | 否 | `1000` | 总重量（克）；不传按 1000g 计算 |
+| `scheduled_at` | integer | 否 | — | 预约送达时间，13 位毫秒时间戳；不传或传 `0` = 立即配送。**只能填 `errand_list_schedule_slots` 给出的 `value`**（一档 15 分钟，最早 45 分钟后、最晚明天 23:45），自己算的时间会被拒。复用历史单时不要照抄上一单的值——那个时间早已过去，会被拒 |
+| `person_direct` | boolean | 否 | `false` | 专人直送（骑手不拼单、一次只送本单，费用更高）；不传按普通配送 |
+| `insured` | boolean | 否 | `false` | 是否保价（按 `goods` 货值口径）；不传按不保价 |
+| `goods_category_code` | integer | 否 | — | 物品品类码，取自 `errand_list_goods_categories`；不传按默认品类计费。**理赔以此品类为准，与物品名称无关**，请让用户选对。不在清单内的码返回 `GOODS_CATEGORY_INVALID` |
+| `remark` | string | 否 | — | 给骑手的留言（如「放门口别敲门，家里有狗」），最多 200 字。随单送达骑手，查单时原样返回 |
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+
+**EndpointParty**（`from_address` / `to_address` 通用）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `address_text` | string | 条件 | 详细门牌地址文本；与 `lat` / `lng` 一起提供 |
+| `lat` | number | 条件 | 纬度（GCJ-02）|
+| `lng` | number | 条件 | 经度（GCJ-02）|
+| `address_id` | string | 条件 | 平台地址 ID，来自 `errand_save_address` / `errand_list_addresses`；与「`address_text` + `lat` + `lng`」二选一 |
+| `contact_name` | string | 条件 | 联系人姓名；用 `address_id` 且地址簿已存联系人时可省略 |
+| `contact_phone` | string | 条件 | 联系电话；用 `address_id` 且地址簿已存电话时可省略。加密保存，不返回明文 |
+
+<Note>
+  **纯地址文本（无坐标）暂不支持**，会返回 `COORDS_REQUIRED`；请先用 `errand_search_addresses` 拿坐标，或传 `address_id`。
+</Note>
+
+**`goods[]`**：
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `name` | string | 是 | — | 货品名称 |
+| `qty` | integer | 否 | `1` | 件数 |
+| `price_fen` | integer | 否 | — | 货值（分）；影响运力保价口径，不传按默认口径计算 |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `quote_id` | string | 报价确认令牌（`equote_` 前缀），有效期内单次有效 |
+| `quotes` | array | 逐运力报价 |
+| `expires_in_seconds` | integer | 令牌有效期（秒），当前 `600` |
+
+**`quotes[]`**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `company_code` | integer | 运力编码，下单时回传给 `errand_create` |
+| `company_name` | string | 运力名称（如 京东秒送 / 顺丰 / 美团帮送 / 蜂鸟品质达）|
+| `fee` | integer | 该运力配送报价，单位分；**选定该运力即为支付金额** |
+| `distance` | integer | 配送距离，单位米 |
+| `coupon_fee` | integer | 运力侧优惠金额，单位分（仅供展示）|
+| `estimated_minutes` | integer \| null | 预计送达时长，单位分钟；距离未知时为 `null` |
+| `estimated_arrival_time` | string \| null | 预计送达时刻，格式 `HH:MM`（北京时间）。预约单为约定的送达时间；距离未知时为 `null` |
+
+<Note>
+  预计送达时间按配送距离估算（3 公里以内 45 分钟，之后每公里加 5 分钟），所以**同一单各家运力给出的时效相同**，不是重复值。
+
+  `fee` 是本次报价的金额；下单时若配送费已变更，`errand_create` 会返回 `ERRAND_FEE_CHANGED`，重新询价即可。
+</Note>
+
+**响应示例**：
+
+```json
+{
+  "quote_id": "equote_ggzcyYA4XSwjTQw_heQSXw",
+  "quotes": [
+    { "company_code": 1, "company_name": "京东秒送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
+    { "company_code": 2, "company_name": "顺丰", "fee": 450, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
+    { "company_code": 14, "company_name": "蜂鸟品质达", "fee": 480, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
+    { "company_code": 5, "company_name": "美团帮送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" }
+  ],
+  "expires_in_seconds": 600
+}
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `COORDS_REQUIRED` | 只给了地址文本没给坐标 |
+| `ADDRESS_TEXT_REQUIRED` | 给了坐标没给门牌地址文本 |
+| `ADDRESS_NOT_FOUND` | `address_id` 不存在或不属于当前用户 |
+| `CONTACT_REQUIRED` | 收/发端缺联系人姓名或电话 |
+| `GOODS_REQUIRED` | 至少提供一件货品 |
+| `GOODS_PROHIBITED` | 物品名称或备注涉及禁运物品，本单无法配送 |
+| `GOODS_CATEGORY_INVALID` | 物品品类码不在清单内；用 `errand_list_goods_categories` 重新取值 |
+| `REMARK_TOO_LONG` | 骑手留言超过 200 字 |
+| `SCHEDULED_AT_INVALID` | 预约送达时间不是 13 位毫秒时间戳 |
+| `SCHEDULED_AT_PAST` | 预约送达时间早于当前时间；复用历史单时最常撞这个 |
+| `SCHEDULED_AT_NOT_ON_GRID` | 预约送达时间不在可选档位上；从 `errand_list_schedule_slots` 取 `value`，不要自己算 |
+| `SCHEDULED_AT_TOO_SOON` | 预约送达时间太近；错误消息里给出当前最早可约的时间 |
+| `SCHEDULED_AT_TOO_FAR` | 预约送达时间超出范围；最晚只能约到明天 23:45（北京时间）|
+| `ERRAND_CROSS_CITY` | 收发地址跨城；跑腿仅同城配送 |
+| `ERRAND_CITY_NOT_OPEN` | 该城市未开通跑腿服务 |
+| `ERRAND_NO_QUOTE` | 当前无可用运力报价；稍后再试或调整地址 |
+| `ERRAND_SHOP_NOT_CONFIGURED` | 跑腿服务未开通 |
+| `ERRAND_TEMPORARILY_UNAVAILABLE` | 配送服务暂时不可用；稍后再试 |
+| `ERRAND_UPSTREAM_ERROR` | 配送服务返回错误；稍后再试 |
+
+完整错误码见 [错误处理](/errand/errors)。
+
+### 调用示例
+
+```json
+{
+  "name": "errand_quote",
+  "arguments": {
+    "from_address": {
+      "address_text": "长沙市岳麓区观沙岭街道100号",
+      "lat": 28.23, "lng": 112.96,
+      "contact_name": "王先生", "contact_phone": "157****2669"
+    },
+    "to_address": {
+      "address_text": "长沙市岳麓区望月湖街道22号",
+      "lat": 28.205, "lng": 112.935,
+      "contact_name": "李女士", "contact_phone": "165****6952"
+    },
+    "goods": [{ "name": "文件袋", "qty": 1, "price_fen": 1000 }],
+    "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```

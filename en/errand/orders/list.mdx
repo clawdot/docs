@@ -1,0 +1,115 @@
+---
+title: "errand_list_orders"
+description: "MCP tool errand_list_orders — paginates errand order history, filterable by status and creation time"
+---
+
+## errand_list_orders
+
+Paginates the consenting user's errand order history, sorted by creation time descending (newest first). The returned data can be fed straight back into a quote (pickup/dropoff addresses, goods) to support "same as last time" reordering.
+
+<Note>
+  **Phone numbers are only returned masked** (e.g. `138****5678`) and cannot be dialed directly. Reordering from a past order requires the user to re-enter the full phone number.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+| `limit` | integer | No | `5` | Page size, max 20; sorted by creation time descending |
+| `offset` | integer | No | `0` | Pagination offset. Pass the previous response's `next_offset` back as-is to get the next page |
+| `status` | string | No | — | Only return orders in the given status(es); comma-separate multiple values, e.g. `dispatching,delivering`. See the status enum below. An unsupported status returns an error rather than an empty list |
+| `created_after` | string | No | — | Only return orders placed after this time, **in Beijing time**. Write `2026-08-01` or `2026-08-01 10:30:00` |
+| `created_before` | string | No | — | Only return orders placed before this time, same format as above. A date-only value includes the whole of that day (e.g. filtering up to Aug 10 includes all of Aug 10) |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `orders` | array | Order list, sorted by creation time descending (newest first). Each order has the same field structure as the `errand_get_order` response, minus the fields that only appear on open orders (`status_desc` / `timeline` / `rider`) — see that page for the full field reference |
+| `next_offset` | integer \| null | Next-page cursor; `null` means there are no more |
+
+```json
+{
+  "orders": [
+    {
+      "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+      "status": "waiting_rider",
+      "pay_status": "paid",
+      "quote_fee": 200,
+      "actual_fee": null,
+      "tip_fee": 100,
+      "cancel_fee": null,
+      "company_code": 1,
+      "company_name": "JD Now",
+      "from": { "contact_name": "Mr. Wang", "contact_phone_masked": "157****2669", "address_text": "No.100, Guanshaling Subdistrict, Yuelu District, Changsha", "lat": 28.23, "lng": 112.96 },
+      "to": { "contact_name": "Ms. Li", "contact_phone_masked": "165****6952", "address_text": "No.22, Wangyuehu Subdistrict, Yuelu District, Changsha", "lat": 28.205, "lng": 112.935 },
+      "goods": [{ "name": "Document envelope", "qty": 1, "price_fen": 1000 }],
+      "goods_category_code": 1595,
+      "goods_category_name": "Daily necessities",
+      "goods_total_amount_fen": 1000,
+      "total_weight_g": 1000,
+      "person_direct": false,
+      "insured": false,
+      "remark": "",
+      "scheduled_at": null,
+      "pickup_photos": [],
+      "finish_photos": [],
+      "created_at": "2026-07-12T01:05:46"
+    }
+  ],
+  "next_offset": 5
+}
+```
+
+<Warning>
+  The amount fields (`quote_fee` / `actual_fee` / `tip_fee` / `cancel_fee` / `goods_total_amount_fen`) are all in **cents (integer)**, not yuan.
+</Warning>
+
+### Order status enum (`status`)
+
+| Value | Meaning |
+|------|------|
+| `pending_payment` | Awaiting payment (no rider is dispatched until paid) |
+| `dispatching` | Payment complete, calling a rider |
+| `pending` | Submitted to the delivery provider, awaiting acceptance |
+| `waiting_rider` | Waiting for a rider to be assigned |
+| `rider_reassigning` | Reassigning to a different rider |
+| `rider_accepted` | Rider has accepted the order |
+| `rider_arrived` | Rider has arrived at the pickup point |
+| `delivering` | Out for delivery |
+| `completed` | Completed (terminal) |
+| `cancelled` | Cancelled (terminal) |
+| `failed` | Delivery failed (terminal; any payment is fully refunded) |
+| `dispatch_failed` | Failed to find a rider (terminal; any payment is fully refunded) |
+
+### Pagination
+
+- On the first call, omit `offset` (or pass `0`) to get the first page.
+- When the response's `next_offset` is non-`null`, use it as the `offset` of the next call; `null` means you've reached the last page.
+- An empty `orders` array means the user has no orders matching the filter.
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The errand capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+| `ERRAND_STATUS_INVALID` | `status` value not supported; the error message lists the valid values |
+| `ERRAND_TIME_RANGE_INVALID` | `created_after` / `created_before` is not correctly formatted; use `2026-08-01` or `2026-08-01 10:30:00` |
+
+### Example Call
+
+```json
+{
+  "name": "errand_list_orders",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "limit": 5,
+    "status": "dispatching,delivering"
+  }
+}
+```

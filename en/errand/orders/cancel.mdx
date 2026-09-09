@@ -1,0 +1,66 @@
+---
+title: "errand_cancel"
+description: "MCP tool errand_cancel — cancels an errand order; paid orders are auto-refunded (amount paid minus the penalty)"
+---
+
+## errand_cancel
+
+Cancels an order. An unpaid order is simply closed; a paid order is **automatically refunded to the original payment method for "amount paid minus the cancellation penalty"** — no separate refund request is needed. Orders that are already completed, cancelled, or failed cannot be cancelled again.
+
+<Note>
+  **Check the penalty first**: cancelling after a rider has accepted the order may incur a penalty. Call `errand_pre_cancel` first to check the penalty and expected refund, confirm with the user, then call this tool.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+| `order_id` | string | Yes | — | Order ID (`err_` prefix) |
+| `reason` | string | No | — | Cancellation reason, passed through to the delivery provider as-is |
+
+### Returns
+
+<Warning>
+  The amount fields (`cancel_fee` / `refund_amount`) are both in **cents (integer)**.
+</Warning>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Order ID |
+| `status` | string | Always `cancelled` |
+| `cancel_fee` | integer | Actual cancellation penalty charged (cents) |
+| `refund_amount` | integer | Refund amount (cents); `0` means the order was unpaid, so no refund was needed |
+
+```json
+{ "order_id": "err_1f5108ee7dc54730aee29d20db789d64", "status": "cancelled", "cancel_fee": 0, "refund_amount": 200 }
+```
+
+<Note>
+  Once the refund lands, the order's `pay_status` becomes `refunded`; while it's in progress or pending compensation it's `pending_refund` (the platform retries automatically — no action needed from you).
+</Note>
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The errand capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+| `ERRAND_ORDER_NOT_FOUND` | Order not found, or not owned by the consenting user |
+| `ERRAND_CANCEL_NOT_ALLOWED` | The order's current status doesn't allow cancellation (already terminal, or not cancellable) |
+
+### Example Call
+
+```json
+{
+  "name": "errand_cancel",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from errand_create / errand_list_orders>",
+    "reason": "User changed their mind"
+  }
+}
+```

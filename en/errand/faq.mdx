@@ -1,0 +1,40 @@
+---
+title: "Notes"
+description: "Things to know before integrating Errand: address sourcing, the same-city limit, payment gating, and amount conventions"
+---
+
+<Steps>
+  <Step title="Three ways to provide an address">
+    For `from_address`/`to_address` when placing an order — **if you know the coordinates**, pass `address_text`+`lat`+`lng` directly; **to pick from the address book**, pass `address_id` (from `errand_save_address`/`errand_list_addresses`); **if you only have a place name**, call `errand_search_addresses` first to get coordinates. Use exactly one of the three.
+  </Step>
+  <Step title="Same city only">
+    Errand only delivers within the same city — pickup and drop-off must be in the same city, or it returns `ERRAND_CROSS_CITY`.
+  </Step>
+  <Step title="Payment gating">
+    `errand_create` only creates a pending-payment order; **the platform dispatches a rider only once payment succeeds** — the caller never triggers dispatch directly.
+  </Step>
+  <Step title="Amount conventions">
+    The amount charged equals the chosen provider's quoted `fee`; a tip is a separate payment item (it only takes effect once paid, and accumulates into `tip_fee`). All amounts are in cents.
+  </Step>
+  <Step title="Token lifetime">
+    `quote_id` is valid once within 600 seconds; if the user takes too long to decide or switches providers to re-check the price, just get a new quote.
+  </Step>
+  <Step title="Privacy">
+    Contact phone numbers are stored encrypted and never returned in plaintext — the address book returns a masked form (`138****5678`), and order history doesn't return a phone number at all. Unit detail (`detail`) is returned and automatically appended to the address when placing an order. Rider phone numbers differ by purpose: querying the rider's location returns the full work number (so the user can call the rider), while status callbacks only give the masked form with the middle four digits hidden (for confirming which rider it is).
+  </Step>
+  <Step title="Coordinates">
+    Always GCJ-02. Coordinates returned by `errand_search_addresses` are already in this system — pass them through as-is.
+  </Step>
+  <Step title="Cancellation fee">
+    Cancelling after a rider has accepted the order may incur a fee — always call `errand_pre_cancel` to check first and confirm with the user.
+  </Step>
+  <Step title="A callback is a notification, not the source of truth">
+    `callback_url` delivery is best-effort with no retry; the order's actual state is always whatever `errand_get_order` returns.
+  </Step>
+  <Step title="Relationship to the food-ordering MCP">
+    Independent endpoint, independent tool set; the same Agent credential can connect to both services at once, and `consent_grant_id` is issued separately per capability.
+  </Step>
+  <Step title="Estimated delivery time">
+    Estimated based on delivery distance (45 minutes within 3 km, plus 5 minutes per additional km), so every provider on the same order gives the same estimate; a scheduled order shows the time you booked instead.
+  </Step>
+</Steps>

@@ -1,0 +1,52 @@
+---
+title: "errand_delete_address"
+description: "MCP tool errand_delete_address — delete an address from the delivery-errand address book"
+---
+
+## errand_delete_address
+
+Deletes an address from the delivery-errand address book.
+
+<Warning>
+  Deletion cannot be undone — confirm which address with the user first. Orders already placed are not affected.
+</Warning>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix), from `errand_verify_user_bind` |
+| `address_id` | string | Yes | — | ID of the address to delete (`plat_` prefix) |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `address_id` | string | The deleted address ID |
+| `deleted` | boolean | Always `true` |
+| `deleted_count` | integer | Number of entries actually deleted; if the exact same address was saved more than once, all copies are removed together. The same place saved with a different door number or contact is a separate entry and is not affected |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability; the delivery-errand capability needs its own grant |
+| `CAP_NOT_BOUND` | The delivery-errand capability is not enabled for this agent |
+| `ADDRESS_NOT_FOUND` | The address doesn't exist or doesn't belong to the current user; deleting the same ID again also returns this error |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+```json
+{
+  "name": "errand_delete_address",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>",
+    "address_id": "plat_12"
+  }
+}
+```

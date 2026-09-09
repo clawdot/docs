@@ -1,0 +1,61 @@
+---
+title: "errand_verify_user_bind"
+description: "MCP 工具 errand_verify_user_bind — 校验验证码完成跑腿授权绑定，换取 consent_grant_id"
+---
+
+## errand_verify_user_bind
+
+校验短信验证码并建立用户授权，返回 `consent_grant_id`。本工具是跑腿授权流程的收口步骤，只需 Agent 凭证，不需要 `consent_grant_id` 参数。
+
+<Note>
+  **跑腿授权链路（收口）**：`errand_request_user_bind` → 拿到 `bind_id` → 用户收到验证码 → **`errand_verify_user_bind`** 换取 `consent_grant_id` → 后续跑腿工具带该 `consent_grant_id` 调用。
+</Note>
+
+<Warning>
+  **跑腿的 consent_grant_id 与外卖各自独立、不通用**：本工具发放的 `consent_grant_id` 只用于跑腿工具，外卖的 `consent_grant_id` 不能拿来调跑腿；只有客户开通了跨能力互通，一枚 `consent_grant_id` 才会同时打通跑腿与外卖两边（撤销时也会一并撤销两边，见 `errand_revoke_user_bind` 页的 `revoked_scopes`）。同一手机号重复绑定会**轮换**：换发新的 `consent_grant_id`，旧值即刻失效。
+</Warning>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `bind_id` | string | 是 | — | 验证码会话 ID，来自 `errand_request_user_bind` 的返回 |
+| `code` | string | 是 | — | 用户输入的短信验证码 |
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bound` | boolean | 授权是否完成，成功为 `true` |
+| `status` | string | 成功为 `"success"` |
+| `consent_grant_id` | string | 用户授权记录 ID，后续所有跑腿工具参数携带 |
+| `scopes` | string[] | 授权能力范围，跑腿为 `["dayoudan.errand"]` |
+| `expires_at` | string | 授权过期时间（ISO 8601，约 3 个月）；过期后重新绑定即可 |
+
+```json
+{
+  "bound": true,
+  "status": "success",
+  "consent_grant_id": "cg_55fdaa2739314530a261f7af1d3ba3b7",
+  "scopes": ["dayoudan.errand"],
+  "expires_at": "2026-10-18T15:26:54+00:00"
+}
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `AUTH_REQUIRED` / `AUTH_INVALID` | 缺少或无效的 Agent 凭据 |
+| `SMS_CODE_INVALID` | 验证码错误或已过期 |
+| `BINDING_LIMIT_REACHED` | 当前 Agent 已达可绑定用户数上限 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+**大致耗时**：约 0.5 秒。
+
+### 调用示例
+
+```json
+{ "name": "errand_verify_user_bind", "arguments": { "bind_id": "<bind_id>", "code": "123456" } }
+```

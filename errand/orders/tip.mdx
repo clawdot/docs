@@ -1,0 +1,68 @@
+---
+title: "errand_add_tip"
+description: "MCP 工具 errand_add_tip —— 给跑腿订单加小费催单，骑手接单前可多次加"
+---
+
+## errand_add_tip
+
+给已下单的跑腿订单加小费催单。**小费是独立的支付单**：本工具只返回小费收银台链接，需要用户打开链接完成支付，小费才会生效并累计进订单的 `tip_fee`。仅在**骑手接单前**可加，可多次调用累计加小费。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
+| `tip_fee` | integer | 是 | — | 本次要加的小费金额（分），必须大于 0 |
+
+### 返回
+
+<Warning>
+  金额字段 `tip_fee` 单位为**分（整数）**。
+</Warning>
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 订单 ID |
+| `tip_fee` | integer | 本次加的小费金额（分）|
+| `status` | string | 恒为 `pending_payment`，表示这笔小费单待支付 |
+| `cashier_url` | string | 小费收银台支付链接，交给用户打开完成支付 |
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "tip_fee": 100,
+  "status": "pending_payment",
+  "cashier_url": "https://g.clawdot.ai/xk2IP"
+}
+```
+
+<Note>
+  骑手已接单后调用会返回 `ERRAND_TIP_NOT_ALLOWED`；`tip_fee` 小于等于 0 会返回 `ERRAND_TIP_INVALID`。
+</Note>
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+| `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前授权用户 |
+| `ERRAND_TIP_NOT_ALLOWED` | 当前状态不允许加小费（骑手已接单）|
+| `ERRAND_TIP_INVALID` | 小费金额不合法，须为大于 0 的整数（单位分）|
+
+### 调用示例
+
+```json
+{
+  "name": "errand_add_tip",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>",
+    "tip_fee": 100
+  }
+}
+```

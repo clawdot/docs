@@ -1,0 +1,58 @@
+---
+title: "errand_list_addresses"
+description: "MCP tool errand_list_addresses — list the user's delivery-errand address book"
+---
+
+## errand_list_addresses
+
+Lists the consenting user's delivery-errand address book. Address IDs always have a `plat_` prefix and can be used directly as `address_id`.
+
+<Note>
+  **Only contains addresses saved through the delivery-errand capability**: this address book and the takeout address book are separate and don't see each other's entries — addresses saved for takeout won't show up here. It's empty for a new user; search with `errand_search_addresses` and save with `errand_save_address` first. By default this only shows addresses this agent saved for the phone number; addresses become visible across agents only once address sharing is enabled.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix), from `errand_verify_user_bind` |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `addresses` | array | Address list; empty array when there are no addresses |
+| `addresses[].id` | string | Address ID (`plat_` prefix); use directly as `address_id` |
+| `addresses[].contact_name` | string | Contact name (may be empty) |
+| `addresses[].contact_phone_masked` | string | Masked contact phone (e.g. `138****5678`); empty string if no phone was saved |
+| `addresses[].address` | string | Address |
+| `addresses[].detail` | string | Door number / extra detail (e.g. "Building 3, Room 303"); empty string if never set |
+| `addresses[].lat` | number | Latitude (GCJ-02) |
+| `addresses[].lng` | number | Longitude (GCJ-02) |
+| `addresses[].tag` | string | Label |
+| `addresses[].source` | string | Address origin; always `errand` for addresses saved through this capability |
+| `addresses[].last_used_at` | string \| null | Last-used timestamp |
+| `addresses[].use_count` | integer | Number of times used |
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability; the delivery-errand capability needs its own grant |
+| `CAP_NOT_BOUND` | The delivery-errand capability is not enabled for this agent |
+
+See [Error Handling](/en/gateway/error-handling) for the full list.
+
+### Call Example
+
+```json
+{
+  "name": "errand_list_addresses",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>"
+  }
+}
+```

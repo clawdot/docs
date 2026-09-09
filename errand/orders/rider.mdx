@@ -1,0 +1,65 @@
+---
+title: "errand_get_rider"
+description: "MCP 工具 errand_get_rider —— 查询跑腿订单当前骑手的实时位置"
+---
+
+## errand_get_rider
+
+查询配送中订单当前骑手的实时位置。仅**配送进行中**的订单可查；待支付、已取消、配送失败的单会返回 `ERRAND_NO_RIDER`。
+
+<Note>
+  **本工具返回的是骑手完整工作号**，供用户直接联系骑手，与订单其它环节里的脱敏电话（如 `errand_get_order` 里的 `from.contact_phone_masked`）不是一回事。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `order_id` | string | 订单 ID |
+| `rider_name` | string | 骑手姓名 |
+| `rider_phone` | string | 骑手联系电话（完整工作号，供用户直接联系骑手）|
+| `latitude` | number | 骑手纬度（高德地图 GCJ-02 坐标系）|
+| `longitude` | number | 骑手经度（高德地图 GCJ-02 坐标系）|
+| `time` | integer | 位置更新时间（毫秒时间戳）|
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "rider_name": "王师傅",
+  "rider_phone": "13812345678",
+  "latitude": 28.231,
+  "longitude": 112.965,
+  "time": 1783783200000
+}
+```
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
+| `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前授权用户 |
+| `ERRAND_NO_RIDER` | 当前订单无骑手信息（未派单，或订单已终结）|
+
+### 调用示例
+
+```json
+{
+  "name": "errand_get_rider",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>"
+  }
+}
+```

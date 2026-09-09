@@ -1,0 +1,52 @@
+---
+title: "errand_delete_address"
+description: "MCP 工具 errand_delete_address —— 从跑腿地址簿删除一条地址"
+---
+
+## errand_delete_address
+
+从跑腿地址簿删除某条地址。
+
+<Warning>
+  删除不可撤销，建议先跟用户确认是哪一条。已下的订单不受影响。
+</Warning>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权记录 ID（`cg_` 前缀），来自 `errand_verify_user_bind` |
+| `address_id` | string | 是 | — | 要删的地址 ID（`plat_` 前缀）|
+
+### 返回
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `address_id` | string | 被删的地址 ID |
+| `deleted` | boolean | 恒为 `true` |
+| `deleted_count` | integer | 实际删除条数；完全相同的地址存过多份时会一并清掉。同一地点下门牌或联系人不同的是另一条地址，不受影响 |
+
+### 错误码
+
+| code | 说明 |
+|------|------|
+| `CONSENT_GRANT_REQUIRED` | 缺少用户授权（未传 `consent_grant_id`）|
+| `CONSENT_GRANT_INVALID` | 用户授权无效 |
+| `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，跑腿需单独绑定 |
+| `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
+| `ADDRESS_NOT_FOUND` | 地址不存在或不属于当前用户；重复删除同一个 ID 同样返回该错误 |
+
+完整错误码见 [错误处理](/gateway/error-handling)。
+
+### 调用示例
+
+```json
+{
+  "name": "errand_delete_address",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>",
+    "address_id": "plat_12"
+  }
+}
+```

@@ -1,0 +1,65 @@
+---
+title: "errand_get_rider"
+description: "MCP tool errand_get_rider — fetches the current rider's real-time location for an errand order"
+---
+
+## errand_get_rider
+
+Fetches the real-time location of the rider currently handling an order. Only available while the order is **out for delivery**; orders that are unpaid, cancelled, or failed return `ERRAND_NO_RIDER`.
+
+<Note>
+  **This tool returns the rider's full work phone number**, ready for the user to call the rider directly — a different value from the masked phone numbers found elsewhere in the order (e.g. `from.contact_phone_masked` in `errand_get_order`).
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+| `order_id` | string | Yes | — | Order ID (`err_` prefix) |
+
+### Returns
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_id` | string | Order ID |
+| `rider_name` | string | Rider name |
+| `rider_phone` | string | Rider contact phone (full work number, ready for the user to call directly) |
+| `latitude` | number | Rider latitude (AMap GCJ-02 coordinate system) |
+| `longitude` | number | Rider longitude (AMap GCJ-02 coordinate system) |
+| `time` | integer | Location update time (millisecond timestamp) |
+
+```json
+{
+  "order_id": "err_1f5108ee7dc54730aee29d20db789d64",
+  "rider_name": "Master Wang",
+  "rider_phone": "13812345678",
+  "latitude": 28.231,
+  "longitude": 112.965,
+  "time": 1783783200000
+}
+```
+
+### Error Codes
+
+| code | Description |
+|------|-------------|
+| `CONSENT_GRANT_REQUIRED` | Missing consent grant (no `consent_grant_id`) |
+| `CONSENT_GRANT_INVALID` | Consent grant is invalid |
+| `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
+| `CAP_NOT_BOUND` | The errand capability is not enabled for this agent |
+| `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
+| `ERRAND_ORDER_NOT_FOUND` | Order not found, or not owned by the consenting user |
+| `ERRAND_NO_RIDER` | No rider assigned to this order (not yet dispatched, or the order has already ended) |
+
+### Example Call
+
+```json
+{
+  "name": "errand_get_rider",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from errand_create / errand_list_orders>"
+  }
+}
+```
