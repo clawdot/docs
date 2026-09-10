@@ -40,6 +40,9 @@ description: "MCP 工具 search_shops — 按位置搜索或浏览附近店铺�
 | `offset` | integer \| null | 否 | `null` | **仅浏览模式**：翻页游标。不传=第一页；传上次返回的 `next_offset` 取下一页。每页数量固定、不可调。带 `keyword` 时忽略 |
 | `exclude_required_selection` | boolean | 否 | `false` | 剔除「下单前还要再选一样东西」的店铺（必须选锅底、必须配主食等）。浏览模式下本页剔除后不足 5 家会自动往后翻页补齐；关键词模式只剔除、不翻页，整页被剔除时返回空列表。**少数店铺仍会返回**：店内有可直接下单的套餐时不剔除该店，此时点套餐能直接下单、点其它商品仍需先选 |
 | `with_recommendations` | boolean | 否 | `false` | 每家店附带 1~2 个招牌菜（见 `recommend_items`）|
+| `exclude_required_selection` | boolean | 否 | `false` | 不返回「下单前还要再选一样东西」的店。两种情形都算：店里有必选组（如麻辣烫的必选汤底），或全店没有一件单点够起送价。浏览模式下会自动往后翻页把结果补够；关键词模式不翻页，整个品类都不合格时会返回空列表 |
+| `with_recommendations` | boolean | 否 | `false` | 每家店带 1~2 个招牌菜（见 `recommend_items`），仅供展示，下单 ID 一律来自 `get_shop_menu` |
+| `chain_brands_only` | boolean | 否 | `false` | 只返回连锁品牌店，过滤掉单店。**这是「是不是连锁」，不是「好不好」**——口碑很好的独立单店也会被一起过滤掉 |
 | `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms`；不传则用绑定时设定的语言（默认中文） |
 
 <Note>
