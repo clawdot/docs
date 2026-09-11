@@ -32,7 +32,9 @@ description: "MCP 工具，按平台订单 ID 查询订单的实时状态、店�
   "cancel_reason": null,
   "delivery": {
     "status": "DELIVERING",
-    "estimated_time_text": null
+    "estimated_time_text": null,
+    "rider_name": null,
+    "rider_phone": null
   },
   "detail_url": "https://g.clawdot.ai/xk2IP",
   "created_at": "2026-06-16T10:20:00+00:00",
@@ -54,9 +56,11 @@ description: "MCP 工具，按平台订单 ID 查询订单的实时状态、店�
 | `items_summary` | string | 商品摘要，取前 3 项拼成 `名称 x数量`，以中文逗号 `，` 连接 |
 | `payable_price` | integer | 应付金额（分）|
 | `cancel_reason` | string \| null | 订单取消或下单失败的原因，如「超时未支付」「用户取消支付」；文案由平台给出、可能新增，请直接展示不要做枚举判断；其他状态为 `null` |
-| `delivery` | object \| null | 配送信息；上游无实时配送数据、或实时查询失败回落本地快照时为 `null` |
-| `delivery.status` | string \| null | 上游配送状态原值 |
-| `delivery.estimated_time_text` | string \| null | 预计送达文案（当前恒为 `null`，上游暂不返回该字段）|
+| `delivery` | object \| null | 配送信息；暂时查不到实时配送数据时为 `null` |
+| `delivery.status` | string \| null | 配送状态 |
+| `delivery.estimated_time_text` | string \| null | 预计送达文案（当前恒为 `null`）|
+| `delivery.rider_name` | string \| null | 骑手姓名。骑手未接单时为 `null` |
+| `delivery.rider_phone` | string \| null | 骑手联系电话，可直接给用户拨打。骑手未接单时为 `null` |
 | `detail_url` | string \| null | 订单详情页链接，可直接发给用户查看订单进度；未支付的订单打开后可继续支付。每次调用返回的链接可能不同，但都可用——不要用作订单标识或做前后比对。链接有效期 30 天。下单时传了 `require_phone_verify: true` 的订单，打开链接时先要求输入下单手机号后 4 位确认本人 |
 | `created_at` | string \| null | 下单时间（ISO 8601）|
 | `paid_at` | string \| null | 支付时间（当前恒为 `null`，上游暂不返回该字段）|

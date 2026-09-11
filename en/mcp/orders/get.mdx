@@ -32,7 +32,9 @@ Queries the current status of a single order by its platform order ID. The gatew
   "cancel_reason": null,
   "delivery": {
     "status": "DELIVERING",
-    "estimated_time_text": null
+    "estimated_time_text": null,
+    "rider_name": null,
+    "rider_phone": null
   },
   "detail_url": "https://g.clawdot.ai/xk2IP",
   "created_at": "2026-06-16T10:20:00+00:00",
@@ -54,9 +56,11 @@ Queries the current status of a single order by its platform order ID. The gatew
 | `items_summary` | string | Item summary; first 3 items joined as `name x quantity`, separated by the Chinese comma `，` |
 | `payable_price` | integer | Payable amount (cents) |
 | `cancel_reason` | string \| null | Why the order was cancelled or failed, e.g. payment timed out, or the user cancelled the payment. The wording comes from the platform and new values may appear, so display it as-is rather than matching against a fixed set; `null` for all other statuses |
-| `delivery` | object \| null | Delivery info; `null` when no real-time delivery data is available upstream, or when the real-time lookup fails and falls back to the local snapshot |
-| `delivery.status` | string \| null | Raw upstream delivery status |
-| `delivery.estimated_time_text` | string \| null | Estimated delivery text (currently always `null`; upstream does not return this field yet) |
+| `delivery` | object \| null | Delivery info; `null` while no real-time delivery data is available |
+| `delivery.status` | string \| null | Delivery status |
+| `delivery.estimated_time_text` | string \| null | Estimated delivery text (currently always `null`) |
+| `delivery.rider_name` | string \| null | Courier name. `null` until a courier accepts the job |
+| `delivery.rider_phone` | string \| null | Courier phone number — hand it to the user to call directly. `null` until a courier accepts the job |
 | `detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days. For orders created with `require_phone_verify: true`, the link first asks for the last 4 digits of the ordering phone number |
 | `created_at` | string \| null | Order creation time (ISO 8601) |
 | `paid_at` | string \| null | Payment time (currently always `null`; upstream does not return this field yet) |
