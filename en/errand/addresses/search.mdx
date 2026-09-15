@@ -1,23 +1,35 @@
 ---
 title: "errand_search_addresses"
-description: "MCP tool errand_search_addresses — search addresses by keyword, and surface saved addresses that match"
+description: "MCP tool errand_search_addresses — find addresses by keyword or by the user's current location, and surface saved addresses that match"
 ---
 
 ## errand_search_addresses
 
-Searches for addresses by keyword and returns two result sets at once: `candidates`, the places found by the search, and `saved_matches`, addresses the user has already saved that match this search. The same place name can have multiple matches — never auto-pick the first one, let the user choose. Addresses in `saved_matches` already have their door number and contact phone filled in, so the user can place an order right away without repeating that information.
+Finds addresses and returns two result sets at once: `candidates`, the places found by the search, and `saved_matches`, addresses the user has already saved that match this search. The same place name can have multiple matches — never auto-pick the first one, let the user choose. Addresses in `saved_matches` already have their door number and contact phone filled in, so the user can place an order right away without repeating that information.
 
 <Note>
   **Address flow**: once you find a candidate place, save it with `errand_save_address`. An address that already appears in `saved_matches` is already saved — skip saving and use its `id` directly as `address_id`.
 </Note>
+
+### Two ways to search — supply at least one
+
+- **The user named a place** ("send it to People's Square") → pass `keyword`, optionally with `city` to narrow it down.
+- **The user said "from where I am right now"** → there is no place name to search on; pass their `lat` / `lng`. You get back the names this location belongs to, from specific to broad (e.g. "星洲花园南区圣陶沙韵", "星洲花园南区", "星洲花园"), so the user can confirm which one is right.
+- **Both supplied** → the search runs on `keyword`, and the coordinates only rank nearby results first.
+
+<Warning>
+  When the user names a place, **do not let the coordinates override `keyword`** — otherwise "send it to People's Square" turns into a search for where they are standing.
+</Warning>
 
 ### Parameters
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix), from `errand_verify_user_bind` |
-| `keyword` | string | Yes | — | Place / address keyword, e.g. "西湖文化广场" |
+| `keyword` | string | No | — | Place / address keyword, e.g. "西湖文化广场". Supply this or `lat`/`lng`; omitting both returns `KEYWORD_REQUIRED` |
 | `city` | string | No | — | City name to narrow the search (e.g. "杭州") |
+| `lat` | number | No | — | Latitude of the user's current location (GCJ-02). On its own it searches by location; together with `keyword` it ranks nearby results first |
+| `lng` | number | No | — | Longitude (GCJ-02). Must be supplied together with `lat`; either one alone counts as no location |
 
 ### Returns
 
@@ -45,9 +57,9 @@ Searches for addresses by keyword and returns two result sets at once: `candidat
 | Field | Type | Description |
 |-------|------|-------------|
 | `candidates` | array | Candidate addresses found by the search |
-| `candidates[].name` | string | Place name |
+| `candidates[].name` | string | Place name. When searching by location, one location returns several names, from specific to broad |
 | `candidates[].address` | string | Full address |
-| `candidates[].lat` | number | Latitude (GCJ-02); feed into `from_address`/`to_address` when placing an order |
+| `candidates[].lat` | number | Latitude (GCJ-02); feed into `from_address`/`to_address` when placing an order. **When searching by location this is exactly the coordinate you passed in** — picking a different candidate only changes the place name shown to the courier; the pickup point is always where the user is |
 | `candidates[].lng` | number | Longitude (GCJ-02) |
 | `candidates[].adcode` | string | Administrative division code |
 | `saved_matches` | array | Addresses the user has already saved that match this search; empty array when there's no match |
@@ -77,13 +89,15 @@ Searches for addresses by keyword and returns two result sets at once: `candidat
 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability; the delivery-errand capability needs its own grant |
 | `CAP_NOT_BOUND` | The delivery-errand capability is not enabled for this agent |
-| `KEYWORD_REQUIRED` | The search keyword is empty |
+| `KEYWORD_REQUIRED` | Neither a keyword nor coordinates were supplied |
 | `ERRAND_LOCATE_UNAVAILABLE` | Address search is not enabled yet |
 | `ADDRESS_SEARCH_FAILED` | Address search failed; try again later |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 
 ### Call Example
+
+By place name:
 
 ```json
 {
@@ -92,6 +106,19 @@ See [Error Handling](/en/gateway/error-handling) for the full list.
     "consent_grant_id": "<consent_grant_id>",
     "keyword": "五一广场",
     "city": "长沙"
+  }
+}
+```
+
+By current location:
+
+```json
+{
+  "name": "errand_search_addresses",
+  "arguments": {
+    "consent_grant_id": "<consent_grant_id>",
+    "lat": 30.290000,
+    "lng": 120.096000
   }
 }
 ```
