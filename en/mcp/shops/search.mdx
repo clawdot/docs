@@ -38,10 +38,8 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `lng` | float \| null | No | `null` | Longitude (GCJ-02) |
 | `city` | string \| null | No | `null` | City name to scope the search |
 | `offset` | integer \| null | No | `null` | **Browse mode only**: pagination cursor. Omit = first page; pass the previous `next_offset` to fetch the next page. Page size is fixed and not adjustable. Ignored when `keyword` is set |
-| `exclude_required_selection` | boolean | No | `false` | Drop shops that force one more pick before checkout (a hotpot base, a mandatory staple). In browse mode the gateway pages forward automatically to refill up to 5 shops; keyword mode filters but never pages, so it can come back empty. **Some shops still come back**: a shop is kept when it has a combo that can be ordered on its own — ordering that combo works directly, but ordering anything else may still require a pick first |
-| `with_recommendations` | boolean | No | `false` | Attach 1–2 signature dishes per shop (see `recommend_items`) |
 | `exclude_required_selection` | boolean | No | `false` | Drop shops where the user would have to pick a second time before checking out — either the shop has a required group (a hotpot base, say), or no single dish reaches the delivery minimum. Browse mode pages forward to refill the list; keyword mode does not page, so a category where every shop qualifies comes back empty |
-| `with_recommendations` | boolean | No | `false` | Attach 1–2 signature dishes per shop (see `recommend_items`). Display only — ordering IDs always come from `get_shop_menu` |
+| `with_recommendations` | boolean | No | `false` | Attach 1–2 signature dishes per shop (see `recommend_items`), each with its own `item_id` |
 | `chain_brands_only` | boolean | No | `false` | Return only chain-brand shops, dropping independent one-off ones. **This is "is it a chain", not "is it good"** — a well-regarded single-location restaurant is dropped too |
 | `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
 
@@ -80,18 +78,19 @@ Searches or browses shops near the delivery location. Each result carries a `sho
       ],
       "recommend_items": [
         {
+          "item_id": "item_86392cde7a77b08d80e09c08da88620e",
           "name": "Coconut Latte",
           "description": "Coconut milk + espresso",
           "price": 1600,
           "original_price": 2900,
-          "image_url": "https://cube.elemecdn.com/…"
+          "image_url": "https://cube.elemecdn.com/…",
+          "needs_spec_selection": true
         }
       ]
     }
   ],
   "search_match_level": "exact",
-  "next_offset": 20,
-  "filtered_required_selection": 3
+  "next_offset": 20
 }
 ```
 
@@ -104,7 +103,6 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops` | array | Shop list (up to 20 in browse mode, ~5 in keyword search) |
 | `search_match_level` | string | **Keyword search only**: `exact` = at least one shop name or brand matched the keyword, and those shops are listed first; `related` = no shop name matched, the results are same-category alternatives. Browse mode does **not** include this field |
 | `next_offset` | integer \| null | **Returned only when paging in browse mode** (request included `offset`): cursor for the next page, use as the next request's `offset`; empty `shops` means the end. Requests without `offset` do **not** include this field |
-| `filtered_required_selection` | integer | **Only when `exclude_required_selection: true`**: how many shops were dropped this call. Lets you tell "there really are only a few shops nearby" from "they were filtered out" |
 | `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `get_shop_menu` / `quote_cart` / `preview_order` as-is |
 | `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
 | `shops[].name` | string | Shop name |
@@ -125,15 +123,19 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].matched_items[].price` | integer | Item price (cents) |
 | `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
 | `shops[].matched_items[].image_url` | string \| null | Item image URL (upstream thumbnail, ~184×184). For the original or another size, rewrite/drop the trailing `?x-oss-process` parameter |
-| `shops[].recommend_items` | array | 1–2 signature dishes for the shop (**only when `with_recommendations: true`; display-only**). Picked by monthly sales and the shop's own hot/signature categories, with sub-¥1 loss leaders excluded |
+| `shops[].recommend_items` | array | 1–2 signature dishes for the shop (**only when `with_recommendations: true`**). Picked by monthly sales and the shop's own hot/signature categories, with sub-¥1 loss leaders excluded |
+| `shops[].recommend_items[].item_id` | string | Item ID. Pair it with this shop's `cart_id` to call `get_item_options` right away and see specs and add-ons, with no full menu pull; pricing and ordering start with one `get_shop_menu` call, and the ID stays valid across it |
 | `shops[].recommend_items[].name` | string | Item name |
 | `shops[].recommend_items[].description` | string \| null | Item description (up to 80 chars) |
-| `shops[].recommend_items[].price` | integer | Price in cents |
+| `shops[].recommend_items[].price` | integer | Price in cents. This is the cheapest variant's price — confirm the real one with `quote_cart` |
 | `shops[].recommend_items[].original_price` | integer \| null | Original price in cents |
 | `shops[].recommend_items[].image_url` | string \| null | Image URL, same as `matched_items` |
+| `shops[].recommend_items[].needs_spec_selection` | boolean | Whether the dish has several size/spec variants. `true` means you must pick one via `get_item_options` before ordering; `false` only means no size choice showed up — required add-on groups may still apply, and `get_item_options` is authoritative |
 
 <Warning>
-  `recommend_items` and `matched_items` carry **no IDs and no stock state**. To order, you must first call `get_shop_menu` and use the `item_id` / `sku_id` / option IDs it returns; item availability is also the menu's call.
+  `matched_items` carry **no IDs and no stock state** — to order one of those, call `get_shop_menu` first and use the `item_id` / `sku_id` / option IDs it returns.
+
+  `recommend_items` **do carry an `item_id`**: pair it with the shop's `cart_id` and call `get_item_options` right away. Pricing and ordering still start with one `get_shop_menu` call on that cart, and the same `item_id` stays valid across it.
 </Warning>
 
 ### Error Codes
