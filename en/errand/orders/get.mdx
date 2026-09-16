@@ -16,7 +16,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 </Note>
 
 <Note>
-  **The sender's and recipient's phone numbers are only returned masked** (`from.contact_phone_masked` / `to.contact_phone_masked`, e.g. `138****5678`) and cannot be dialed directly. Reordering from this order's data requires the user to re-enter the full phone number. The courier's phone is a separate matter — see [errand_get_rider](/en/errand/orders/rider).
+  **The sender's and recipient's phone numbers are only returned masked** (`from.contact_phone_masked` / `to.contact_phone_masked`, e.g. `138****5678`) and cannot be dialed directly. Reordering from this order's data requires the user to re-enter the full phone number. The rider's phone is a separate matter — the `rider.phone` this tool returns is the **full work number** and can be dialed directly to reach the rider (the same number as [errand_get_rider](/en/errand/orders/rider)).
 </Note>
 
 ### Parameters
@@ -71,7 +71,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `timeline[].time` | integer | Timestamp (milliseconds) |
 | `rider` | object | (open orders only, once accepted) Rider info |
 | `rider.name` | string | Rider name |
-| `rider.phone` | string | Rider contact phone |
+| `rider.phone` | string | Rider contact phone (full work number, ready to dial) |
 | `cancel` | object | (only present if the order was cancelled) Cancellation info |
 | `cancel.cancel_fee` | integer | Cancellation penalty (cents) |
 | `cancel.cancel_reason` | string | Cancellation reason |

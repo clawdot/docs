@@ -20,7 +20,7 @@ description: "Things to know before integrating Errand: address sourcing, the sa
     `quote_id` is valid once within 600 seconds; if the user takes too long to decide or switches providers to re-check the price, just get a new quote.
   </Step>
   <Step title="Privacy">
-    Contact phone numbers are stored encrypted and never returned in plaintext — the address book returns a masked form (`138****5678`), and order history doesn't return a phone number at all. Unit detail (`detail`) is returned and automatically appended to the address when placing an order. Rider phone numbers differ by purpose: querying the rider's location returns the full work number (so the user can call the rider), while status callbacks only give the masked form with the middle four digits hidden (for confirming which rider it is).
+    Contact phone numbers are stored encrypted and never returned in plaintext — the address book returns a masked form (`138****5678`), and order history doesn't return a phone number at all. Unit detail (`detail`) is returned and automatically appended to the address when placing an order. Rider phone numbers differ by purpose: order details and the rider-location lookup both return the full work number (so the user can call the rider), while status callbacks only give the masked form with the middle four digits hidden (for confirming which rider it is).
   </Step>
   <Step title="Coordinates">
     Always GCJ-02. Coordinates returned by `errand_search_addresses` are already in this system — pass them through as-is.
