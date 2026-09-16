@@ -26,7 +26,7 @@ description: "跑腿接入前需要了解的地址来源、同城限制、支付
     统一使用 GCJ-02。`errand_search_addresses` 返回的坐标即为该系，直接回填。
   </Step>
   <Step title="取消费用">
-    骑手接单后取消可能产生违约金，务必先 `errand_pre_cancel` 预检并向用户确认。
+    骑手接单后取消可能产生违约金，务必先 `errand_pre_cancel` 预检并向用户确认；未支付的单预检返回 0，可直接取消。
   </Step>
   <Step title="回调是提醒不是事实源">
     `callback_url` 推送 best-effort 不重试；订单事实状态一律以 `errand_get_order` 为准。

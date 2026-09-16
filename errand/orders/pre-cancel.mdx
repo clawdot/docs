@@ -11,6 +11,10 @@ description: "MCP 工具 errand_pre_cancel —— 取消前查询违约金与预
   **建议流程**：骑手已接单后取消可能产生违约金。建议先调用本工具，把违约金与可退金额展示给用户确认，再调用 `errand_cancel` 真正执行取消。
 </Note>
 
+<Note>
+  **未支付的单不收违约金**：本工具正常返回 `cancel_fee` 为 0、`refund_amount` 为 0（这单还没付过钱，没有款可退），直接调用 `errand_cancel` 取消即可。
+</Note>
+
 ### 参数
 
 | 参数 | 类型 | 必填 | 默认 | 说明 |
@@ -29,7 +33,7 @@ description: "MCP 工具 errand_pre_cancel —— 取消前查询违约金与预
 | `order_id` | string | 订单 ID |
 | `cancel_fee` | integer | 取消该单需要支付的违约金（分）|
 | `quote_fee` | integer | 该单的实付金额（分）|
-| `refund_amount` | integer | 预计可退金额（= `quote_fee` − `cancel_fee`，分）|
+| `refund_amount` | integer | 预计可退金额（分）。已支付的单为 `quote_fee` − `cancel_fee`；未支付的单没有款可退，固定为 0 |
 
 ```json
 { "order_id": "err_1f5108ee7dc54730aee29d20db789d64", "cancel_fee": 0, "quote_fee": 200, "refund_amount": 200 }
@@ -45,6 +49,7 @@ description: "MCP 工具 errand_pre_cancel —— 取消前查询违约金与预
 | `CAP_NOT_BOUND` | 该 Agent 未开通跑腿能力 |
 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力，不可用于本工具 |
 | `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前授权用户 |
+| `ERRAND_CANCEL_NOT_ALLOWED` | 当前状态不允许取消（已完成/已取消/配送失败）|
 
 ### 调用示例
 

@@ -26,7 +26,7 @@ description: "Things to know before integrating Errand: address sourcing, the sa
     Always GCJ-02. Coordinates returned by `errand_search_addresses` are already in this system — pass them through as-is.
   </Step>
   <Step title="Cancellation fee">
-    Cancelling after a rider has accepted the order may incur a fee — always call `errand_pre_cancel` to check first and confirm with the user.
+    Cancelling after a rider has accepted the order may incur a fee — always call `errand_pre_cancel` to check first and confirm with the user. For unpaid orders the pre-check returns 0, so they can be cancelled directly.
   </Step>
   <Step title="A callback is a notification, not the source of truth">
     `callback_url` delivery is best-effort with no retry; the order's actual state is always whatever `errand_get_order` returns.

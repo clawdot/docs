@@ -54,7 +54,7 @@ When a tool call fails at the business level, `content` carries an `error` struc
 | `ERRAND_FEE_CHANGED` | The delivery fee has changed; get a new quote before placing the order. |
 | `PUBLIC_REFERENCE_INVALID` | `callback_url` isn't a usable public http(s) address (e.g. localhost or an internal address was given). |
 | `ERRAND_ORDER_NOT_FOUND` | The order doesn't exist or doesn't belong to the current user. |
-| `ERRAND_CANCEL_NOT_ALLOWED` | Cancellation isn't allowed in the current state (a final state, or still at the pre-check stage). |
+| `ERRAND_CANCEL_NOT_ALLOWED` | Cancellation isn't allowed in the current state (completed / cancelled / delivery failed). |
 | `ERRAND_NO_RIDER` | The order has no rider information (not yet dispatched, or already finalized). |
 | `ERRAND_TIP_NOT_ALLOWED` | Adding a tip isn't allowed in the current state (a rider has already accepted the order). |
 | `CASHIER_UNAVAILABLE` | The cashier is temporarily unavailable; retry placing the order later. |
