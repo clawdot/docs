@@ -11,6 +11,10 @@ A pre-check before cancelling: looks up the penalty required to cancel this orde
   **Recommended flow**: cancelling after a rider has accepted the order may incur a penalty. Call this tool first, show the penalty and expected refund to the user for confirmation, then call `errand_cancel` to actually cancel.
 </Note>
 
+<Note>
+  **Unpaid orders carry no penalty**: this tool returns normally with `cancel_fee` 0 and `refund_amount` 0 (nothing has been paid, so there is nothing to refund). Just call `errand_cancel` directly.
+</Note>
+
 ### Parameters
 
 | Parameter | Type | Required | Default | Description |
@@ -29,7 +33,7 @@ A pre-check before cancelling: looks up the penalty required to cancel this orde
 | `order_id` | string | Order ID |
 | `cancel_fee` | integer | Penalty required to cancel this order (cents) |
 | `quote_fee` | integer | Amount paid for this order (cents) |
-| `refund_amount` | integer | Expected refund (= `quote_fee` − `cancel_fee`, cents) |
+| `refund_amount` | integer | Expected refund, in cents. For paid orders this is `quote_fee` − `cancel_fee`; for unpaid orders there is nothing to refund, so it is always 0 |
 
 ```json
 { "order_id": "err_1f5108ee7dc54730aee29d20db789d64", "cancel_fee": 0, "quote_fee": 200, "refund_amount": 200 }
@@ -45,6 +49,7 @@ A pre-check before cancelling: looks up the penalty required to cancel this orde
 | `CAP_NOT_BOUND` | The errand capability is not enabled for this agent |
 | `CONSENT_GRANT_WRONG_CAP` | The consent grant belongs to another capability and cannot be used for this tool |
 | `ERRAND_ORDER_NOT_FOUND` | Order not found, or not owned by the consenting user |
+| `ERRAND_CANCEL_NOT_ALLOWED` | Cancellation isn't allowed in the current state (completed / cancelled / delivery failed) |
 
 ### Example Call
 

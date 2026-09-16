@@ -54,7 +54,7 @@ description: "跑腿工具的统一错误结构与常见错误码"
 | `ERRAND_FEE_CHANGED` | 配送费已变更；重新询价后再下单。 |
 | `PUBLIC_REFERENCE_INVALID` | `callback_url` 不是可用的公网 http(s) 地址（如填了 localhost 或内网地址）。 |
 | `ERRAND_ORDER_NOT_FOUND` | 订单不存在或不属于当前用户。 |
-| `ERRAND_CANCEL_NOT_ALLOWED` | 当前状态不允许取消（终态或待支付预检）。 |
+| `ERRAND_CANCEL_NOT_ALLOWED` | 当前状态不允许取消（已完成/已取消/配送失败）。 |
 | `ERRAND_NO_RIDER` | 当前订单无骑手信息（未派单/已终结）。 |
 | `ERRAND_TIP_NOT_ALLOWED` | 当前状态不允许加小费（骑手已接单）。 |
 | `CASHIER_UNAVAILABLE` | 收银台暂不可用；稍后重试下单。 |
