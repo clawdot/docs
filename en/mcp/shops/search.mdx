@@ -41,7 +41,8 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `exclude_required_selection` | boolean | No | `false` | Drop shops where the user would have to pick a second time before checking out — either the shop has a required group (a hotpot base, say), or no single dish reaches the delivery minimum. Browse mode pages forward to refill the list; keyword mode does not page, so a category where every shop qualifies comes back empty |
 | `with_recommendations` | boolean | No | `false` | Attach 1–2 signature dishes per shop (see `recommend_items`), each with its own `item_id` |
 | `chain_brands_only` | boolean | No | `false` | Return only chain-brand shops, dropping independent one-off ones. **This is "is it a chain", not "is it good"** — a well-regarded single-location restaurant is dropped too |
-| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms`; defaults to the language set at binding time (Chinese if unset) |
+| `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; defaults to the language set at binding time (Chinese if unset) |
+| `include_chinese` | boolean | No | false | When `true`, the response also includes the Chinese original (`<key>_zh`) — see [Bilingual responses](/mcp/overview) |
 
 <Note>
   **How the delivery location is resolved**: in order, ① the coordinates of the saved address behind `address_id` → ② the `lat`/`lng` passed explicitly → ③ the user's most-recently-used saved address / remembered location. If none resolve, the call returns `COORDS_REQUIRED`. So `address_id` and `lat`/`lng` are both optional, but at least one location source must be resolvable.

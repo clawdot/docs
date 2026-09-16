@@ -65,7 +65,7 @@ https://eleme-gateway.hicaspian.com/mcp/v1
 
 ## 多语言
 
-平台可按语言返回内容：店铺名、商品名、规格与加料、标签、订单状态、错误提示等展示文案，都会按所选语言返回。枚举 `zh`（中文，默认）/ `en` / `ja` / `ko` / `ru` / `ms`，传其它值返回 400。
+平台可按语言返回内容：店铺名、商品名、规格与加料、标签、订单状态、错误提示等展示文案，都会按所选语言返回。枚举 `zh`（中文，默认）/ `en` / `ja` / `ko` / `ru` / `ms` / `es`，传其它值返回 400。如需同时保留中文原文，见下方「双语响应」。
 
 设定方式两种，按需选一种：
 
@@ -85,6 +85,86 @@ https://eleme-gateway.hicaspian.com/mcp/v1
 </Note>
 
 收货人姓名（`contact_name`）不翻译，原样保存与展示，以便与配送信息一致。姓名上限 12 个字符，超出返回 400；外文姓名建议用「名 + 姓首字母」，如 Alexander Petrov → Alexander P。
+
+## 双语响应
+
+需要同时保留中文原文时（比如给人工核对商品名），传 `include_chinese=true`（布尔值，默认 `false`）：
+
+- **默认关闭**：不传 `include_chinese`，或传 `false`，响应里不会出现 `<key>_zh`；只有显式传 `true` 才返回中文原文。
+- **搭配 `lang` 一起传**：`lang` 传目标语言（如 `en`），`include_chinese` 传 `true`，两个参数一起生效。
+- **`lang` 是中文（`zh`）或不传 `lang` 时，`include_chinese` 不起作用**，不会报错——中文响应本来就是中文，不需要再附一份。
+- 生效范围与单值 `lang` 一致：可以在 `request_user_bind` 绑定时设定，也可以在支持 `lang` 的工具里逐次指定。**绑定时设定的 `include_chinese`，只在本次调用完全不传 `lang`、也不传 `include_chinese` 时才生效**；本次调用只要传了 `lang`，`include_chinese` 就按本次传的值处理（不传按 `false`），不会继续沿用绑定时的设定——单次调用要双语，请把 `lang` 和 `include_chinese` 一起传，否则本次按不返回中文处理。
+
+传 `include_chinese=true` 时，响应里每个**翻译成功**的字段，会在原字段旁多出一个 `<key>_zh`，值是这个字段对应的中文原文：
+
+```json
+{
+  "shop": {
+    "shop_id": "shop_xxx",
+    "name": "Zhang Liang Malatang (Xixi Beiyuan)",
+    "name_zh": "张亮麻辣烫(西溪北苑店)",
+    "available": true
+  },
+  "items": [{
+    "item_id": "item_xxx",
+    "name": "Deluxe Single Meat Roll Set",
+    "name_zh": "豪华单人肉卷套餐",
+    "category_name": "Value Sets",
+    "category_name_zh": "特惠套餐",
+    "price": 5588,
+    "image_url": "https://cube.elemecdn.com/...",
+    "sku_options": [{
+      "sku_id": "sku_xxx",
+      "name": "Beef Roll Set",
+      "name_zh": "肥牛卷套餐",
+      "price": 5588
+    }],
+    "tags": ["Milk Tea", "Dessert"],
+    "tags_zh": ["奶茶", "甜品"]
+  }]
+}
+```
+
+`<key>_zh` 的规则：
+
+- **类型与原字段完全一致**：字符串对字符串；字符串数组对字符串数组，且顺序、长度都相同（如上面的 `tags` / `tags_zh`）。
+- **只在这个字段本次翻译成功时才出现**。没有 `_zh` 就说明该字段这次没翻译成功，此时原字段本身是中文——可以逐字段判断翻译是否成功，不用看响应里的其他状态字段。
+- **只覆盖店铺 / 商品 / 规格 / 加料 / 标签这类商家信息**。平台自己生成的提示语（如营业时间提示、起送差额提示）只返回一种语言，没有 `_zh`。
+- `item_id` / `sku_id` / `price` / `image_url`、坐标、时间戳这类字段不分语言，没有 `_zh` 版本。
+- `delivery_fee_text`（配送费文字说明，如"配送¥2"）是例外：即使翻译成功，也不会有 `delivery_fee_text_zh`。配送费金额本身在 `delivery_fee` 字段（数字），不受语言影响。
+
+还原成单一语言，用下面这段通用函数即可，不需要认识任何具体字段名：
+
+```javascript
+// 只要目标语言：去掉所有 _zh
+function stripZh(node) {
+  if (Array.isArray(node)) return node.map(stripZh);
+  if (node && typeof node === "object") {
+    const out = {};
+    for (const k of Object.keys(node)) {
+      if (k.endsWith("_zh")) continue;
+      out[k] = stripZh(node[k]);
+    }
+    return out;
+  }
+  return node;
+}
+
+// 只要中文：有 _zh 就用 _zh，没有 _zh 说明原字段本来就是中文
+function preferZh(node) {
+  if (Array.isArray(node)) return node.map(preferZh);
+  if (node && typeof node === "object") {
+    const out = {};
+    for (const k of Object.keys(node)) {
+      if (k.endsWith("_zh")) continue;
+      const zhKey = k + "_zh";
+      out[k] = preferZh(zhKey in node ? node[zhKey] : node[k]);
+    }
+    return out;
+  }
+  return node;
+}
+```
 
 ## 工具列表
 
