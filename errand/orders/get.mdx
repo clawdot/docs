@@ -16,7 +16,7 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 </Note>
 
 <Note>
-  **收发两端的联系电话只回脱敏号码**（`from.contact_phone_masked` / `to.contact_phone_masked`，如 `138****5678`），无法直接拨打；复用本单信息重新下单时需要用户重新填写完整号码。骑手电话是另一回事，见 [errand_get_rider](/errand/orders/rider)。
+  **收发两端的联系电话只回脱敏号码**（`from.contact_phone_masked` / `to.contact_phone_masked`，如 `138****5678`），无法直接拨打；复用本单信息重新下单时需要用户重新填写完整号码。骑手电话是另一回事——本接口返回的 `rider.phone` 是**完整工作号**，可直接拨打联系骑手（与 [errand_get_rider](/errand/orders/rider) 同一个号）。
 </Note>
 
 ### 参数
@@ -71,7 +71,7 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 | `timeline[].time` | integer | 时间戳（毫秒）|
 | `rider` | object | （仅在途订单、且已接单后返回）骑手信息 |
 | `rider.name` | string | 骑手姓名 |
-| `rider.phone` | string | 骑手联系电话 |
+| `rider.phone` | string | 骑手联系电话（完整工作号，可直接拨打）|
 | `cancel` | object | （仅订单发生过取消时返回）取消相关信息 |
 | `cancel.cancel_fee` | integer | 取消违约金（分）|
 | `cancel.cancel_reason` | string | 取消原因 |
