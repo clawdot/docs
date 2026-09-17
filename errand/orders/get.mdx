@@ -65,6 +65,8 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 | `pickup_photos` | array | 取件照片链接列表；骑手尚未取件时为空数组 |
 | `finish_photos` | array | 送达照片链接列表；订单完成前为空数组 |
 | `created_at` | string | 创建时间（ISO 8601）|
+| `payment_expire_at` | string \| null | 最晚付款时间（北京时间），自下单起 15 分钟；到点后订单随时会自动关闭。**只有未支付的单有值**，其余状态为 `null` |
+| `cashier_url` | string \| null | 收银台支付页链接，与下单时给的是同一个，可直接交给用户打开付款。**只有未支付的单有值**，其余状态为 `null` |
 | `status_desc` | string | （仅在途订单返回）配送方当前状态的文案，如「等待分配骑士」|
 | `timeline` | array | （仅在途订单返回）状态变化时间线 |
 | `timeline[].status` | string | 状态文案 |
@@ -101,6 +103,8 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
   "pickup_photos": [],
   "finish_photos": [],
   "created_at": "2026-07-12T01:05:46",
+  "payment_expire_at": null,
+  "cashier_url": null,
   "status_desc": "等待分配骑士",
   "timeline": [
     { "status": "待下单", "time": 1783783044897 },

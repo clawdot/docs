@@ -49,6 +49,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 | `pay_status` | string | 恒为 `unpaid`（未支付）|
 | `quote_fee` | integer | 应付金额（= 所选运力 `fee`），单位分 |
 | `cashier_url` | string | 收银台支付页链接，交给用户打开完成支付 |
+| `payment_expire_at` | string | 最晚付款时间（北京时间），自下单起 15 分钟；到点后订单随时会自动关闭，链接随之失效 |
 
 **响应同时带上这笔订单的整单信息**，与 [errand_get_order](/errand/orders/get) 订单详情的基础字段、`errand_list_orders` 的列表条目完全一致（`status_desc` / `timeline` / `rider` 只在查询在途订单时才有，待支付单不带）——创建后立即可用，不必再查一次。整单信息包括：
 
@@ -79,6 +80,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
   "pay_status": "unpaid",
   "quote_fee": 200,
   "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=...",
+  "payment_expire_at": "2026-09-09T10:27:03",
   "company_code": 1,
   "company_name": "京东秒送",
   "from": { "contact_name": "王先生", "contact_phone_masked": "157****2669", "address_text": "长沙市岳麓区观沙岭街道100号", "lat": 28.23, "lng": 112.96 },

@@ -65,6 +65,8 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `pickup_photos` | array | Pickup photo links; empty array before the rider picks up the goods |
 | `finish_photos` | array | Delivery photo links; empty array before the order is completed |
 | `created_at` | string | Creation time (ISO 8601) |
+| `payment_expire_at` | string \| null | Payment deadline (Beijing time), 15 minutes after the order is placed; past that point the order may be closed automatically at any moment. **Only unpaid orders have a value** — `null` for every other status |
+| `cashier_url` | string \| null | Cashier payment page URL — the same one returned at order creation; hand it to the user to complete payment. **Only unpaid orders have a value** — `null` for every other status |
 | `status_desc` | string | (open orders only) Localized status text from the delivery provider, e.g. "Waiting for rider assignment" |
 | `timeline` | array | (open orders only) Status change timeline |
 | `timeline[].status` | string | Status text |
@@ -101,6 +103,8 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
   "pickup_photos": [],
   "finish_photos": [],
   "created_at": "2026-07-12T01:05:46",
+  "payment_expire_at": null,
+  "cashier_url": null,
   "status_desc": "Waiting for rider assignment",
   "timeline": [
     { "status": "Order placed", "time": 1783783044897 },

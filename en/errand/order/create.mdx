@@ -49,6 +49,7 @@ Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order
 | `pay_status` | string | Always `unpaid` |
 | `quote_fee` | integer | Amount payable (= the selected courier's `fee`), in fen |
 | `cashier_url` | string | Cashier payment page URL; hand this to the user to complete payment |
+| `payment_expire_at` | string | Payment deadline (Beijing time), 15 minutes after the order is placed; past that point the order may be closed automatically at any moment and the link stops working |
 
 **The response also carries this order's full order info**, using exactly the same base fields as the order detail from [errand_get_order](/en/errand/orders/get) and the entries returned by `errand_list_orders` (`status_desc` / `timeline` / `rider` appear only when you query an in-flight order — a pending-payment order carries none of them) — available immediately, no extra lookup needed. The full order info includes:
 
@@ -79,6 +80,7 @@ For each field's exact type and when it can be `null`, see the order detail in [
   "pay_status": "unpaid",
   "quote_fee": 200,
   "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=...",
+  "payment_expire_at": "2026-09-09T10:27:03",
   "company_code": 1,
   "company_name": "京东秒送",
   "from": { "contact_name": "王先生", "contact_phone_masked": "157****2669", "address_text": "长沙市岳麓区观沙岭街道100号", "lat": 28.23, "lng": 112.96 },
