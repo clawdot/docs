@@ -1,0 +1,122 @@
+---
+title: "batch_get_item_options"
+description: "MCP 工具 batch_get_item_options — 一次拉取多家店商品的全量规格与配料候选，按店分组返回，单店失败不影响其余店"
+---
+
+## batch_get_item_options
+
+一次拉取**多家店**商品的全量规格与配料候选，**按店分组返回**。是 [`get_item_options`](/mcp/shops/item-options) 的跨店版本：只查一家店时用那个就够了。
+
+适合「搜到几家店、每家挑了几个商品，要横着比规格和价格」的场景。搜推选店时你事先不知道会命中几家店，逐家调用就得在编排里写一个长度不定的循环；本工具一次调用拿全。
+
+<Note>
+  **每个商品返回的内容与 [`get_item_options`](/mcp/shops/item-options) 完全一致**——`sku_options` / `ingredient_options` / `selected` 标记 / `promo_labels` / `price_steps` 的含义与用法全部相同，本页不再重复，只说明按店分组这一层。那一页的所有注意事项（互斥收敛、同名不同项、份数不能乘、算价回显）在这里同样适用。
+</Note>
+
+### 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
+| `carts` | array | 是 | — | 要查询的店，每个元素是一家店；**所有店的商品加起来最多 500 个**，超出返回 `BATCH_TOO_LARGE` |
+| `carts[].cart_id` | string | 是 | — | 店铺购物车 ID（来自 `search_shops` / `get_shop_menu`）|
+| `carts[].items` | array | 是 | — | 该店要查询的商品，结构与 `get_item_options` 的 `items[]` **逐字段相同**（`item_id` 必填，`sku_id` / `ingredient_option_ids` / `ingredient_quantities` 可选）；可以传空数组，该店返回空的 `items` |
+| `grouped` | boolean | 否 | `false` | 配料是否按组返回，含义同 `get_item_options` |
+| `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`；不传则用绑定时设定的语言（默认中文） |
+| `include_chinese` | boolean | 否 | `false` | 为 `true` 时响应同时返回中文原文（`<key>_zh`），见 [双语响应](/mcp/overview) |
+
+<Warning>
+  **每个 `item_id` 必须放在它所属那家店的 `cart_id` 下面。** 商品 ID 是按店生成的，放到别的店下面会查不到该商品（该项返回 `PUBLIC_REFERENCE_INVALID`）。
+</Warning>
+
+### 返回
+
+顶层返回 `{ "carts": [...] }`，`carts` 与请求的 `carts` **一一对应、顺序一致**。每个元素要么带 `items`（该店查询成功），要么带 `error`（该店整体失败）——**靠有没有 `error` 字段区分**。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `carts` | array | 结果列表，与入参 `carts` 严格 1:1 同序 |
+| `carts[].cart_id` | string | 原样回传该店的 `cart_id` |
+| `carts[].items` | array | *（该店成功时）* 该店的查询结果，与该店入参 `items` 严格 1:1 同序；每项结构与 `get_item_options` 的 `items[]` **逐字段相同**（同样含成功项与失败项两种形态）|
+| `carts[].error.code` | string | *（该店失败时）* 错误码，见下 |
+| `carts[].error.message` | string | *（该店失败时）* 人类可读的错误说明 |
+
+<Note>
+  **一家店失败不影响其余店。** 购物车会过期，5 家里有 1 家失效时，另外 4 家照常返回，整次调用**仍算成功**。只有**授权失效**或**商品数超上限**才会整次调用失败。
+
+  失败分三层，互不牵连：整次调用失败 → 某家店失败（`carts[].error`）→ 某个商品失败（`carts[].items[].error`）。
+</Note>
+
+<Note>
+  **商品数上限 500 是保护性上限，不是建议值。** 每个商品的返回内容约 3~7 KB，100 个就约 0.3~0.5 MB，500 个可达 3 MB——多数模型的上下文放不下。按实际要展示或下单的商品数来传即可，通常每家店几个。
+
+  超出上限时**整批拒绝、不会只返回一部分**：少给一半却看起来成功，比直接报错危险得多。
+
+  性能参考：实测 5 家店共 100 个商品约 1.1~1.5 秒（首次查询，含向平台取数）。
+</Note>
+
+### 错误
+
+| 错误码 | 落在哪 | 何时出现 |
+|--------|--------|----------|
+| `BATCH_TOO_LARGE` | 整次调用 | 所有店的商品加起来超过 500 个；错误信息里会带上实际传了多少个 |
+| `PUBLIC_REFERENCE_INVALID` | 某家店 | 该 `cart_id` 不存在或已过期——重新 `search_shops` / `get_shop_menu` 取新的即可，其余店的结果仍然可用 |
+| `PUBLIC_REFERENCE_INVALID` | 某个商品 | 该 `item_id` 不属于它所在的那家店 |
+| `CART_PRICE_INVALID` | 某个商品 | 该商品的 `ingredient_option_ids` 把同一个单选必选组选了两次 |
+
+### 调用示例
+
+```json
+{
+  "name": "batch_get_item_options",
+  "arguments": {
+    "consent_grant_id": "cg_xxx",
+    "carts": [
+      {
+        "cart_id": "cart_aaa",
+        "items": [
+          {"item_id": "item_1"},
+          {"item_id": "item_2", "sku_id": "sku_b", "ingredient_option_ids": ["opt_3"]}
+        ]
+      },
+      {
+        "cart_id": "cart_bbb",
+        "items": [{"item_id": "item_9"}]
+      }
+    ]
+  }
+}
+```
+
+响应（节选：第一家店成功、其中一个商品 ID 无效；第二家店购物车已过期）：
+
+```json
+{
+  "carts": [
+    {
+      "cart_id": "cart_aaa",
+      "items": [
+        {
+          "item_id": "item_1",
+          "name": "生椰拿铁",
+          "price": 1600,
+          "original_price": null,
+          "available": true,
+          "min_purchase": 1,
+          "available_quantity": null,
+          "promo_labels": [],
+          "sku_options": ["…结构见 get_item_options…"]
+        },
+        {
+          "item_id": "item_2",
+          "error": {"code": "PUBLIC_REFERENCE_INVALID", "message": "item_id is invalid for cart_id"}
+        }
+      ]
+    },
+    {
+      "cart_id": "cart_bbb",
+      "error": {"code": "PUBLIC_REFERENCE_INVALID", "message": "cart not found or expired"}
+    }
+  ]
+}
+```

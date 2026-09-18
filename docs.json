@@ -128,6 +128,7 @@
                                     "mcp/shops/info",
                                     "mcp/shops/detail",
                                     "mcp/shops/item-options",
+                                    "mcp/shops/batch-item-options",
                                     "mcp/shops/item-description",
                                     "mcp/shops/share-url"
                                 ]
@@ -328,6 +329,7 @@
                                     "en/mcp/shops/info",
                                     "en/mcp/shops/detail",
                                     "en/mcp/shops/item-options",
+                                    "en/mcp/shops/batch-item-options",
                                     "en/mcp/shops/item-description",
                                     "en/mcp/shops/share-url"
                                 ]

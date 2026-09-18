@@ -1,0 +1,122 @@
+---
+title: "batch_get_item_options"
+description: "MCP tool batch_get_item_options — fetch items' full spec and ingredient options across several shops in one call, grouped by shop; one failing shop does not affect the others"
+---
+
+## batch_get_item_options
+
+Fetches the full spec and ingredient candidates of items across **several shops** in one call, **grouped by shop**. It is the cross-shop version of [`get_item_options`](/en/mcp/shops/item-options) — for a single shop, use that one.
+
+Use it when you have found a few shops, picked a few items in each, and want to compare specs and prices side by side. When shops come from a search, you do not know up front how many you will get, so calling per shop means writing a loop of unknown length into your orchestration; this tool gets everything in one call.
+
+<Note>
+  **Each item is returned exactly as [`get_item_options`](/en/mcp/shops/item-options) returns it** — `sku_options` / `ingredient_options` / the `selected` marking / `promo_labels` / `price_steps` all carry the same meaning and usage, so they are not repeated here; this page only covers the per-shop grouping layer. Everything that page warns about (candidates converging on your current selection, same-name-different-option, never multiplying by portion count, checking the price echo) applies here too.
+</Note>
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
+| `carts` | array | Yes | — | Shops to query, one element per shop; **at most 500 items in total across all shops**, beyond which the call returns `BATCH_TOO_LARGE` |
+| `carts[].cart_id` | string | Yes | — | Cart ID of that shop (from `search_shops` / `get_shop_menu`) |
+| `carts[].items` | array | Yes | — | Items to look up in that shop, **field for field identical** to `get_item_options`'s `items[]` (`item_id` required; `sku_id` / `ingredient_option_ids` / `ingredient_quantities` optional). An empty array is allowed and returns an empty `items` for that shop |
+| `grouped` | boolean | No | `false` | Whether ingredients come back grouped; same meaning as in `get_item_options` |
+| `lang` | string | No | — | Language for this call's content: `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; omit to use the language set at binding time |
+| `include_chinese` | boolean | No | `false` | When `true`, the response also carries the Chinese original (`<key>_zh`); see [bilingual responses](/en/mcp/overview) |
+
+<Warning>
+  **Every `item_id` must sit under the `cart_id` of the shop it belongs to.** Item IDs are minted per shop, so an ID placed under a different shop will not be found (that entry returns `PUBLIC_REFERENCE_INVALID`).
+</Warning>
+
+### Response
+
+The top level is `{ "carts": [...] }`, where `carts` maps **one-to-one and in order** with the `carts` you sent. Each element carries either `items` (that shop succeeded) or `error` (that shop failed as a whole) — **tell them apart by whether `error` is present**.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `carts` | array | Result list, strictly 1:1 and in order with the requested `carts` |
+| `carts[].cart_id` | string | Echoes that shop's `cart_id` |
+| `carts[].items` | array | *(when that shop succeeded)* Results for that shop, strictly 1:1 and in order with that shop's requested `items`; each entry is **field for field identical** to `get_item_options`'s `items[]` (including both the success and the failure shape) |
+| `carts[].error.code` | string | *(when that shop failed)* Error code, see below |
+| `carts[].error.message` | string | *(when that shop failed)* Human-readable explanation |
+
+<Note>
+  **One failing shop does not affect the others.** Carts expire, so when 1 of 5 has gone stale the other 4 still come back and the call **still counts as successful**. Only an **invalid consent** or **too many items** fails the whole call.
+
+  Failures come in three independent layers: the whole call → one shop (`carts[].error`) → one item (`carts[].items[].error`).
+</Note>
+
+<Note>
+  **The 500-item cap is a guard rail, not a target.** Each item is roughly 3-7 KB, so 100 items is about 0.3-0.5 MB and 500 items can reach 3 MB — more than most models can hold in context. Ask for the items you actually intend to show or order, typically a handful per shop.
+
+  When the cap is exceeded the **whole batch is rejected; nothing is truncated** — silently returning half the data while looking successful is far more dangerous than an error.
+
+  For reference: 5 shops with 100 items total takes about 1.1-1.5 seconds on a first lookup.
+</Note>
+
+### Errors
+
+| Code | Where it lands | When |
+|------|----------------|------|
+| `BATCH_TOO_LARGE` | Whole call | More than 500 items across all shops; the message states how many you actually sent |
+| `PUBLIC_REFERENCE_INVALID` | One shop | That `cart_id` does not exist or has expired — get a fresh one via `search_shops` / `get_shop_menu`; the other shops' results remain usable |
+| `PUBLIC_REFERENCE_INVALID` | One item | That `item_id` does not belong to the shop it was nested under |
+| `CART_PRICE_INVALID` | One item | That item's `ingredient_option_ids` pick the same single-choice required group twice |
+
+### Example call
+
+```json
+{
+  "name": "batch_get_item_options",
+  "arguments": {
+    "consent_grant_id": "cg_xxx",
+    "carts": [
+      {
+        "cart_id": "cart_aaa",
+        "items": [
+          {"item_id": "item_1"},
+          {"item_id": "item_2", "sku_id": "sku_b", "ingredient_option_ids": ["opt_3"]}
+        ]
+      },
+      {
+        "cart_id": "cart_bbb",
+        "items": [{"item_id": "item_9"}]
+      }
+    ]
+  }
+}
+```
+
+Response (excerpt: the first shop succeeded with one invalid item ID; the second shop's cart has expired):
+
+```json
+{
+  "carts": [
+    {
+      "cart_id": "cart_aaa",
+      "items": [
+        {
+          "item_id": "item_1",
+          "name": "Coconut Latte",
+          "price": 1600,
+          "original_price": null,
+          "available": true,
+          "min_purchase": 1,
+          "available_quantity": null,
+          "promo_labels": [],
+          "sku_options": ["…same structure as get_item_options…"]
+        },
+        {
+          "item_id": "item_2",
+          "error": {"code": "PUBLIC_REFERENCE_INVALID", "message": "item_id is invalid for cart_id"}
+        }
+      ]
+    },
+    {
+      "cart_id": "cart_bbb",
+      "error": {"code": "PUBLIC_REFERENCE_INVALID", "message": "cart not found or expired"}
+    }
+  ]
+}
+```
