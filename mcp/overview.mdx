@@ -1,10 +1,10 @@
 ---
 title: "MCP 概览"
-description: "通过 Streamable HTTP 连接 Clawdot Gateway，使用 18 个 MCP 工具完成绑定授权、找店选品、下单支付的完整外卖链路"
+description: "通过 Streamable HTTP 连接 Clawdot Gateway，使用 24 个 MCP 工具完成绑定授权、找店选品、下单支付的完整外卖链路"
 icon: "plug"
 ---
 
-Clawdot Gateway 通过 **MCP (Model Context Protocol)** 对外提供 Agent 接口，使用 **Streamable HTTP** 传输协议。MCP Server 暴露 **18 个工具**，覆盖从用户绑定授权、搜索商家、加购算价，到预览下单、免密支付的完整外卖链路。本页介绍怎么连、怎么认证、有哪些工具、怎么按顺序把它们串成一单。
+Clawdot Gateway 通过 **MCP (Model Context Protocol)** 对外提供 Agent 接口，使用 **Streamable HTTP** 传输协议。MCP Server 暴露 **24 个工具**，覆盖从用户绑定授权、搜索商家、加购算价，到预览下单、免密支付的完整外卖链路。本页介绍怎么连、怎么认证、有哪些工具、怎么按顺序把它们串成一单。
 
 ## 连接方式
 
@@ -168,7 +168,7 @@ function preferZh(node) {
 
 ## 工具列表
 
-MCP Server 暴露 **18 个工具**，按功能分组如下。每个工具链接到其工具页（含完整参数与返回字段）。
+MCP Server 暴露 **24 个工具**，按功能分组如下。每个工具链接到其工具页（含完整参数与返回字段）。
 
 ### 授权
 
@@ -185,7 +185,11 @@ MCP Server 暴露 **18 个工具**，按功能分组如下。每个工具链接�
 | MCP 工具 | 说明 |
 |----------|------|
 | [`search_shops`](/mcp/shops/search) | 搜索 / 浏览商家 |
+| [`get_shop_info`](/mcp/shops/info) | 商家详情（营业状态、配送费、起送价）|
 | [`get_shop_menu`](/mcp/shops/detail) | 商家菜单 |
+| [`get_item_options`](/mcp/shops/item-options) | 商品规格与配料候选 |
+| [`batch_get_item_options`](/mcp/shops/batch-item-options) | 跨店批量拉取规格与配料候选 |
+| [`get_item_description`](/mcp/shops/item-description) | 商品详情说明卡 |
 | [`get_shop_share_url`](/mcp/shops/share-url) | 商家分享链接 |
 
 ### 地址
@@ -195,6 +199,7 @@ MCP Server 暴露 **18 个工具**，按功能分组如下。每个工具链接�
 | [`search_addresses`](/mcp/addresses/search) | 搜索 / 列出地址 |
 | [`select_address`](/mcp/addresses/select) | 选择 / 保存地址 |
 | [`update_address`](/mcp/addresses/update) | 编辑地址 |
+| [`delete_address`](/mcp/addresses/delete) | 删除地址 |
 
 ### 下单
 
@@ -205,6 +210,7 @@ MCP Server 暴露 **18 个工具**，按功能分组如下。每个工具链接�
 | [`preview_order`](/mcp/orders/preview) | 预览订单 |
 | [`create_order`](/mcp/orders/create) | 创建订单 |
 | [`get_order_status`](/mcp/orders/get) | 查询订单 |
+| [`list_orders`](/mcp/orders/list) | 历史订单列表 |
 
 ### 支付
 

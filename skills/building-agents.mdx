@@ -12,7 +12,7 @@ import { Info, Warning, Check } from '/components/Callout';
 
 本指南将带你使用 Clawdot Gateway，从零构建一个完整的本地生活 Agent。通过遵循最佳实践和处理边界情况，你将能够创建一个健壮、用户友好的应用。
 
-Gateway 以 **MCP（Model Context Protocol）工具**的形式对外开放能力——你连上 MCP，就能看到 18 个工具，用一串工具调用从绑定授权、找店选品，一路串到预览、下单、签约。本指南所有示例都以 **工具名 + JSON 参数** 给出（除绑定工具外，每个业务工具的参数都带 `consent_grant_id`）。
+Gateway 以 **MCP（Model Context Protocol）工具**的形式对外开放能力——你连上外卖 MCP，就能看到 24 个工具，用一串工具调用从绑定授权、找店选品，一路串到预览、下单、签约。本指南所有示例都以 **工具名 + JSON 参数** 给出（除绑定工具外，每个业务工具的参数都带 `consent_grant_id`）。
 
 ## 架构设计
 
@@ -39,7 +39,7 @@ Gateway 以 **MCP（Model Context Protocol）工具**的形式对外开放能力
 ```
 
 <Info>
-Gateway 通过 Streamable HTTP 暴露 **18 个 MCP 工具**，覆盖从绑定授权到下单支付的完整本地生活能力。工具的连接方式、分组与下单顺序见 [MCP 概览](/mcp/overview)。
+外卖网关通过 Streamable HTTP 暴露 **24 个 MCP 工具**，覆盖从绑定授权到下单支付的完整本地生活能力。工具的连接方式、分组与下单顺序见 [MCP 概览](/mcp/overview)。
 </Info>
 
 ---
@@ -449,7 +449,7 @@ create_order（得 order_id）→ get_order_status（查状态）
 
 ## 下一步
 
-- 查看 [MCP 概览](/mcp/overview) 了解 18 个工具的连接方式、分组与完整入参 / 出参
+- 查看 [MCP 概览](/mcp/overview) 了解 24 个工具的连接方式、分组与完整入参 / 出参
 - 阅读 [下单流程](/gateway/order-flow) 掌握完整的有状态下单链路与支付时序
 - 阅读 [安全模型](/skills/security-model) 学习数据保护最佳实践
 - 探索 [支持的平台](/skills/supported-platforms) 集成到你的 Agent 应用

@@ -22,7 +22,7 @@ Underneath, it still runs on the same gateway: the gateway aggregates downstream
       end
 
       subgraph Gateway["open-gateway"]
-        G1["18 standardized tools<br/>search · menu · preview · order · status"]
+        G1["24 standardized tools<br/>search · menu · preview · order · status"]
       end
 
       subgraph Skills["Installable Skill Packs"]
@@ -55,12 +55,12 @@ The two target different integration styles and complement each other:
 
 | | **MCP (raw tools)** | **Skill (skill pack)** |
 |---|---|---|
-| What you get | 18 atomic tools | One wrapped capability (e.g. takeout) |
+| What you get | 24 atomic tools | One wrapped capability (e.g. takeout) |
 | Orchestration | You write it: chain search → menu → preview → order yourself | Pre-wrapped: actions + GUIDE wire the flow for you |
 | Ramp-up | Flexible, but you define the interaction | Works out of the box—install and the capability is there |
 | Best for | Fine-grained control over the lower layer, building your own Agent logic | Letting an Agent simply know how to "order takeout" |
 
-In short: **MCP gives you the parts, a Skill gives you the finished product** — and under the hood the Skill's CLI speaks the very same MCP tools (`tools/call`, subcommands mapping 1:1 to tool names), so both paths behave identically. If you want to orchestrate the 18 underlying tools yourself for finer control, see the [MCP Overview](/en/mcp/overview).
+In short: **MCP gives you the parts, a Skill gives you the finished product** — and under the hood the Skill's CLI speaks the very same MCP tools (`tools/call`, subcommands mapping 1:1 to tool names), so both paths behave identically. If you want to orchestrate the 24 underlying tools yourself for finer control, see the [MCP Overview](/en/mcp/overview).
 
 ## Anatomy of a Skill
 
@@ -109,6 +109,6 @@ After installing, drop a `.env` in the skill root with your `API_KEY` (the agent
   </Card>
 
   <Card title="MCP Overview" href="/en/mcp/overview" icon="wrench">
-    Want to orchestrate the 18 raw tools yourself? Start here.
+    Want to orchestrate the 24 raw tools yourself? Start here.
   </Card>
 </CardGroup>

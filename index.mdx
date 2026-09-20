@@ -1,6 +1,6 @@
 ---
 title: "Clawdot 虾点 · 开放平台"
-description: "AI 时代的本地生活服务网络 — 一行配置，让你的 Agent 学会点外卖、找店、下单、支付"
+description: "AI 时代的本地生活服务网络 — 一行配置，让你的 Agent 学会点外卖、找店、下单、支付、叫跑腿"
 mode: custom
 ---
 
@@ -9,12 +9,13 @@ mode: custom
 {/* ===================== HERO ===================== */}
 <section className="cl-bleed cl-hero">
 <div className="cl-wrap">
-  <span className="cl-badge"><span className="cl-dot" />MCP · Model Context Protocol · 18 个工具</span>
+  <span className="cl-badge"><span className="cl-dot" />MCP · Model Context Protocol · 43 个工具</span>
   <h1 className="cl-h1">想干什么，<span className="cl-accent">虾点一下</span></h1>
-  <div className="cl-sub">AI 时代的本地生活服务网络。<br />一行配置，让你的 Agent 学会点外卖、找店、下单、支付。</div>
+  <div className="cl-sub">AI 时代的本地生活服务网络。<br />一行配置，让你的 Agent 学会点外卖、找店、下单、支付、叫跑腿。</div>
   <div className="cl-hero-cta">
     <a className="cl-btn cl-btn-primary" href="/quickstart">快速开始 →</a>
-    <a className="cl-btn cl-btn-ghost" href="/mcp/overview">查看 18 个工具</a>
+    <a className="cl-btn cl-btn-ghost" href="/mcp/overview">外卖 MCP · 24 个工具</a>
+    <a className="cl-btn cl-btn-ghost" href="/errand/overview">跑腿 MCP · 19 个工具</a>
   </div>
   <p className="cl-trust">基于标准 <b>MCP</b> 协议 · <b>Streamable HTTP</b> 远程接入 · 现有 AI 应用可快速集成</p>
 
@@ -25,7 +26,7 @@ mode: custom
         <div className="cl-corelbl">Gateway<small>MCP HUB</small></div>
       </div>
     </div>
-    <div className="cl-node cl-n1"><span className="cl-nic"><Icon icon="coffee" size={17} color="#D14430" /></span>咖啡</div>
+    <div className="cl-node cl-n1"><span className="cl-nic"><Icon icon="package" size={17} color="#D14430" /></span>同城跑腿</div>
     <div className="cl-node cl-n2"><span className="cl-nic"><Icon icon="utensils" size={17} color="#D14430" /></span>外卖</div>
     <div className="cl-node cl-n3"><span className="cl-nic"><Icon icon="store" size={17} color="#D14430" /></span>找店选品</div>
     <div className="cl-node cl-n4"><span className="cl-nic"><Icon icon="map-pin" size={17} color="#D14430" /></span>收货地址</div>
@@ -40,8 +41,8 @@ mode: custom
 <div className="cl-wrap">
   <div className="cl-head">
     <div className="cl-eyebrow">为什么选虾点 Gateway</div>
-    <h2 className="cl-h2">把外卖能力，开放给每一个 Agent</h2>
-    <p>一次接入，你的 Agent 就拥有从找店到支付的完整本地生活能力。</p>
+    <h2 className="cl-h2">把本地生活能力，开放给每一个 Agent</h2>
+    <p>一次接入，你的 Agent 就拥有从找店、下单、支付到同城跑腿的完整本地生活能力。</p>
   </div>
   <div className="cl-feat">
     <div className="cl-fcard">
@@ -61,8 +62,8 @@ mode: custom
     </div>
     <div className="cl-fcard">
       <div className="cl-ficon"><Icon icon="wrench" size={22} color="#D14430" /></div>
-      <h3>18 个工具全链路</h3>
-      <p>绑定授权、商家、地址、下单、支付，五大能力组 18 个工具覆盖完整链路。</p>
+      <h3>43 个工具全链路</h3>
+      <p>外卖 24 个工具（绑定授权、商家、地址、下单、支付）+ 跑腿 19 个工具（地址、询价、下单、骑手跟踪），两条链路全覆盖。</p>
     </div>
   </div>
 </div>
@@ -127,13 +128,20 @@ mode: custom
       "headers": {
         "Authorization": "Bearer clw_your_api_key"
       }
+    },
+    "clawdot-paotui": {
+      "url": "https://paotui.hicaspian.com/mcp/v1",
+      "type": "http",
+      "headers": {
+        "Authorization": "Bearer clw_your_api_key"
+      }
     }
   }
 }
 ```
 
   </div>
-  <p className="cl-qs-note">没有 API Key？<a href="https://console.hicaspian.com/agents">前往控制台创建 Agent →</a> · 连接成功后即可看到全部 18 个工具</p>
+  <p className="cl-qs-note">没有 API Key？<a href="https://console.hicaspian.com/agents">前往控制台创建 Agent →</a> · 外卖与跑腿是两套独立 endpoint、同一把 API Key，连上后共 43 个工具</p>
 </div>
 </section>
 
@@ -151,6 +159,7 @@ mode: custom
     <div className="cl-echip"><span className="cl-tag">用优惠</span><span className="cl-say">「自动用最优优惠券下单」</span></div>
     <div className="cl-echip"><span className="cl-tag">找门店</span><span className="cl-say">「附近有什么湘菜」</span></div>
     <div className="cl-echip"><span className="cl-tag">查订单</span><span className="cl-say">「我的外卖到哪了」</span></div>
+    <div className="cl-echip"><span className="cl-tag">同城跑腿</span><span className="cl-say">「帮我把这份文件送到公司」</span></div>
   </div>
 </div>
 </section>
@@ -159,8 +168,8 @@ mode: custom
 <section className="cl-section">
 <div className="cl-wrap">
   <div className="cl-band">
-    <h2>准备好让你的 Agent 学会点外卖了吗？</h2>
-    <p>申请接入，拿到 API Key，三十秒跑通第一单。虾点属于生活中的每一个人。</p>
+    <h2>准备好让你的 Agent 学会点外卖、叫跑腿了吗？</h2>
+    <p>申请接入，拿到 API Key，三十秒跑通第一单——外卖与跑腿共用同一把 Key。虾点属于生活中的每一个人。</p>
     <a className="cl-btn cl-btn-white" href="https://console.hicaspian.com/agents">申请接入 →</a>
   </div>
 </div>

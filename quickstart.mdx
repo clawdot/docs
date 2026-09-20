@@ -30,7 +30,7 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 }
 ```
 
-连接成功后，你的 Agent 就能看到这 18 个 MCP 工具。
+连接成功后，你的 Agent 就能看到外卖 MCP 的这 24 个工具。跑腿（同城帮送）是另一套独立 endpoint 的 19 个工具，接法见 [跑腿 MCP](/errand/overview)。
 
 <Note>
   **两层身份**：连接层的 **API Key**（`clw_` 前缀）标识你的 Agent，每个 MCP 请求都要带；**consent grant**（`cg_` 前缀）标识已授权的外卖用户，作为**业务工具的参数** `consent_grant_id` 传入（不走请求头）。绑定类工具 `request_user_bind` / `verify_user_bind` 例外——它们是拿授权的入口，本身不传 `consent_grant_id`。详见 [认证机制](/gateway/authentication)。
@@ -205,7 +205,7 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="MCP 工具" icon="plug" href="/mcp/overview">18 个 MCP 工具的完整入参 / 出参</Card>
+  <Card title="MCP 工具" icon="plug" href="/mcp/overview">24 个外卖 MCP 工具的完整入参 / 出参</Card>
   <Card title="认证机制" icon="key" href="/gateway/authentication">API Key + consent grant 详解</Card>
   <Card title="下单链路" icon="route" href="/gateway/order-flow">下单与支付时序全景</Card>
   <Card title="错误处理" icon="triangle-alert" href="/gateway/error-handling">统一错误码与处理</Card>
