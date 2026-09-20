@@ -89,7 +89,7 @@
                         ]
                     },
                     {
-                        "tab": "MCP",
+                        "tab": "外卖MCP",
                         "groups": [
                             {
                                 "group": "概览",
@@ -163,7 +163,7 @@
                         ]
                     },
                     {
-                        "tab": "跑腿 Errand",
+                        "tab": "跑腿MCP",
                         "groups": [
                             {
                                 "group": "概览",
@@ -290,7 +290,7 @@
                         ]
                     },
                     {
-                        "tab": "MCP",
+                        "tab": "Delivery MCP",
                         "groups": [
                             {
                                 "group": "Overview",
@@ -364,7 +364,7 @@
                         ]
                     },
                     {
-                        "tab": "Errand",
+                        "tab": "Errand MCP",
                         "groups": [
                             {
                                 "group": "Overview",

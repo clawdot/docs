@@ -30,7 +30,7 @@ Create an Agent and enable the delivery capability in the [Clawdot Console](http
 }
 ```
 
-Once connected, your Agent can see all 18 MCP tools.
+Once connected, your Agent can see all 24 delivery MCP tools. Errand (same-city delivery-run) is a separate endpoint with 19 tools of its own — see [Errand MCP](/en/errand/overview).
 
 <Note>
   **Two-layer identity**: the connection-layer **API Key** (`clw_` prefix) identifies your Agent and is required on every MCP request; the **consent grant** (`cg_` prefix) identifies an authorized food-delivery user and is passed as the **business-tool parameter** `consent_grant_id` (not as a header). The binding tools `request_user_bind` / `verify_user_bind` are the exception — they are the entry point for obtaining authorization and take no `consent_grant_id`. See [Authentication](/en/gateway/authentication).
@@ -205,7 +205,7 @@ Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="MCP Tools" icon="plug" href="/en/mcp/overview">Full request / response for the 18 MCP tools</Card>
+  <Card title="MCP Tools" icon="plug" href="/en/mcp/overview">Full request / response for the 24 delivery MCP tools</Card>
   <Card title="Authentication" icon="key" href="/en/gateway/authentication">API Key + consent grant in detail</Card>
   <Card title="Order Flow" icon="route" href="/en/gateway/order-flow">End-to-end order and payment sequence</Card>
   <Card title="Error Handling" icon="triangle-alert" href="/en/gateway/error-handling">Unified error codes and handling</Card>

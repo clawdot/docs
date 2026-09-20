@@ -12,7 +12,7 @@ import { Info, Warning, Check } from '/components/Callout';
 
 This guide will walk you through using the Clawdot Gateway to build a complete local life Agent from scratch. By following best practices and handling edge cases, you will be able to create a robust, user-friendly application.
 
-The Gateway exposes its capabilities as **MCP (Model Context Protocol) tools** — once you connect, you see 18 tools and chain them, from binding/consent through finding shops and picking items, all the way to preview, order, and signing. Every example below is given as a **tool name + JSON arguments** (every business tool carries `consent_grant_id`, except the binding tools).
+The Gateway exposes its capabilities as **MCP (Model Context Protocol) tools** — once you connect, you see 24 tools and chain them, from binding/consent through finding shops and picking items, all the way to preview, order, and signing. Every example below is given as a **tool name + JSON arguments** (every business tool carries `consent_grant_id`, except the binding tools).
 
 ## Architecture Design
 
@@ -39,7 +39,7 @@ A complete local life Agent consists of the following modules:
 ```
 
 <Info>
-The Gateway exposes **18 MCP tools** over Streamable HTTP, covering the full local-life flow from binding/consent to ordering and payment. The connection, grouping, and ordering sequence of the tools are in the [MCP Overview](/en/mcp/overview).
+The delivery gateway exposes **24 MCP tools** over Streamable HTTP, covering the full local-life flow from binding/consent to ordering and payment. The connection, grouping, and ordering sequence of the tools are in the [MCP Overview](/en/mcp/overview).
 </Info>
 
 ---
@@ -449,7 +449,7 @@ Prepare the delivery address first, then search deliverable shops by that addres
 
 ## Next Steps
 
-- See the [MCP Overview](/en/mcp/overview) for the 18 tools' connection, grouping, and complete inputs / outputs
+- See the [MCP Overview](/en/mcp/overview) for the 24 tools' connection, grouping, and complete inputs / outputs
 - Read [Order Flow](/en/gateway/order-flow) to master the full stateful order chain and payment sequence
 - Read [Security Model](/en/skills/security-model) to learn data protection best practices
 - Explore [Supported Platforms](/en/skills/supported-platforms) to integrate with your Agent app

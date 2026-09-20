@@ -52,7 +52,7 @@ For a full connection example and the auth chain, see [Authentication](/en/gatew
 
 ## MCP Tools
 
-The gateway exposes 18 tools covering the full chain: authorization, addresses, shops, cart, coupons, orders, and payment signing:
+The food-delivery gateway exposes 24 tools covering the full chain: authorization, addresses, shops, cart, coupons, orders, and payment signing:
 
 | Group | Tool | Purpose |
 |---|---|---|
@@ -64,18 +64,24 @@ The gateway exposes 18 tools covering the full chain: authorization, addresses, 
 | Address | `search_addresses` | Search / list addresses |
 | Address | `select_address` | Select / save an address, returns `address_id` |
 | Address | `update_address` | Edit an address (unit / label; `address_id` unchanged) |
+| Address | `delete_address` | Delete an address |
 | Shop | `search_shops` | Search / browse shops, returns `shop_id` + `cart_id` |
+| Shop | `get_shop_info` | Shop details (open state, delivery fee, minimum order) |
 | Shop | `get_shop_menu` | Shop menu, returns `item_id` / `sku_id` / `ingredient_options` |
+| Shop | `get_item_options` | Item specs and ingredient options |
+| Shop | `batch_get_item_options` | Batch fetch specs and ingredient options across shops |
+| Shop | `get_item_description` | Item description card |
 | Shop | `get_shop_share_url` | Shop share link |
 | Order | `quote_cart` | Price the cart, returns `quote_id` |
 | Order | `list_coupons` | Account coupon list |
 | Order | `preview_order` | Preview an order, returns `preview_id` + `confirmation_token` |
 | Order | `create_order` | Create an order, returns `order_id` |
 | Order | `get_order_status` | Query order status |
+| Order | `list_orders` | List past orders |
 | Payment | `get_sign_action` | Get the password-free signing action (H5 link) |
 | Payment | `get_sign_status` | Query signing status |
 
-For each tool's parameters and return fields, see [MCP Tools](/en/mcp/overview).
+For each tool's parameters and return fields, see [Delivery MCP tools](/en/mcp/overview). Errand is a separate endpoint with 19 tools of its own — see [Errand MCP](/en/errand/overview).
 
 ## Authentication Model
 

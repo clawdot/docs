@@ -22,7 +22,7 @@ import Mermaid from '/components/Mermaid';
       end
 
       subgraph Gateway["open-gateway 网关"]
-        G1["18 个标准化工具<br/>搜店 · 菜单 · 预览 · 下单 · 查单"]
+        G1["24 个标准化工具<br/>搜店 · 菜单 · 预览 · 下单 · 查单"]
       end
 
       subgraph Skills["可安装技能包"]
@@ -55,12 +55,12 @@ import Mermaid from '/components/Mermaid';
 
 | | **MCP（裸工具）** | **Skill（技能包）** |
 |---|---|---|
-| 你拿到的 | 18 个原子工具 | 一个封装好的能力（如 takeout） |
+| 你拿到的 | 24 个原子工具 | 一个封装好的能力（如 takeout） |
 | 编排 | 自己写：搜店→菜单→预览→下单的链路由你拼 | 已封装：动作 + GUIDE 帮你串好流程 |
 | 上手 | 灵活，但要自己定义交互 | 开箱即用，装上即具备能力 |
 | 适合 | 想精细控制底层、自建 Agent 逻辑 | 想让 Agent 直接会"点外卖" |
 
-简单说：**MCP 给你零件，Skill 给你成品**——且 Skill 的 CLI 底层调用的就是同一套 MCP 工具（`tools/call`，子命令 1:1 对应工具名），两条路径的能力与行为完全一致。 如果你想自己编排底层的 18 个工具、做更精细的控制，看 [MCP 概览](/mcp/overview)。
+简单说：**MCP 给你零件，Skill 给你成品**——且 Skill 的 CLI 底层调用的就是同一套 MCP 工具（`tools/call`，子命令 1:1 对应工具名），两条路径的能力与行为完全一致。 如果你想自己编排底层的 24 个工具、做更精细的控制，看 [MCP 概览](/mcp/overview)。
 
 ## Skill 的组成
 
@@ -109,6 +109,6 @@ curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/
   </Card>
 
   <Card title="MCP 概览" href="/mcp/overview" icon="wrench">
-    想自己编排底层的 18 个裸工具？从这里开始。
+    想自己编排底层的 24 个裸工具？从这里开始。
   </Card>
 </CardGroup>

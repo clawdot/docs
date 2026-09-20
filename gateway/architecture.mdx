@@ -52,7 +52,7 @@ MCP Server 挂在 `/mcp/v1`，传输为 Streamable HTTP（FastMCP），对外主
 
 ## MCP 工具清单
 
-网关对外暴露 18 个工具，覆盖授权、地址、店铺、购物车、优惠券、订单、支付签约整条链路：
+外卖网关对外暴露 24 个工具，覆盖授权、地址、店铺、购物车、优惠券、订单、支付签约整条链路：
 
 | 分组 | 工具 | 用途 |
 |---|---|---|
@@ -64,18 +64,24 @@ MCP Server 挂在 `/mcp/v1`，传输为 Streamable HTTP（FastMCP），对外主
 | 地址 | `search_addresses` | 搜索 / 列出地址 |
 | 地址 | `select_address` | 选择 / 保存地址，得 `address_id` |
 | 地址 | `update_address` | 编辑地址（门牌 / 标签；`address_id` 不变） |
+| 地址 | `delete_address` | 删除地址 |
 | 店铺 | `search_shops` | 搜索 / 浏览商家，得 `shop_id` + `cart_id` |
+| 店铺 | `get_shop_info` | 商家详情（营业状态、配送费、起送价） |
 | 店铺 | `get_shop_menu` | 商家菜单，得 `item_id` / `sku_id` / `ingredient_options` |
+| 店铺 | `get_item_options` | 商品规格与配料候选 |
+| 店铺 | `batch_get_item_options` | 跨店批量拉取规格与配料候选 |
+| 店铺 | `get_item_description` | 商品详情说明卡 |
 | 店铺 | `get_shop_share_url` | 商家分享链接 |
 | 下单 | `quote_cart` | 购物车算价，得 `quote_id` |
 | 下单 | `list_coupons` | 账户优惠券列表 |
 | 下单 | `preview_order` | 预览订单，得 `preview_id` + `confirmation_token` |
 | 下单 | `create_order` | 创建订单，得 `order_id` |
 | 下单 | `get_order_status` | 查询订单状态 |
+| 下单 | `list_orders` | 历史订单列表 |
 | 支付 | `get_sign_action` | 获取免密签约动作（H5 链接） |
 | 支付 | `get_sign_status` | 查询签约状态 |
 
-逐个工具的参数与返回字段见 [MCP 工具](/mcp/overview)。
+逐个工具的参数与返回字段见 [外卖 MCP 工具](/mcp/overview)。跑腿是另一套独立 endpoint 的 19 个工具，见 [跑腿 MCP](/errand/overview)。
 
 ## 认证模型
 
