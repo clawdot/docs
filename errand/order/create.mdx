@@ -24,7 +24,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 </Note>
 
 <Note>
-  **待支付单 15 分钟未支付会自动关闭**（`status` 变为 `cancelled`，`pay_status` 变为 `expired`）。关闭后若用户仍完成支付，款项会自动全额原路退回。
+  **待支付单 2 分钟未支付会自动关闭**（`status` 变为 `cancelled`，`pay_status` 变为 `expired`）。关闭后若用户仍完成支付，款项会自动全额原路退回。
 </Note>
 
 ### 参数
@@ -49,7 +49,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 | `pay_status` | string | 恒为 `unpaid`（未支付）|
 | `quote_fee` | integer | 应付金额（= 所选运力 `fee`），单位分 |
 | `cashier_url` | string | 收银台支付页链接，交给用户打开完成支付 |
-| `payment_expire_at` | string | 最晚付款时间（北京时间），自下单起 15 分钟；到点后订单随时会自动关闭，链接随之失效 |
+| `payment_expire_at` | string | 最晚付款时间（北京时间），自下单起 2 分钟；过点即不再受理支付、订单随后自动关闭。**拿到链接请立即交给用户**；过期重新询价下单不产生费用 |
 
 **响应同时带上这笔订单的整单信息**，与 [errand_get_order](/errand/orders/get) 订单详情的基础字段、`errand_list_orders` 的列表条目完全一致（`status_desc` / `timeline` / `rider` 只在查询在途订单时才有，待支付单不带）——创建后立即可用，不必再查一次。整单信息包括：
 

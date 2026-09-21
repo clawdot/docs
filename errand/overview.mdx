@@ -69,7 +69,7 @@ https://paotui.hicaspian.com/mcp/v1
 |---|---|---|
 | 授权（首次） | `errand_request_user_bind` → `errand_verify_user_bind` | 短信验证码绑定用户，换发 `consent_grant_id`；一次绑定长期复用，之后所有工具参数携带。 |
 | 备址（可选） | `errand_search_addresses` → `errand_save_address` | 关键词搜地址拿坐标；选中可存入地址簿供复用。下单已知坐标可跳过。 |
-| 询价 | `errand_quote` | 提交收发两端要素与货品，返回多家运力实时报价；`quote_id` 有效期 600 秒、**单次有效**。**收发地址须同城**。 |
+| 询价 | `errand_quote` | 提交收发两端要素与货品，返回多家运力实时报价；`quote_id` 有效期 120 秒、**单次有效**。**收发地址须同城**。 |
 | 下单 | `errand_create` | 选定运力（`company_code`）核销 `quote_id`；此步只建**待支付单**，返回收银台链接 `cashier_url`。**支付成功前不会呼叫骑手**。 |
 | 支付 | （无工具） | 用户打开 `cashier_url`，在收银台页面选支付宝/微信完成支付；支付结果由收银台回写平台，平台**自动派单**。 |
 | 跟踪 | `errand_get_order` / `errand_get_rider` | 订单详情实时同步配送方最新状态（含中文状态、时间线）；配送中可查骑手实时位置。 |
@@ -93,7 +93,7 @@ flowchart LR
 | `lat` / `lng` | `errand_search_addresses`（`candidates[]`） | `errand_quote` 的 `from_address`/`to_address` | POI 搜到的坐标，回填收发端。 |
 | `address_id` | `errand_save_address` / `errand_list_addresses` / `errand_search_addresses`（`saved_matches`） | `errand_quote` 的 `from_address`/`to_address` | 地址 ID（`plat_` 前缀）；与「`address_text`+`lat`+`lng`」二选一。 |
 | `goods_category_code` | `errand_list_goods_categories` | `errand_quote`；订单详情回读 | 物品品类码。**理赔以此为准，与物品名称无关**；复用历史单时记得原样回填。 |
-| `quote_id` | `errand_quote` | `errand_create` | 报价确认令牌，**600 秒内单次有效**；核销后失效，重复使用报 `QUOTE_INVALID_OR_EXPIRED`。 |
+| `quote_id` | `errand_quote` | `errand_create` | 报价确认令牌，**120 秒内单次有效**；核销后失效，重复使用报 `QUOTE_INVALID_OR_EXPIRED`。 |
 | `company_code` | `errand_quote`（`quotes[]`） | `errand_create` | 选定运力编码，必须在本次报价集内；**决定支付金额 = 该运力 fee**。 |
 | `order_id` | `errand_create` | 订单详情 / 骑手 / 取消 / 小费 | 跑腿订单 ID（`err_` 前缀）。 |
 | `cashier_url` | `errand_create` | 交给用户打开 | 收银台支付页链接；支付成功平台自动派单。 |

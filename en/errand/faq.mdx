@@ -17,7 +17,7 @@ description: "Things to know before integrating Errand: address sourcing, the sa
     The amount charged equals the chosen provider's quoted `fee`; a tip is a separate payment item (it only takes effect once paid, and accumulates into `tip_fee`). All amounts are in cents.
   </Step>
   <Step title="Token lifetime">
-    `quote_id` is valid once within 600 seconds; if the user takes too long to decide or switches providers to re-check the price, just get a new quote.
+    `quote_id` is valid once within 120 seconds, and payment gets another 2 minutes after the order is placed. The delivery fee is settled by the provider at the moment the rider is dispatched, so a stale quote no longer matches the real charge — **place the order as soon as you have the quote, and hand the link to the user as soon as you have it**. Missing either window costs nothing; just get a new quote.
   </Step>
   <Step title="Privacy">
     Contact phone numbers are stored encrypted and never returned in plaintext — the address book returns a masked form (`138****5678`), and order history doesn't return a phone number at all. Unit detail (`detail`) is returned and automatically appended to the address when placing an order. Rider phone numbers differ by purpose: order details and the rider-location lookup both return the full work number (so the user can call the rider), while status callbacks only give the masked form with the middle four digits hidden (for confirming which rider it is).
