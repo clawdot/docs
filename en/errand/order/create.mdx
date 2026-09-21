@@ -24,7 +24,7 @@ Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order
 </Note>
 
 <Note>
-  **An unpaid order auto-closes after 15 minutes** (`status` becomes `cancelled`, `pay_status` becomes `expired`). If the user still completes payment after it closes, the full amount is automatically refunded.
+  **An unpaid order auto-closes after 2 minutes** (`status` becomes `cancelled`, `pay_status` becomes `expired`). If the user still completes payment after it closes, the full amount is automatically refunded.
 </Note>
 
 ### Parameters
@@ -49,7 +49,7 @@ Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order
 | `pay_status` | string | Always `unpaid` |
 | `quote_fee` | integer | Amount payable (= the selected courier's `fee`), in fen |
 | `cashier_url` | string | Cashier payment page URL; hand this to the user to complete payment |
-| `payment_expire_at` | string | Payment deadline (Beijing time), 15 minutes after the order is placed; past that point the order may be closed automatically at any moment and the link stops working |
+| `payment_expire_at` | string | Payment deadline (Beijing time), 2 minutes after the order is placed; past that point payment is no longer accepted and the order closes shortly after. **Hand the link to the user right away**; missing the window costs nothing — just quote and order again |
 
 **The response also carries this order's full order info**, using exactly the same base fields as the order detail from [errand_get_order](/en/errand/orders/get) and the entries returned by `errand_list_orders` (`status_desc` / `timeline` / `rider` appear only when you query an in-flight order — a pending-payment order carries none of them) — available immediately, no extra lookup needed. The full order info includes:
 

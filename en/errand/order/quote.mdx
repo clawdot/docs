@@ -12,7 +12,7 @@ Submits the pickup and dropoff details plus the items to send, and returns real-
 </Note>
 
 <Note>
-  **`quote_id` is single-use and must be redeemed before it expires.** It's valid for `expires_in_seconds` seconds (currently 600). Using an expired or already-redeemed `quote_id` with `errand_create` returns `QUOTE_INVALID_OR_EXPIRED` — get a new quote.
+  **`quote_id` is single-use and must be redeemed before it expires.** It's valid for `expires_in_seconds` seconds (currently 120). Using an expired or already-redeemed `quote_id` with `errand_create` returns `QUOTE_INVALID_OR_EXPIRED` — get a new quote.
 </Note>
 
 <Note>
@@ -69,7 +69,7 @@ Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents)
 |-------|------|-------------|
 | `quote_id` | string | Quote confirmation token (`equote_` prefix), valid for a single use within its expiry window |
 | `quotes` | array | Per-courier quotes |
-| `expires_in_seconds` | integer | Token validity in seconds, currently `600` |
+| `expires_in_seconds` | integer | Token validity in seconds, currently `120`. This is the deadline for **placing the order**, not for paying |
 
 **`quotes[]`**:
 
@@ -100,7 +100,7 @@ Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents)
     { "company_code": 14, "company_name": "蜂鸟品质达", "fee": 480, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
     { "company_code": 5, "company_name": "美团帮送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" }
   ],
-  "expires_in_seconds": 600
+  "expires_in_seconds": 120
 }
 ```
 

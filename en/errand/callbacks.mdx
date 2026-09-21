@@ -5,7 +5,7 @@ description: "Once errand_create is called with callback_url, the platform pushe
 
 Once `errand_create` is called with `callback_url`, the platform POSTs JSON to that address whenever the order status changes. Return HTTP 200 on receipt (the response body isn't checked).
 
-Besides status changes during delivery, the platform also pushes when **payment succeeds and rider dispatch begins** (`dispatching`), when **rider dispatch fails** (`dispatch_failed`, with the amount paid refunded in full), and when **a pending-payment order auto-closes after 15 minutes unpaid** (`cancelled`). The only case with no push is when you call the cancellation tool yourself and it succeeds — the tool's response already gives you the result.
+Besides status changes during delivery, the platform also pushes when **payment succeeds and rider dispatch begins** (`dispatching`), when **rider dispatch fails** (`dispatch_failed`, with the amount paid refunded in full), and when **a pending-payment order auto-closes after 2 minutes unpaid** (`cancelled`). The only case with no push is when you call the cancellation tool yourself and it succeeds — the tool's response already gives you the result.
 
 <Warning>
   **A callback is a notification, not the source of truth.** Delivery is single-attempt with no retry, so network blips can drop it; the order's actual state is always whatever `errand_get_order` returns. **When the callback fires is decided by the delivery provider — the platform makes no delivery-time guarantee** — don't use it to build a timeout check; query directly when you need to know the current state for certain.

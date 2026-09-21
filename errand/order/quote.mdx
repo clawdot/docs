@@ -12,7 +12,7 @@ description: "MCP 工具 errand_quote —— 提交收发两端要素与货品�
 </Note>
 
 <Note>
-  **`quote_id` 单次核销、有效期内必须完成下单**：有效期 `expires_in_seconds` 秒（当前 600 秒），过期或已核销过一次的 `quote_id` 再次用于 `errand_create` 会返回 `QUOTE_INVALID_OR_EXPIRED`，需要重新询价。
+  **`quote_id` 单次核销、有效期内必须完成下单**：有效期 `expires_in_seconds` 秒（当前 120 秒），过期或已核销过一次的 `quote_id` 再次用于 `errand_create` 会返回 `QUOTE_INVALID_OR_EXPIRED`，需要重新询价。
 </Note>
 
 <Note>
@@ -69,7 +69,7 @@ description: "MCP 工具 errand_quote —— 提交收发两端要素与货品�
 |------|------|------|
 | `quote_id` | string | 报价确认令牌（`equote_` 前缀），有效期内单次有效 |
 | `quotes` | array | 逐运力报价 |
-| `expires_in_seconds` | integer | 令牌有效期（秒），当前 `600` |
+| `expires_in_seconds` | integer | 令牌有效期（秒），当前 `120`。这是**下单**的期限，不是付款的期限 |
 
 **`quotes[]`**：
 
@@ -100,7 +100,7 @@ description: "MCP 工具 errand_quote —— 提交收发两端要素与货品�
     { "company_code": 14, "company_name": "蜂鸟品质达", "fee": 480, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
     { "company_code": 5, "company_name": "美团帮送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" }
   ],
-  "expires_in_seconds": 600
+  "expires_in_seconds": 120
 }
 ```
 
