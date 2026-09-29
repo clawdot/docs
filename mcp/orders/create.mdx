@@ -111,6 +111,7 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
     "action_url": "https://...",
     "expires_at": "2026-06-16T12:30:00+00:00"
   },
+  "extra_map": {},
   "callback_registered": true
 }
 ```
@@ -129,7 +130,19 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `payment_action.action_type` | string | 动作类型，当前为 `open_h5`（打开 H5 支付页）|
 | `payment_action.action_url` | string | 支付页 URL，引导用户完成支付；下单时传了 `require_phone_verify: true` 的订单，打开后先要求输入下单手机号后 4 位确认本人 |
 | `payment_action.expires_at` | string | 动作过期时间（ISO 8601，UTC）；有效期约 30 分钟 |
+| `extra_map` | object | 扩展信息，恒为对象，没有内容时为 `{}`。与绑定接口的 `extra` 无关 |
+| `extra_map.next_url` | string | 使用自有收银台的渠道才返回：用户打开即进入该渠道的收银台付款，下单后 15 分钟内有效。没有该字段时照常使用 `payment_action.action_url` |
 | `callback_registered` | boolean | 是否已注册支付回调（即请求是否带了有效 `callback_url`）|
+
+使用自有收银台的渠道，`extra_map` 里会多一个 `next_url`：
+
+```json
+{
+  "extra_map": {
+    "next_url": "https://order.hicaspian.com/h5/pay-next/8084736215249374708/5c1e0f2a..."
+  }
+}
+```
 
 **`status` 枚举：** `created`（订单已创建）、`pending_payment`（待支付）、`paid`（已支付）、`preparing`（商家备餐中）、`delivering`（配送中）、`completed`（已完成）、`cancelled`（已取消）、`failed`（下单或履约失败）、`refunded`（已退款）。
 
