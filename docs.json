@@ -440,7 +440,7 @@
         "primary": {
             "type": "button",
             "label": "申请接入",
-            "href": "https://console.hicaspian.com/agents"
+            "href": "https://hub.clawdot.net/#/account/keys"
         }
     },
     "contextual": {
