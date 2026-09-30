@@ -32,41 +32,48 @@
 
 ### 色彩体系
 
+站点配色取自 Hub 的设计 token（`web/styles/tokens.css`），整体是蓝白基调。
+
 #### 主色调
 
 | 色彩 | 色值 | 使用场景 |
 |------|------|----------|
-| 虾橙 Shrimp Orange | `#E8593C` | 品牌主色，logo、重要按钮、强调元素 |
-| 深墨黑 Ink Black | `#1A1A1A` | 文字、描边、深色背景 |
+| Hub 蓝 Brand Blue | `#2564F8` | 品牌主色，重要按钮、链接、强调元素 |
+| 深蓝 Brand Hover | `#1D55DB` | 按钮 hover、深一档的强调 |
+| 亮蓝 Brand Light | `#6E9BFF` | 深色模式下的强调色 |
+| 墨 Ink | `#14151C` | 文字、描边、深色背景 |
 
 #### 辅助色
 
 | 色彩 | 色值 | 使用场景 |
 |------|------|----------|
-| 暖粉 Warm Pink | `#F5A89A` | 浅色背景、hover 状态、柔和装饰 |
-| 奶白 Cream White | `#FFF9F5` | 页面背景、留白区域 |
+| 品牌浅底 | `rgba(37,100,248,.08)` | 图标底、标签底、hover 底 |
+| 浅灰底 | `#F7F8FA` | 分区背景、留白区域 |
+| 白 | `#FFFFFF` | 页面背景 |
 | 科技蓝 Tech Blue | `#3B82F6` | AI/技术相关内容的点缀色 |
 | 生态绿 Eco Green | `#34D399` | 成功状态、生态/可持续相关内容 |
 
 #### 色彩使用原则
 
-- 虾橙为绝对主角，出现面积占视觉元素的 40-60%
-- 深墨黑用于文字和结构，保证信息清晰
+- 蓝白为基调，蓝色只用在按钮、链接、图标和强调处，不大面积铺底
+- 墨用于文字和结构，保证信息清晰
 - 辅助色不超过视觉面积的 20%，用于丰富层次
-- 避免大面积使用冷灰色，保持温暖基调
+- 文字与底色的对比度不低于 4.5:1；深色底上的蓝色文字用亮蓝 `#6E9BFF`
 
 #### Mintlify docs.json 色彩映射
 
-- `colors.primary` → `#E8593C`（虾橙）
-- `colors.light` → `#F5A89A`（暖粉，浅色模式强调）
-- `colors.dark` → `#D14430`（深虾橙，深色模式强调）
-- `colors.background.light` → `#FFF9F5`（奶白）
+`colors` 三个键的用途以 Mintlify 官方说明为准（Appearance and branding）：
+
+- `colors.primary` → `#2564F8`（文档主色，浅色模式下的强调；必填）
+- `colors.light` → `#6E9BFF`（深色模式下的强调色；选填）
+- `colors.dark` → `#1D55DB`（按钮与 hover 状态，浅色和深色模式都用；选填）
+- `background.color.light` → `#FFFFFF`（浅色模式页面背景）
 
 #### Mermaid 图表色彩规范
 
-- Clawdot/Gateway 核心节点：`fill:#fde8e4,stroke:#E8593C,stroke-width:2px`
-- AI Agent 节点：`fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px`（科技蓝系）
-- 重要/确认步骤：`fill:#f9c4bc,stroke:#D14430,stroke-width:2px`
+- Clawdot/Gateway 核心节点：`fill:#E1E9FE,stroke:#2564F8,stroke-width:2px`
+- AI Agent 节点：`fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px`（科技蓝系，比核心节点更浅）
+- 重要/确认步骤：`fill:#BED0FD,stroke:#1D55DB,stroke-width:2px`
 - 平台/外部服务节点：使用默认样式，不额外着色
 
 ### Logo 使用规范
@@ -79,7 +86,7 @@ Logo 变体：
 - 图标版：仅虾插画（用于头像、favicon 等小尺寸场景）
 
 Logo 不可操作：
-- 不可改变虾橙主色
+- 不可改变小龙虾插画的原有配色（站点主色是蓝，logo 与吉祥物图片保持原色，不随主色调整）
 - 不可拉伸变形
 - 不可在杂乱背景上使用
 - 不可将虾的方向反转
