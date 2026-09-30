@@ -50,7 +50,7 @@ flowchart LR
   </Accordion>
 
   <Accordion title="安全" icon="shield">
-    API Key 在服务端只存哈希、不保留明文，每次请求按哈希比对。被禁用的 Key 立即失效。
+    API Key 由服务端加密保存，可在开发者中心的 **我的密钥** 页随时查看和复制。怀疑泄露就立即轮换，旧 Key 当场失效；被禁用的 Key 同样立即失效。
   </Accordion>
 </AccordionGroup>
 

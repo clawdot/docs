@@ -83,7 +83,7 @@ Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认�
 ### API Key（Agent 识别）
 
 - **前缀**：`clw_` 开头，后接随机字符，例如 `clw_a1b2c3d4...`
-- **存储**：服务端只存哈希、不保留明文，每次请求按哈希比对
+- **存储**：服务端加密保存
 - **颁发**：在[开发者中心](https://hub.clawdot.net/#/account/keys)创建 Agent 时生成，可随时在 **我的密钥** 页 **显示** / **复制** 取回；取不回时 **轮换** 一次即可
 - **使用**：在连接层 HTTP Header 中作为 `Authorization: Bearer {API_KEY}` 传入，标识调用方 Agent
 
@@ -118,12 +118,17 @@ Skills 平台对所有敏感数据进行分层加密 / 哈希，确保即使数�
     - 场景：绑定验证后，电话号码以哈希形式存储
   </Tab>
 
-  <Tab title="凭据哈希">
-    **API Key 与 consent grant 哈希**
+  <Tab title="凭据">
+    **API Key**
+    - 存储：服务端加密保存
+    - 查看：开发者中心的 **我的密钥** 页可随时查看和复制
+    - 泄露处置：立即轮换，旧 Key 当场失效
+
+    **consent grant 哈希**
     - 算法：单向哈希
-    - 用途：验证 Agent 与用户授权的合法性
+    - 用途：验证用户授权的合法性
     - 特点：数据库中无法查看明文凭据
-    - 场景：每次请求时，服务端对传入的 API Key / consent_grant_id 哈希后与数据库比对
+    - 场景：每次请求时，服务端对传入的 consent_grant_id 哈希后与数据库比对
   </Tab>
 </Tabs>
 
@@ -260,7 +265,7 @@ Skills 平台在数据访问层强制执行严格的隔离策略：
 <details>
 <summary>API Key 泄露了怎么办？</summary>
 
-立即在[开发者中心](https://hub.clawdot.net/#/account/keys)的 **我的密钥** 页 **轮换** 该 API Key：旧 Key 立即失效，系统会拒绝所有使用它的请求，同时生成新的 API Key，随后更新应用配置即可。数据库中只存 API Key 的哈希，攻击者无法直接利用泄露的哈希值。
+立即在[开发者中心](https://hub.clawdot.net/#/account/keys)的 **我的密钥** 页 **轮换** 该 API Key：旧 Key 立即失效，系统会拒绝所有使用它的请求，同时生成新的 API Key，随后更新应用配置即可。
 
 </details>
 

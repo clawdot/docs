@@ -87,7 +87,7 @@ MCP Server 挂在 `/mcp/v1`，传输为 Streamable HTTP（FastMCP），对外主
 
 网关使用双层身份：
 
-- **API Key 标识 Agent** — `Authorization: Bearer clw_...`，前缀 `clw_`。服务端只存 SHA-256 哈希、不留明文，每次请求按哈希比对；被禁用的 Key 立即失效。在开发者中心创建 Agent 时签发。
+- **API Key 标识 Agent** — `Authorization: Bearer clw_...`，前缀 `clw_`。服务端加密保存；被禁用的 Key 立即失效。在开发者中心创建 Agent 时签发，之后可在 **我的密钥** 页随时查看和复制。
 - **consent_grant 标识已授权用户** — 前缀 `cg_`，代表"某个外卖用户已授权某个 Agent 使用某项能力"。走绑定流程（`request_user_bind` + `verify_user_bind`）获取，可被 `revoke_user_bind` 即时撤销。
 
 ```mermaid
@@ -187,7 +187,7 @@ sequenceDiagram
 
 | 机制 | 实现 |
 |------|------|
-| API Key 存储 | SHA-256 哈希，数据库不存明文，禁用即时失效 |
+| API Key 存储 | 服务端加密保存，开发者中心可随时查看和复制，禁用即时失效 |
 | consent_grant 存储 | 只存 SHA-256 哈希（`consent_grant_hash`），原值不落库 |
 | 手机号存储 | 加密存储，并以 SHA-256 哈希用于去重 |
 | 用户 ID 存储 | AES-256-GCM 加密 |

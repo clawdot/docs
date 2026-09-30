@@ -87,7 +87,7 @@ For each tool's parameters and return fields, see [Delivery MCP tools](/en/mcp/o
 
 The gateway uses a two-layer identity:
 
-- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores only the SHA-256 hash, never the plaintext, and compares by hash on every request; a disabled key fails immediately. Issued when an Agent is created in the Developer Center.
+- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores it encrypted; a disabled key fails immediately. Issued when an Agent is created in the Developer Center, and you can view and copy it anytime on the **我的密钥** (My keys) page.
 - **consent_grant identifies the authorized user** — prefix `cg_`, representing "a given food-delivery user has authorized a given Agent to use a given capability." Obtained through the binding flow (`request_user_bind` + `verify_user_bind`), and revocable instantly via `revoke_user_bind`.
 
 ```mermaid
@@ -187,7 +187,7 @@ For the full list, see [Error Handling](/en/gateway/error-handling).
 
 | Mechanism | Implementation |
 |------|------|
-| API Key storage | SHA-256 hash; no plaintext in the database; disabling takes effect immediately |
+| API Key storage | Stored encrypted by the server; viewable and copyable anytime in the Developer Center; disabling takes effect immediately |
 | consent_grant storage | Only the SHA-256 hash (`consent_grant_hash`) is stored; the original value is never persisted |
 | Phone number storage | Encrypted at rest, with a SHA-256 hash used for deduplication |
 | User ID storage | AES-256-GCM encryption |
