@@ -47,12 +47,12 @@ Gateway 以 **MCP（Model Context Protocol）工具**的形式对外开放能力
 ## Step 1：获取 API Key 并连接 MCP
 
 <Steps>
-  <Step title="在控制台创建 Agent">
-    访问 [Clawdot 控制台](https://hub.clawdot.net/#/account/keys)，创建一个 Agent 并为它开通外卖能力。Agent 与 API Key 都在控制台管理。
+  <Step title="在开发者中心创建 Agent">
+    访问 [Clawdot 开发者中心](https://hub.clawdot.net/#/account/keys)，在 **我的密钥** 页创建一个 Agent。Agent 与 API Key 都在这一页管理。
   </Step>
 
   <Step title="复制 API Key">
-    系统生成 API Key（`clw_` 开头），**仅显示一次**，立即复制并保存到安全位置。服务端只存哈希，遗失需重新生成。
+    系统生成 API Key（`clw_` 开头），请立即复制并保存到安全位置。之后也可以在 **我的密钥** 页点 **显示** / **复制** 取回；取不回时点 **轮换** 换一把新的。
   </Step>
 
   <Step title="把 API Key 配进 MCP 客户端">
@@ -328,7 +328,7 @@ search_addresses → select_address → search_shops → get_shop_menu
 |--------|------|----------|
 | `AUTH_REQUIRED` / `AUTH_INVALID` | 连接层 API Key 缺失或无效 | 检查 `Authorization: Bearer clw_...` 连接头 |
 | `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 用户授权无效或已过期 | 重新发起绑定（`request_user_bind` → `verify_user_bind`）|
-| `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 | 在控制台为 Agent 开通对应能力 |
+| `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 | 联系平台为该 Agent 开通对应能力 |
 | `PUBLIC_REFERENCE_INVALID` | 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户 | 重新从上一步获取该 ID，不要自造或跨链路混用 |
 | `RATE_LIMITED` / `QUOTA_EXCEEDED` | 请求过于频繁或配额用尽 | 用指数退避稍后重试 |
 | `ELEME_ERROR` | 上游服务异常 | 提示用户稍后重试，或降级展示缓存结果 |
@@ -345,7 +345,7 @@ def handle_tool_result(result: dict):
     elif code in ("CONSENT_GRANT_INVALID", "CONSENT_GRANT_EXPIRED"):
         print("❌ 用户授权无效或已过期，请重新发起绑定")
     elif code == "CAP_NOT_BOUND":
-        print("❌ 当前 Agent 未开通该能力，请在控制台开通")
+        print("❌ 当前 Agent 未开通该能力，请联系平台开通")
     elif code == "PUBLIC_REFERENCE_INVALID":
         print("❌ 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户")
     elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):

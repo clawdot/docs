@@ -82,7 +82,7 @@ API_KEY=clw_your_api_key                                    # 唯一必填：Age
 # CONSENT_GRANT_ID=                                          # 只读预注入（可选）；正常流程绑定后凭证存共享缓存 ~/.clawdot/
 ```
 
-- `clw_` 开头的 **API Key** 在 [控制台 → Agents](https://hub.clawdot.net/#/account/keys) 创建 Agent、开通外卖能力时获取。
+- `clw_` 开头的 **API Key** 在 [开发者中心 → 我的密钥](https://hub.clawdot.net/#/account/keys) 创建 Agent 时获取。
 - 用户授权（`cg_` 前缀）**无需配置**：用户首次走一次短信或 H5 绑定后，凭证写入共享缓存（`~/.clawdot/credentials.json`，按 API_KEY + 手机号隔离）；`CONSENT_GRANT_ID` 仅作无状态部署的只读预注入项。授权与绑定的细节见 [安全模型](/skills/security-model)。
 
 ---

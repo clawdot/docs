@@ -32,15 +32,15 @@ MCP (Model Context Protocol) is the standard protocol released by Anthropic, ena
 
 ### Step 1: Get API Key
 
-Create your Agent in the [Clawdot Console](https://hub.clawdot.net/#/account/keys):
+Create your Agent in the [Clawdot Developer Center](https://hub.clawdot.net/#/account/keys):
 
-1. Sign in to the console and open **Agent Management**
-2. Click **Create New Agent**, enter a name and description
+1. Sign in to the Developer Center and open **我的密钥** (My keys)
+2. Click **新建 Agent** (New Agent), enter a name, and click **创建** (Create)
 3. The system auto-generates an API Key (starting with `clw_`)
 4. Copy the API Key to a safe location
 
 <Info>
-The API Key is only displayed once at creation. If lost, regenerate it in the console. See [Authentication](/en/gateway/authentication).
+Save the API Key right after it is created. You can also get it back later on the **我的密钥** page with **显示** (Show) / **复制** (Copy); if it cannot be retrieved, click **轮换** (Rotate) to get a new one. See [Authentication](/en/gateway/authentication).
 </Info>
 
 ### Step 2: Configure MCP Server
@@ -140,7 +140,7 @@ If your platform does not yet support remote MCP, you can register the tools as 
 
 ### Step 1: Get API Key
 
-Same as above (create an Agent in the [Console](https://hub.clawdot.net/#/account/keys)).
+Same as above (create an Agent in the [Developer Center](https://hub.clawdot.net/#/account/keys)).
 
 ### Step 2: User Authorization
 
@@ -326,7 +326,7 @@ Tool names, parameters, and response shapes are identical to MCP — the wrapper
 <details>
 <summary>Tool call returns 401 Unauthorized</summary>
 
-- API Key does not exist or is disabled (`AUTH_INVALID`), check the console
+- API Key does not exist or is disabled (`AUTH_INVALID`), check the **我的密钥** (My keys) page in the Developer Center
 - API Key format error, should start with `clw_`; connection header is `Authorization: Bearer ...`, case-sensitive
 - Missing `consent_grant_id` (`CONSENT_GRANT_REQUIRED`)
 - `consent_grant_id` invalid or expired (`CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED`), re-run the binding flow to get a new one
@@ -337,7 +337,7 @@ Tool names, parameters, and response shapes are identical to MCP — the wrapper
 <summary>Tool call returns 403 Forbidden</summary>
 
 - Grant belongs to another capability / provider (`CONSENT_GRANT_WRONG_CAP`)
-- This Agent has not enabled the capability (`CAP_NOT_BOUND`); check the Agent's enabled capabilities in the console
+- This Agent has not enabled the capability (`CAP_NOT_BOUND`); check the capability tags on the Agent's card on the **我的密钥** page in the Developer Center, and ask the platform to enable any that are missing
 
 </details>
 

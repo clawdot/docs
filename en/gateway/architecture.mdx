@@ -38,14 +38,14 @@ graph LR
 - **State storage** — MySQL holds records for Agents / API Keys / user bindings / orders; Redis carries short-lived state such as pricing context, single-flight locks, and shop-list caches.
 
 <Note>
-  This page only covers the **public** contract: the MCP tools on `/mcp/v1`. Operational actions such as creating an Agent, issuing an API Key, and enabling a capability go through the console ([hub.clawdot.net/#/account/keys](https://hub.clawdot.net/#/account/keys)) and are not part of the public API.
+  This page only covers the **public** contract: the MCP tools on `/mcp/v1`. Operational actions such as creating an Agent and issuing an API Key go through the Developer Center ([hub.clawdot.net/#/account/keys](https://hub.clawdot.net/#/account/keys)) and are not part of the public API.
 </Note>
 
 ## Connection and Authentication
 
 The MCP Server is mounted at `/mcp/v1` with Streamable HTTP transport (FastMCP); the external host is `eleme-gateway.hicaspian.com`. Authentication has two layers:
 
-- **Agent identity** — the connection-layer header `Authorization: Bearer clw_...` (sent on every MCP request). Issued when an Agent is created in the console.
+- **Agent identity** — the connection-layer header `Authorization: Bearer clw_...` (sent on every MCP request). Issued when an Agent is created in the Developer Center.
 - **User authorization** — passed as the **`consent_grant_id` parameter** of each business tool (not a header). The binding tools `request_user_bind` / `verify_user_bind` are the exception — they are the entry points for obtaining authorization and themselves take no `consent_grant_id`.
 
 For a full connection example and the auth chain, see [Authentication](/en/gateway/authentication).
@@ -87,7 +87,7 @@ For each tool's parameters and return fields, see [Delivery MCP tools](/en/mcp/o
 
 The gateway uses a two-layer identity:
 
-- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores only the SHA-256 hash, never the plaintext, and compares by hash on every request; a disabled key fails immediately. Issued when an Agent is created in the console.
+- **API Key identifies the Agent** — `Authorization: Bearer clw_...`, prefix `clw_`. The server stores only the SHA-256 hash, never the plaintext, and compares by hash on every request; a disabled key fails immediately. Issued when an Agent is created in the Developer Center.
 - **consent_grant identifies the authorized user** — prefix `cg_`, representing "a given food-delivery user has authorized a given Agent to use a given capability." Obtained through the binding flow (`request_user_bind` + `verify_user_bind`), and revocable instantly via `revoke_user_bind`.
 
 ```mermaid
@@ -192,4 +192,4 @@ For the full list, see [Error Handling](/en/gateway/error-handling).
 | Phone number storage | Encrypted at rest, with a SHA-256 hash used for deduplication |
 | User ID storage | AES-256-GCM encryption |
 | External IDs | All are opaque IDs issued by the gateway, decoupled from the upstream platform's raw IDs |
-| Public-surface boundary | Externally exposes only the `/mcp/v1` MCP tools; operational / administrative actions (creating an Agent, enabling a capability, etc.) go through the console and are not part of the public API |
+| Public-surface boundary | Externally exposes only the `/mcp/v1` MCP tools; operational / administrative actions (creating an Agent, issuing an API Key, etc.) go through the Developer Center and are not part of the public API |
