@@ -1,10 +1,10 @@
 ---
 title: "Developer Center Guide"
-description: "From sign-up to first order: a hands-on walkthrough of the Clawdot developer center"
+description: "From sign-up to first order: a hands-on walkthrough of the Clawdot Developer Center"
 icon: "layout-dashboard"
 ---
 
-The [Clawdot developer center](https://hub.clawdot.net/#/account) is your self-service entry point for managing API access. This guide walks you from creating an account through creating an Agent, obtaining an API Key, running a test binding, and on to managing channels and upgrading your plan. Every "console" link elsewhere in these docs now points here.
+The [Clawdot Developer Center](https://hub.clawdot.net/#/account) is your self-service entry point for managing API access. This guide walks you from creating an account through creating an Agent, obtaining an API Key, running a test binding, and on to managing channels and upgrading your plan. Every "console" link elsewhere in these docs now points here.
 
 After you sign in, the left sidebar has seven pages:
 
@@ -18,10 +18,10 @@ After you sign in, the left sidebar has seven pages:
 | [**问题反馈** (Feedback)](https://hub.clawdot.net/#/account/feedback) | Report a bug or request a feature, and track its progress |
 | [**账号设置** (Account settings)](https://hub.clawdot.net/#/account/settings) | Edit your profile and sign-in password |
 
-The developer center home ([account overview](https://hub.clawdot.net/#/account)) shows your name, email, company, plan, email verification status, and sign-up date, with links to the seven pages above.
+The Developer Center home ([account overview](https://hub.clawdot.net/#/account)) shows your name, email, company, plan, email verification status, and sign-up date, with links to the seven pages above.
 
 <Note>
-  The developer center UI is in Chinese. This guide keeps the Chinese labels, with an English gloss where it helps you match them on screen.
+  The Developer Center UI is in Chinese. This guide keeps the Chinese labels, with an English gloss where it helps you match them on screen.
 </Note>
 
 <Note>
@@ -30,16 +30,16 @@ The developer center home ([account overview](https://hub.clawdot.net/#/account)
 
 ## 1. Sign up and sign in
 
-Open the [developer center](https://hub.clawdot.net/#/account) and register with your email:
+Open the [Developer Center](https://hub.clawdot.net/#/account) and register with your email:
 
 1. On the **注册** (Sign up) tab, enter your **邮箱** (email) and click **发送验证码** (Send code) to receive an email verification code.
 2. Enter your **名字** (name), **公司** (company, optional), **密码** (password, at least 6 characters), and the **邮箱验证码** (email verification code).
 3. Click **注册** (Sign up).
 
-The developer center signs you in with email and password. It does not support one-click sign-in with Google.
+The Developer Center signs you in with email and password. It does not support one-click sign-in with Google.
 
 <Note>
-  After sign-up, an Agent is created for you automatically, and the page shows its Key **only this once** — save it right away. You can manage that Key later on the **我的密钥** (My keys) page, see [Section 3](#3-my-keys).
+  After sign-up, an Agent is created for you automatically, and the page shows its Key — copy and save it right away. You can get that Key back or rotate it anytime on the **我的密钥** (My keys) page, see [Section 3](#3-my-keys).
 </Note>
 
 If you already have an account, sign in on the **登录** (Sign in) tab with your email and password.
@@ -81,7 +81,7 @@ Create Agents and manage API Keys here. An **Agent** represents one of your inte
     Type a name for the Agent and click **创建** (Create).
   </Step>
   <Step title="Save the API Key">
-    After creation, the page shows **新 Agent 的 Key** (the new Agent's Key) only this once — copy and save it right away.
+    After creation, the page shows **新 Agent 的 Key** (the new Agent's Key) — copy and save it right away. You can also get it back later with **显示** (Show) / **复制** (Copy) on the card.
   </Step>
 </Steps>
 
@@ -89,14 +89,14 @@ Create Agents and manage API Keys here. An **Agent** represents one of your inte
 
 | Action | Description |
 | --- | --- |
-| **显示 / 隐藏** (Show / Hide) | Toggle whether the Key is shown in plaintext; when hidden, only the prefix shows. |
-| **复制** (Copy) | Copy the full Key. |
-| **轮换** (Rotate) | Generate a new Key and **invalidate the old one immediately**. A confirmation appears first; click **确认轮换** (Confirm rotate) to proceed. Make sure your production services are ready to switch keys first, to avoid interruption. The new Key is shown only once. |
+| **显示 / 隐藏** (Show / Hide) | Toggle whether the Key is shown in plaintext; when hidden, only the prefix shows. The plaintext comes from the server, so you can view it anytime. |
+| **复制** (Copy) | Copy the full Key, anytime. |
+| **轮换** (Rotate) | Generate a new Key and **invalidate the old one immediately**. A confirmation appears first; click **确认轮换** (Confirm rotate) to proceed. Make sure your production services are ready to switch keys first, to avoid interruption. The new Key is shown right away, and you can get it back later with **显示** / **复制**. |
 | **删除** (Delete) | Delete the Agent. Its Key stops working immediately, and its user authorizations and channel assignment are removed with it. This is **irreversible**; a confirmation appears first, click **确认删除** (Confirm delete) to proceed. |
 | **测试绑定** (Test binding) | Get a user authorization credential with your own phone number (see 3.3). |
 
 <Note>
-  If **显示** (Show) reveals "服务端未回明文，轮换后可见" (the server did not return the plaintext; visible after rotation), the plaintext of that Key can no longer be retrieved. Click **轮换** (Rotate) to get a new one.
+  Only a few early-created Keys cannot be retrieved: **显示** (Show) reveals "服务端未回明文，轮换后可见" (the server did not return the plaintext; visible after rotation). Click **轮换** (Rotate) to get a new one.
 </Note>
 
 ### 3.3 Test binding
@@ -231,7 +231,7 @@ After you submit, track progress under **我的反馈** (My feedback) further do
 
 <AccordionGroup>
   <Accordion title="I forgot to save my API Key. What now?">
-    Find the Agent on the **我的密钥** page and click **显示** (Show) or **复制** (Copy). If the page says "服务端未回明文，轮换后可见", click **轮换** (Rotate) to get a new Key (it invalidates the old one immediately, so prepare your service switch first).
+    Find the Agent on the **我的密钥** page and click **显示** (Show) or **复制** (Copy) to get the full Key back — no rotation needed. Only an early-created Key that shows "服务端未回明文，轮换后可见" needs **轮换** (Rotate) to get a new one (it invalidates the old one immediately, so prepare your service switch first).
   </Accordion>
   <Accordion title="I signed up with Google and sign-in says the email or password is wrong.">
     Accounts created through Google have no password. On the sign-in form, click **忘记密码** (Forgot password), receive a reset code at your sign-up email, set a new password, and then sign in with email and the new password.
