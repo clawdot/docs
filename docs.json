@@ -3,9 +3,9 @@
     "theme": "mint",
     "name": "Clawdot虾点·文档中心",
     "colors": {
-        "primary": "#E8593C",
-        "light": "#F5A89A",
-        "dark": "#D14430"
+        "primary": "#2564F8",
+        "light": "#6E9BFF",
+        "dark": "#1D55DB"
     },
     "favicon": "/favicon.png",
     "icons": {
@@ -14,7 +14,7 @@
     "background": {
         "decoration": "gradient",
         "color": {
-            "light": "#FFF9F5",
+            "light": "#FFFFFF",
             "dark": "#0F172A"
         }
     },
@@ -440,7 +440,7 @@
         "primary": {
             "type": "button",
             "label": "申请接入",
-            "href": "https://console.hicaspian.com/agents"
+            "href": "https://hub.clawdot.net/#/account/keys"
         }
     },
     "contextual": {

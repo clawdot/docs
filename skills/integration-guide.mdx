@@ -32,15 +32,15 @@ MCP（Model Context Protocol）是 Anthropic 推出的标准协议，支持 Clau
 
 ### 步骤 1：获取 API Key
 
-在 [Clawdot 控制台](https://console.hicaspian.com/agents) 创建你的 Agent：
+在 [Clawdot 开发者中心](https://hub.clawdot.net/#/account/keys) 创建你的 Agent：
 
-1. 登录控制台，进入 **Agent 管理**
-2. 点击 **创建新 Agent**，填写名称和描述
+1. 登录开发者中心，进入 **我的密钥**
+2. 点击 **新建 Agent**，填写名称后点击 **创建**
 3. 系统自动生成 API Key（`clw_` 开头）
 4. 复制 API Key 到安全位置
 
 <Info>
-API Key 仅在创建时显示一次。如果遗失，需要在控制台重新生成。详见 [认证机制](/gateway/authentication)。
+API Key 创建后请立即保存；之后也可以在 **我的密钥** 页点 **显示** / **复制** 取回，取不回时点 **轮换** 换一把新的。详见 [认证机制](/gateway/authentication)。
 </Info>
 
 ### 步骤 2：配置 MCP 服务器
@@ -140,7 +140,7 @@ verify_user_bind(
 
 ### 步骤 1：获取 API Key
 
-同上（在 [控制台](https://console.hicaspian.com/agents) 创建 Agent）。
+同上（在 [开发者中心](https://hub.clawdot.net/#/account/keys) 创建 Agent）。
 
 ### 步骤 2：用户授权
 
@@ -324,7 +324,7 @@ def execute_tool(mcp_client, tool_name, tool_args, consent_grant_id):
 <details>
 <summary>工具调用返回 401 Unauthorized</summary>
 
-- API Key 不存在或已禁用（`AUTH_INVALID`），检查控制台
+- API Key 不存在或已禁用（`AUTH_INVALID`），到开发者中心的 **我的密钥** 页核对
 - API Key 格式错误，应以 `clw_` 开头，连接头为 `Authorization: Bearer ...`，区分大小写
 - 缺少 `consent_grant_id`（`CONSENT_GRANT_REQUIRED`）
 - `consent_grant_id` 无效或已过期（`CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED`），需要重新走绑定流程拿新的
@@ -335,7 +335,7 @@ def execute_tool(mcp_client, tool_name, tool_args, consent_grant_id):
 <summary>工具调用返回 403 Forbidden</summary>
 
 - 授权属于其它能力 / 服务商（`CONSENT_GRANT_WRONG_CAP`）
-- 当前 Agent 未开通该能力（`CAP_NOT_BOUND`），在控制台检查 Agent 开通的能力
+- 当前 Agent 未开通该能力（`CAP_NOT_BOUND`），在开发者中心的 **我的密钥** 页查看该 Agent 的能力标签，缺哪项就联系平台开通
 
 </details>
 

@@ -43,13 +43,13 @@ GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP 端点（默�
 # 可选：CLAWDOT_HOME（共享凭证缓存目录）、DEFAULT_LAT / DEFAULT_LNG（冷启动兜底定位）
 ```
 
-其中 `API_KEY` 必填，`GATEWAY_MCP_URL` 用默认值即可。到[控制台](https://console.hicaspian.com/agents)创建 Agent、开通外卖能力，拿到 `clw_` 开头的 API Key。
+其中 `API_KEY` 必填，`GATEWAY_MCP_URL` 用默认值即可。到[开发者中心](https://hub.clawdot.net/#/account/keys)的 **我的密钥** 页创建 Agent，拿到 `clw_` 开头的 API Key。
 
 ## 鉴权
 
 技能采用**双层身份**，但你**只需注入一个值**：`API_KEY`。
 
-- **`API_KEY`（Agent 身份，`clw_` 前缀）：** 唯一必需注入项，写进 `.env`。缺失时脚本返回 `RECOVERY[API_KEY_MISSING]`，引导去控制台拿 key。
+- **`API_KEY`（Agent 身份，`clw_` 前缀）：** 唯一必需注入项，写进 `.env`。缺失时脚本返回 `RECOVERY[API_KEY_MISSING]`，引导去开发者中心拿 key。
 - **`consent_grant`（用户授权，`cg_` 前缀）：** 代表**一个已授权用户**，有效期 **90 天**。开局留空，由用户**本人走一次绑定**生成。
 
 绑定走两步（SMS 默认，也支持 H5 链接）：

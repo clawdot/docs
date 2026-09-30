@@ -39,12 +39,12 @@ Skills 平台的安全基石是**按授权绑定**：每一个用户授权（con
 
       style Agent1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
       style Agent2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style User1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style User2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style User1 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style User2 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style K1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
       style K2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style T1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style T2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style T1 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style T2 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
   `}
 />
@@ -83,8 +83,8 @@ Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认�
 ### API Key（Agent 识别）
 
 - **前缀**：`clw_` 开头，后接随机字符，例如 `clw_a1b2c3d4...`
-- **存储**：服务端只存哈希、不保留明文，每次请求按哈希比对
-- **颁发**：在 [Portal](https://console.hicaspian.com/agents) 创建 Agent 时生成，**仅显示一次**，遗失需重新生成
+- **存储**：服务端加密保存
+- **颁发**：在[开发者中心](https://hub.clawdot.net/#/account/keys)创建 Agent 时生成，可随时在 **我的密钥** 页 **显示** / **复制** 取回；取不回时 **轮换** 一次即可
 - **使用**：在连接层 HTTP Header 中作为 `Authorization: Bearer {API_KEY}` 传入，标识调用方 Agent
 
 ### 用户授权 consent grant（用户识别）
@@ -118,12 +118,17 @@ Skills 平台对所有敏感数据进行分层加密 / 哈希，确保即使数�
     - 场景：绑定验证后，电话号码以哈希形式存储
   </Tab>
 
-  <Tab title="凭据哈希">
-    **API Key 与 consent grant 哈希**
+  <Tab title="凭据">
+    **API Key**
+    - 存储：服务端加密保存
+    - 查看：开发者中心的 **我的密钥** 页可随时查看和复制
+    - 泄露处置：立即轮换，旧 Key 当场失效
+
+    **consent grant 哈希**
     - 算法：单向哈希
-    - 用途：验证 Agent 与用户授权的合法性
+    - 用途：验证用户授权的合法性
     - 特点：数据库中无法查看明文凭据
-    - 场景：每次请求时，服务端对传入的 API Key / consent_grant_id 哈希后与数据库比对
+    - 场景：每次请求时，服务端对传入的 consent_grant_id 哈希后与数据库比对
   </Tab>
 </Tabs>
 
@@ -167,12 +172,12 @@ Skills 平台在数据访问层强制执行严格的隔离策略：
       D -->|过期 / 撤销| E["5. 即时失效<br/>CONSENT_GRANT_INVALID"]
       E -->|重新绑定| F["6. 铸造新的<br/>consent_grant_id"]
 
-      style A fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style B fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style C fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style A fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style B fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style C fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
-      style E fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-      style F fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+      style E fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
+      style F fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
   `}
 />
 
@@ -260,7 +265,7 @@ Skills 平台在数据访问层强制执行严格的隔离策略：
 <details>
 <summary>API Key 泄露了怎么办？</summary>
 
-立即在 [Portal](https://console.hicaspian.com/agents) 禁用该 API Key，系统将自动停止所有使用该 Key 的请求；随后生成新的 API Key 并更新应用配置。数据库中只存 API Key 的哈希，攻击者无法直接利用泄露的哈希值。
+立即在[开发者中心](https://hub.clawdot.net/#/account/keys)的 **我的密钥** 页 **轮换** 该 API Key：旧 Key 立即失效，系统会拒绝所有使用它的请求，同时生成新的 API Key，随后更新应用配置即可。
 
 </details>
 

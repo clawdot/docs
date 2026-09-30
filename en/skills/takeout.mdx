@@ -43,13 +43,13 @@ GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP endpoint (this
 # Optional: CLAWDOT_HOME (shared credential cache dir), DEFAULT_LAT / DEFAULT_LNG (cold-start fallback location)
 ```
 
-`API_KEY` is required; `GATEWAY_MCP_URL` can stay at its default. Create an Agent and enable the takeout capability in the [console](https://console.hicaspian.com/agents) to get an API Key starting with `clw_`.
+`API_KEY` is required; `GATEWAY_MCP_URL` can stay at its default. Create an Agent on the **我的密钥** (My keys) page of the [Developer Center](https://hub.clawdot.net/#/account/keys) to get an API Key starting with `clw_`.
 
 ## Authentication
 
 The skill uses **two-layer identity**, but you **only need to inject one value**: `API_KEY`.
 
-- **`API_KEY` (Agent identity, `clw_` prefix):** the only required injection, set in `.env`. If missing, the script returns `RECOVERY[API_KEY_MISSING]`, guiding you to get a key from the console.
+- **`API_KEY` (Agent identity, `clw_` prefix):** the only required injection, set in `.env`. If missing, the script returns `RECOVERY[API_KEY_MISSING]`, guiding you to get a key from the Developer Center.
 - **`consent_grant` (user authorization, `cg_` prefix):** represents **one authorized user**, valid for **90 days**. Left empty at first, and generated when the **user binds in person, once**.
 
 Binding takes two steps (SMS by default, H5 link also supported):

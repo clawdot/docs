@@ -46,11 +46,11 @@ flowchart LR
   <Accordion title="格式与传递" icon="key">
     格式为 `clw_` 前缀加随机字符，例如 `clw_a1b2c3d4...`。
 
-    通过连接层请求头 `Authorization: Bearer clw_...` 传递，每个 MCP 请求都需要它。在控制台 `https://console.hicaspian.com/agents` 创建 Agent 时生成。
+    通过连接层请求头 `Authorization: Bearer clw_...` 传递，每个 MCP 请求都需要它。在开发者中心 `https://hub.clawdot.net/#/account/keys` 创建 Agent 时生成。
   </Accordion>
 
   <Accordion title="安全" icon="shield">
-    API Key 在服务端只存哈希、不保留明文，每次请求按哈希比对。被禁用的 Key 立即失效。
+    API Key 由服务端加密保存，可在开发者中心的 **我的密钥** 页随时查看和复制。怀疑泄露就立即轮换，旧 Key 当场失效；被禁用的 Key 同样立即失效。
   </Accordion>
 </AccordionGroup>
 

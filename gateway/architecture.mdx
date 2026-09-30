@@ -26,9 +26,9 @@ graph LR
   Service --> DB
   Service --> Redis
 
-  style MCP fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-  style Service fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-  style Gate fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style MCP fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
+  style Service fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
+  style Gate fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
   style Provider fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
 ```
 
@@ -38,14 +38,14 @@ graph LR
 - **状态存储** — MySQL 保存 Agent / API Key / 用户绑定 / 订单等记录；Redis 承载算价上下文、单飞锁、店铺列表缓存等短时态。
 
 <Note>
-  本页只覆盖**对外公开**的契约：`/mcp/v1` 上的 MCP 工具。创建 Agent、签发 API Key、开通能力等运营动作走控制台（[console.hicaspian.com/agents](https://console.hicaspian.com/agents)），不属于公开 API。
+  本页只覆盖**对外公开**的契约：`/mcp/v1` 上的 MCP 工具。创建 Agent、签发 API Key 等运营动作走开发者中心（[hub.clawdot.net/#/account/keys](https://hub.clawdot.net/#/account/keys)），不属于公开 API。
 </Note>
 
 ## 连接与认证
 
 MCP Server 挂在 `/mcp/v1`，传输为 Streamable HTTP（FastMCP），对外主机为 `eleme-gateway.hicaspian.com`。认证分两层：
 
-- **Agent 身份** — 连接层请求头 `Authorization: Bearer clw_...`（每个 MCP 请求都要带）。在控制台创建 Agent 时签发。
+- **Agent 身份** — 连接层请求头 `Authorization: Bearer clw_...`（每个 MCP 请求都要带）。在开发者中心创建 Agent 时签发。
 - **用户授权** — 作为每个业务工具的 **`consent_grant_id` 参数**传入（不走请求头）。绑定类工具 `request_user_bind` / `verify_user_bind` 例外——它们是拿授权的入口，本身不传 `consent_grant_id`。
 
 完整连接示例与认证链见 [认证机制](/gateway/authentication)。
@@ -87,7 +87,7 @@ MCP Server 挂在 `/mcp/v1`，传输为 Streamable HTTP（FastMCP），对外主
 
 网关使用双层身份：
 
-- **API Key 标识 Agent** — `Authorization: Bearer clw_...`，前缀 `clw_`。服务端只存 SHA-256 哈希、不留明文，每次请求按哈希比对；被禁用的 Key 立即失效。在控制台创建 Agent 时签发。
+- **API Key 标识 Agent** — `Authorization: Bearer clw_...`，前缀 `clw_`。服务端加密保存；被禁用的 Key 立即失效。在开发者中心创建 Agent 时签发，之后可在 **我的密钥** 页随时查看和复制。
 - **consent_grant 标识已授权用户** — 前缀 `cg_`，代表"某个外卖用户已授权某个 Agent 使用某项能力"。走绑定流程（`request_user_bind` + `verify_user_bind`）获取，可被 `revoke_user_bind` 即时撤销。
 
 ```mermaid
@@ -187,9 +187,9 @@ sequenceDiagram
 
 | 机制 | 实现 |
 |------|------|
-| API Key 存储 | SHA-256 哈希，数据库不存明文，禁用即时失效 |
+| API Key 存储 | 服务端加密保存，开发者中心可随时查看和复制，禁用即时失效 |
 | consent_grant 存储 | 只存 SHA-256 哈希（`consent_grant_hash`），原值不落库 |
 | 手机号存储 | 加密存储，并以 SHA-256 哈希用于去重 |
 | 用户 ID 存储 | AES-256-GCM 加密 |
 | 对外 ID | 全部为网关签发的不透明 ID，与上游平台原始 ID 解耦 |
-| 公开面边界 | 对外只暴露 `/mcp/v1` MCP 工具；运营 / 管理动作（创建 Agent、开通能力等）走控制台，不属于公开 API |
+| 公开面边界 | 对外只暴露 `/mcp/v1` MCP 工具；运营 / 管理动作（创建 Agent、签发 API Key 等）走开发者中心，不属于公开 API |

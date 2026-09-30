@@ -43,8 +43,8 @@ import Mermaid from '/components/Mermaid';
       S1 --> A3
 
       style Platforms fill:#D1FAE5,stroke:#34D399,stroke-width:2px
-      style Gateway fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-      style Skills fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style Gateway fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
+      style Skills fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style Agents fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   `}
 />
@@ -91,7 +91,7 @@ import Mermaid from '/components/Mermaid';
 curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
 ```
 
-装完在 skill 根目录放一个 `.env`，填入你的 `API_KEY`（agent 身份，`clw_` 前缀，在[控制台](https://console.hicaspian.com/agents)创建 Agent 时拿到）；`GATEWAY_MCP_URL` 用默认的 `https://eleme-gateway.hicaspian.com/mcp/v1` 即可（可不填）。三个平台各自的安装与触发方式见[安装与平台](/skills/supported-platforms)。
+装完在 skill 根目录放一个 `.env`，填入你的 `API_KEY`（agent 身份，`clw_` 前缀，在[开发者中心](https://hub.clawdot.net/#/account/keys)创建 Agent 时拿到）；`GATEWAY_MCP_URL` 用默认的 `https://eleme-gateway.hicaspian.com/mcp/v1` 即可（可不填）。三个平台各自的安装与触发方式见[安装与平台](/skills/supported-platforms)。
 
 ## 下一步
 

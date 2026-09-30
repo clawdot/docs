@@ -47,12 +47,12 @@ The delivery gateway exposes **24 MCP tools** over Streamable HTTP, covering the
 ## Step 1: Get API Key and Connect to MCP
 
 <Steps>
-  <Step title="Create an Agent in the console">
-    Visit [Clawdot Console](https://console.hicaspian.com/agents), create an Agent and enable the delivery capability for it. Agents and API Keys are both managed in the console.
+  <Step title="Create an Agent in the Developer Center">
+    Visit the [Clawdot Developer Center](https://hub.clawdot.net/#/account/keys) and create an Agent on the **我的密钥** (My keys) page. Agents and API Keys are both managed on that page.
   </Step>
 
   <Step title="Copy API Key">
-    System generates an API Key (starting with `clw_`), **displayed only once** — immediately copy and save to a secure location. The server only stores a hash; if lost, you must regenerate it.
+    The system generates an API Key (starting with `clw_`) — copy it and save it to a secure location right away. You can also get it back later on the **我的密钥** page with **显示** (Show) / **复制** (Copy); if it cannot be retrieved, click **轮换** (Rotate) to get a new one.
   </Step>
 
   <Step title="Configure the API Key in your MCP client">
@@ -328,7 +328,7 @@ Branch on `error.code` to show friendly messages:
 |------------|---------|--------------------|
 | `AUTH_REQUIRED` / `AUTH_INVALID` | Connection-layer API Key missing or invalid | Check the `Authorization: Bearer clw_...` connection header |
 | `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | User consent invalid or expired | Re-initiate binding (`request_user_bind` → `verify_user_bind`) |
-| `CAP_NOT_BOUND` | This Agent has not enabled the capability | Enable the capability for the Agent in the console |
+| `CAP_NOT_BOUND` | This Agent has not enabled the capability | Ask the platform to enable the capability for the Agent |
 | `PUBLIC_REFERENCE_INVALID` | Platform ID (shop / address / order) invalid, expired, or not the user's | Re-fetch the ID from the prior step; never fabricate or mix across chains |
 | `RATE_LIMITED` / `QUOTA_EXCEEDED` | Too many requests or quota exhausted | Retry later with exponential backoff |
 | `ELEME_ERROR` | Upstream service error | Ask the user to retry later, or degrade to cached results |
@@ -345,7 +345,7 @@ def handle_tool_result(result: dict):
     elif code in ("CONSENT_GRANT_INVALID", "CONSENT_GRANT_EXPIRED"):
         print("❌ User consent invalid or expired, please re-initiate binding")
     elif code == "CAP_NOT_BOUND":
-        print("❌ This Agent has not enabled the capability, enable it in the console")
+        print("❌ This Agent has not enabled the capability, ask the platform to enable it")
     elif code == "PUBLIC_REFERENCE_INVALID":
         print("❌ Platform ID (shop / address / order) invalid, expired, or not the user's")
     elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):

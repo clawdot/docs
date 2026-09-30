@@ -43,8 +43,8 @@ Underneath, it still runs on the same gateway: the gateway aggregates downstream
       S1 --> A3
 
       style Platforms fill:#D1FAE5,stroke:#34D399,stroke-width:2px
-      style Gateway fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-      style Skills fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style Gateway fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
+      style Skills fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style Agents fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   `}
 />
@@ -91,7 +91,7 @@ Skills are hosted on GitHub Releases; the install script downloads, verifies the
 curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/main/install.sh | bash -s -- takeout claude-code
 ```
 
-After installing, drop a `.env` in the skill root with your `API_KEY` (the agent identity, `clw_` prefix, obtained when you create an Agent in the [console](https://console.hicaspian.com/agents)); `GATEWAY_MCP_URL` can stay at the default `https://eleme-gateway.hicaspian.com/mcp/v1` (or be omitted). See [Installation & Platforms](/en/skills/supported-platforms) for the install and trigger details of each platform.
+After installing, drop a `.env` in the skill root with your `API_KEY` (the agent identity, `clw_` prefix, obtained when you create an Agent in the [Developer Center](https://hub.clawdot.net/#/account/keys)); `GATEWAY_MCP_URL` can stay at the default `https://eleme-gateway.hicaspian.com/mcp/v1` (or be omitted). See [Installation & Platforms](/en/skills/supported-platforms) for the install and trigger details of each platform.
 
 ## Next steps
 

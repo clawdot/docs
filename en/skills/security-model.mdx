@@ -39,12 +39,12 @@ The security foundation of the Skills Platform is **per-grant binding**: each us
 
       style Agent1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
       style Agent2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style User1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style User2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style User1 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style User2 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style K1 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
       style K2 fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-      style T1 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style T2 fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style T1 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style T2 fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
   `}
 />
@@ -83,8 +83,8 @@ The Skills Platform uses an **API Key + user consent grant** two-layer authentic
 ### API Key (Agent Identification)
 
 - **Prefix**: Starts with `clw_`, followed by random characters, e.g. `clw_a1b2c3d4...`
-- **Storage**: Server only stores a hash, never plaintext; each request is compared by hash
-- **Issuance**: Generated when creating an Agent in the [Portal](https://console.hicaspian.com/agents), **displayed only once** — if lost, regenerate it
+- **Storage**: Stored encrypted by the server
+- **Issuance**: Generated when creating an Agent in the [Developer Center](https://hub.clawdot.net/#/account/keys); you can get it back anytime on the **我的密钥** (My keys) page, and rotate it there if it cannot be retrieved
 - **Usage**: Passed in the connection-layer HTTP Header as `Authorization: Bearer {API_KEY}` to identify the calling Agent
 
 ### Consent Grant (User Identification)
@@ -118,12 +118,17 @@ The Skills Platform applies layered encryption / hashing to all sensitive data, 
     - Scenario: After binding verification, the phone number is stored as a hash
   </Tab>
 
-  <Tab title="Credential Hashing">
-    **API Key and consent grant hashing**
+  <Tab title="Credentials">
+    **API Key**
+    - Storage: Stored encrypted by the server
+    - Viewing: Viewable and copyable anytime on the **我的密钥** (My keys) page of the Developer Center
+    - If leaked: Rotate it right away; the old Key stops working immediately
+
+    **consent grant hashing**
     - Algorithm: One-way hash
-    - Purpose: Verify the legitimacy of the Agent and the user consent
+    - Purpose: Verify the legitimacy of the user consent
     - Feature: Plaintext credentials cannot be viewed in the database
-    - Scenario: On each request, the server hashes the incoming API Key / consent_grant_id and compares with the database
+    - Scenario: On each request, the server hashes the incoming consent_grant_id and compares with the database
   </Tab>
 </Tabs>
 
@@ -167,12 +172,12 @@ Access Rules:
       D -->|expired / revoked| E["5. Immediately invalid<br/>CONSENT_GRANT_INVALID"]
       E -->|re-bind| F["6. Mint a new<br/>consent_grant_id"]
 
-      style A fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style B fill:#f9c4bc,stroke:#D14430,stroke-width:2px
-      style C fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+      style A fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style B fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
+      style C fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
       style D fill:#D1FAE5,stroke:#34D399,stroke-width:2px
-      style E fill:#fde8e4,stroke:#E8593C,stroke-width:2px
-      style F fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+      style E fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
+      style F fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
   `}
 />
 
@@ -260,7 +265,7 @@ The authentication chain and the auth level required by each endpoint are detail
 <details>
 <summary>What if the API Key is leaked?</summary>
 
-Immediately disable that API Key in the [Portal](https://console.hicaspian.com/agents); the system will automatically stop all requests using it. Then generate a new API Key and update your application configuration. The database only stores the API Key's hash, so attackers cannot directly leverage a leaked hash.
+Immediately **轮换** (Rotate) that API Key on the **我的密钥** (My keys) page of the [Developer Center](https://hub.clawdot.net/#/account/keys): the old Key stops working at once, the system rejects all requests using it, and a new API Key is generated. Then update your application configuration.
 
 </details>
 

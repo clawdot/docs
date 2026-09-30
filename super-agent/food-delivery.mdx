@@ -187,9 +187,9 @@ graph LR
   D -->|记录选择| E["shop_id + cart_id<br/>保存"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-  style A fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style A fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
   style C fill:#D1FAE5,stroke:#34D399,stroke-width:2px
-  style D fill:#fde8e4,stroke:#E8593C,stroke-width:2px
+  style D fill:#E1E9FE,stroke:#2564F8,stroke-width:2px
 ```
 
 **关键点**：
@@ -226,7 +226,7 @@ graph LR
   E -->|返回订单号| F["订单成功<br/>预计 35 分钟"]
 
   style B fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
-  style C fill:#f9c4bc,stroke:#D14430,stroke-width:2px
+  style C fill:#BED0FD,stroke:#1D55DB,stroke-width:2px
   style E fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px
   style F fill:#D1FAE5,stroke:#34D399,stroke-width:2px
 ```
@@ -265,5 +265,5 @@ graph LR
 - [MCP 工具总览](/mcp/overview) — 24 个工具的契约
 
 <Note>
-  认证为双层：`Authorization: Bearer clw_...` 标识 Agent；用户授权（`cg_` 前缀的 consent grant）在 MCP 工具里作为 `consent_grant_id` 参数传入。MCP 公开端点为 `/mcp/v1`。创建 Agent、签发 API Key 走 [Portal](https://console.hicaspian.com/agents)。
+  认证为双层：`Authorization: Bearer clw_...` 标识 Agent；用户授权（`cg_` 前缀的 consent grant）在 MCP 工具里作为 `consent_grant_id` 参数传入。MCP 公开端点为 `/mcp/v1`。创建 Agent、签发 API Key 走[开发者中心](https://hub.clawdot.net/#/account/keys)。
 </Note>

@@ -1,280 +1,251 @@
 ---
-title: "Console Guide"
-description: "From sign-up to first order: a hands-on walkthrough of the Clawdot developer console"
+title: "Developer Center Guide"
+description: "From sign-up to first order: a hands-on walkthrough of the Clawdot Developer Center"
 icon: "layout-dashboard"
 ---
 
-The [Clawdot console](https://console.hicaspian.com) is your self-service backend for managing API access. This guide walks you from creating an account through creating an Agent, obtaining an API Key, binding end users, and on to managing dedicated channels and upgrading your plan.
+The [Clawdot Developer Center](https://hub.clawdot.net/#/account) is your self-service entry point for managing API access. This guide walks you from creating an account through creating an Agent, obtaining an API Key, running a test binding, and on to managing channels and upgrading your plan. Every "console" link elsewhere in these docs now points here.
 
-The console has four sections in the left sidebar:
+After you sign in, the left sidebar has seven pages:
 
-| Section | Purpose |
+| Page | Purpose |
 | --- | --- |
-| **Dashboard** | View today's quota usage and the last 7 days of call history |
-| **Agents** | Create/manage Agents, API Keys, and bind end users |
-| **Channels** | Manage dedicated Ele.me channels (superagent / platform plans only) |
-| **Settings** | Edit your profile, view your plan, request upgrades |
+| [**我的密钥** (My keys)](https://hub.clawdot.net/#/account/keys) | Create, rotate, and delete Agents; test binding; see the channels configured on each Agent |
+| [**用量与配额** (Usage and quota)](https://hub.clawdot.net/#/account/usage) | View today's requests and orders, the per-minute rate limit, and the last 7 days of usage |
+| [**直连内核** (Direct connection)](https://hub.clawdot.net/#/account/direct) | Addresses, binding flow, error codes, and tool list for connecting from your own code |
+| [**渠道** (Channels)](https://hub.clawdot.net/#/account/channels) | Request managed channel setup, add your own channel, assign or unassign (superagent / platform plans only) |
+| [**档位升级** (Plan upgrade)](https://hub.clawdot.net/#/account/upgrade) | Compare plans, submit an upgrade request, track its progress |
+| [**问题反馈** (Feedback)](https://hub.clawdot.net/#/account/feedback) | Report a bug or request a feature, and track its progress |
+| [**账号设置** (Account settings)](https://hub.clawdot.net/#/account/settings) | Edit your profile and sign-in password |
 
-<Frame caption="The console home page after login, with the four sections in the left sidebar">
-  <img src="/images/console/dashboard.png" alt="Clawdot console overview" />
-</Frame>
+The Developer Center home ([account overview](https://hub.clawdot.net/#/account)) shows your name, email, company, plan, email verification status, and sign-up date, with links to the seven pages above.
 
 <Note>
-  The console UI is partly in Chinese (the Channels page and upgrade dialog). This guide keeps the original Chinese labels followed by an English gloss so you can match them on screen.
+  The Developer Center UI is in Chinese. This guide keeps the Chinese labels, with an English gloss where it helps you match them on screen.
+</Note>
+
+<Note>
+  If you open any of the page links above while signed out, the page shows a sign-in form in place, so you can safely use them as deep links.
 </Note>
 
 ## 1. Sign up and sign in
 
-Open the console URL and register one of two ways:
+Open the [Developer Center](https://hub.clawdot.net/#/account) and register with your email:
 
-- **One-click with Google**: Click **Continue with Google** and authorize with your Google account — no password needed.
-- **Email**: Fill in Name and Email, click **Get code** to receive an email verification code (resendable once every 60s), then enter the code, set a password (6+ chars), and click **Create account**.
+1. On the **注册** (Sign up) tab, enter your **邮箱** (email) and click **发送验证码** (Send code) to receive an email verification code.
+2. Enter your **名字** (name), **公司** (company, optional), **密码** (password, at least 6 characters), and the **邮箱验证码** (email verification code).
+3. Click **注册** (Sign up).
 
-<Frame caption="Email sign-up form: click Get code after filling in your details">
-  <img src="/images/console/register.png" alt="Sign-up form" />
-</Frame>
+The Developer Center signs you in with email and password. It does not support one-click sign-in with Google.
 
 <Note>
-  After sign-up, the page shows your auto-created API Key — click **Copy to Clipboard** to save it. Even if you don't, no problem: you can later find the Agent on the Agents page and copy the full API Key anytime from the copy button next to its key prefix.
+  After sign-up, an Agent is created for you automatically, and the page shows its Key — copy and save it right away. You can get that Key back or rotate it anytime on the **我的密钥** (My keys) page, see [Section 3](#3-my-keys).
 </Note>
 
-If you already have an account, sign in with Google or email + password.
+If you already have an account, sign in on the **登录** (Sign in) tab with your email and password.
 
-<Frame caption="Sign-in page">
-  <img src="/images/console/login.png" alt="Sign-in page" />
-</Frame>
+**If you signed up with Google in the past**, your account has no password yet. Click **忘记密码** (Forgot password), enter your email and click **发送重置码** (Send reset code), then enter the **重置码** (reset code) and a **新密码** (new password), and click **重设密码** (Reset password). After that, sign in with the new password.
 
-## 2. Dashboard: usage monitoring
+The original console is still open, and the same account works on both.
 
-The console opens on the Dashboard, where you track call volume and health:
+## 2. Usage and quota
 
-- **Requests Today**: today's used requests / daily request limit
-- **Orders Today**: today's placed orders / daily order limit
-- **Rate Limit**: your plan's per-minute rate limit
-- **Usage History**: daily requests, errors, and average latency over the last 7 days
+[**用量与配额**](https://hub.clawdot.net/#/account/usage) (Usage and quota) is where you track call volume and headroom. The top section, **今日配额** (Today's quota), shows:
 
-The progress bar under each card changes color with usage — yellow past 50%, red past 80%. As you approach a limit, request an upgrade in Settings ahead of time to avoid being throttled.
+- **今日请求 / 上限** (Requests today / limit): requests used today / daily request limit
+- **今日订单 / 上限** (Orders today / limit): orders placed today / daily order limit
+- **限流** (Rate limit): your plan's per-minute request limit
+- **档位** (Plan): the plan you are on
 
-Quota limits depend on your plan tier — see [Section 6](#6-settings-profile-and-plan-upgrades).
+The **最近 7 天** (Last 7 days) table below lists each day's **请求数** (requests), **请求失败数（HTTP）** (failed requests, HTTP), and **平均耗时** (average latency).
 
-## 3. Agents: create Agents and manage API Keys
+<Note>
+  **请求失败数（HTTP）** counts only requests with an HTTP status code of 400 or above. It does not include business errors from MCP tool calls, which still return HTTP 200.
+</Note>
 
-An **Agent** represents one of your integrations (one app, one bot, one product line), each holding its own API Key. The number you can create depends on your plan.
+When you exceed the rate limit or quota, that call is rejected with `RATE_LIMITED`; orders already submitted are not affected. As you approach a limit, request an upgrade on the **档位升级** (Plan upgrade) page ahead of time to avoid being throttled. Limits depend on your plan, see [Section 6](#6-account-settings-and-plan-upgrades).
 
-<Frame caption="Agents list: each card is one Agent">
-  <img src="/images/console/agents-list.png" alt="Agents list" />
-</Frame>
+## 3. My keys
+
+Create Agents and manage API Keys here. An **Agent** represents one of your integrations (one app, one bot, one product line), each holding its own API Key. The number you can create depends on your plan.
+
+[**我的密钥**](https://hub.clawdot.net/#/account/keys) (My keys) lists all your Agents, one card each, showing the name, description, Agent ID, creation date, capability tags, and the Key.
 
 ### 3.1 Create an Agent
 
 <Steps>
   <Step title="Click New Agent">
-    Click **New Agent** in the top-right of the Agents page.
+    Click **新建 Agent** (New Agent) in the top-right of the page.
   </Step>
-  <Step title="Fill in details">
-    Enter the Agent name (required) and description (optional).
-    <Frame caption="Create Agent form">
-      <img src="/images/console/create-agent.png" alt="Create Agent form" />
-    </Frame>
+  <Step title="Enter a name">
+    Type a name for the Agent and click **创建** (Create).
   </Step>
   <Step title="Save the API Key">
-    After clicking **Create**, an orange banner at the top shows the Agent's full API Key — click **Copy**. After the banner is dismissed the card shows only the key prefix (e.g. `clw_xxxx••••••••`), but the copy button next to it still copies the full API Key anytime.
-    <Frame caption="The one-time API Key banner shown after creation">
-      <img src="/images/console/key-banner.png" alt="API Key banner" />
-    </Frame>
+    After creation, the page shows **新 Agent 的 Key** (the new Agent's Key) — copy and save it right away. You can also get it back later with **显示** (Show) / **复制** (Copy) on the card.
   </Step>
 </Steps>
 
-<Note>
-  The banner's "Save this now" is a one-time prompt, but the key itself is never lost — you can copy the full key from the card anytime. Use **Rotate Key** only when you deliberately want to replace the key (it invalidates the old one).
-</Note>
-
 ### 3.2 Everyday actions on a card
-
-<Frame caption="An Agent card: Rotate Key, Delete, bound-user count, key prefix">
-  <img src="/images/console/agent-card.png" alt="Agent card" />
-</Frame>
 
 | Action | Description |
 | --- | --- |
-| **Rotate Key** | Generate a new Key and **invalidate the old one immediately**. Prompts for confirmation; make sure your production services are ready to switch keys first, to avoid interruption. The new key can also be copied from the card afterward. |
-| **Delete** | Permanently delete the Agent and its Key, irreversible, with a confirmation prompt. |
-| **Bind User** | Bind an end user's phone number (see 3.3). |
-| Key prefix / copy | The card shows a masked prefix for identification; the copy button next to it copies the **full API Key**, anytime and unlimited times. |
+| **显示 / 隐藏** (Show / Hide) | Toggle whether the Key is shown in plaintext; when hidden, only the prefix shows. The plaintext comes from the server, so you can view it anytime. |
+| **复制** (Copy) | Copy the full Key, anytime. |
+| **轮换** (Rotate) | Generate a new Key and **invalidate the old one immediately**. A confirmation appears first; click **确认轮换** (Confirm rotate) to proceed. Make sure your production services are ready to switch keys first, to avoid interruption. The new Key is shown right away, and you can get it back later with **显示** / **复制**. |
+| **删除** (Delete) | Delete the Agent. Its Key stops working immediately, and its user authorizations and channel assignment are removed with it. This is **irreversible**; a confirmation appears first, click **确认删除** (Confirm delete) to proceed. |
+| **测试绑定** (Test binding) | Get a user authorization credential with your own phone number (see 3.3). |
 
-<Frame caption="The Rotate Key confirmation dialog">
-  <img src="/images/console/rotate-confirm.png" alt="Rotate Key confirmation" />
-</Frame>
+<Note>
+  Only a few early-created Keys cannot be retrieved: **显示** (Show) reveals "服务端未回明文，轮换后可见" (the server did not return the plaintext; visible after rotation). Click **轮换** (Rotate) to get a new one.
+</Note>
 
-### 3.3 Bind a user (Bind User)
+### 3.3 Test binding
 
-Before an Agent can order on a user's behalf, it must complete a one-time user authorization. Click **Bind User** on the card; the flow has three steps:
+Before an Agent can order on a user's behalf, it needs that user's authorization credential (the Consent Grant ID). **测试绑定** (Test binding) lets you run this flow with **your own phone number** and get a credential to test with. Click **测试绑定** on the card and work through the drawer that opens on the right:
 
 <Steps>
-  <Step title="Enter phone number">
-    Enter the user's phone number and click **Send Code** to send an SMS verification code.
-    <Frame caption="Step 1: enter phone number">
-      <img src="/images/console/bind-phone.png" alt="Bind User - phone" />
-    </Frame>
+  <Step title="Pick a link and enter your phone number">
+    Under **绑定链路** (Binding link), choose **外卖链路** (food delivery) or **跑腿链路** (errand), enter your own 11-digit phone number, and click **发送验证码** (Send code).
   </Step>
   <Step title="Enter the code">
-    Enter the 6-digit code and click **Bind** (resendable after 60s; you can also go back to change the number).
+    Enter the 6-digit SMS code (valid for 5 minutes) and click **验证并拿凭证** (Verify and get credential). You can click **重新发送** (Resend) after 60 seconds, or **换个号码** (Change number) to go back.
   </Step>
-  <Step title="Save the Consent Grant ID">
-    On success, the page shows the user's **Consent Grant ID**. When calling the API, pass this credential via the `consent_grant_id` parameter (or the `X-Consent-Grant-Id` header) to act as that user.
+  <Step title="Save the user authorization credential">
+    On success, the drawer shows the **用户授权凭证** (user authorization credential) together with its expiry date. When calling a business tool, pass it as the `consent_grant_id` argument to act as that user. See [Authentication](/en/gateway/authentication).
   </Step>
 </Steps>
 
 <Warning>
-  The **Consent Grant ID is shown only once**; the server stores only a hash, so copy it immediately. Re-running the bind flow for the same phone number issues a new Consent Grant ID and **invalidates the old one** — always use the latest one issued, and update your service config accordingly.
+  The **user authorization credential is shown only once**; the server stores only a hash, and once you close the drawer it cannot be retrieved, so copy it immediately. Binding again issues a new credential and **invalidates the old one** — always use the latest one, and update your service config accordingly.
 </Warning>
 
-The "N users" link on the card expands the bound-user list: phone numbers and grant IDs are masked. Beyond 6 users a search box lets you filter by phone or grant-ID fragment; **+ Bind** in the top-right binds another user.
+The number of users each Agent can authorize depends on your plan; the free plan allows 1. See [Section 6](#6-account-settings-and-plan-upgrades).
 
-<Frame caption="Expanded bound-user list, phone numbers and grant IDs masked">
-  <img src="/images/console/bound-users.png" alt="Bound users list" />
-</Frame>
+Test binding is for testing only. To get authorization for your real end users, call the binding tools from your own service; the flow is described in [Authentication](/en/gateway/authentication). If you connect directly from your own code, the binding-flow section of the [**直连内核**](https://hub.clawdot.net/#/account/direct) (Direct connection) page also covers it.
 
-### 3.4 Assign a dedicated channel to an Agent
+Once anyone has bound to an Agent, its card shows "已授权 N 个用户" (N users authorized), with separate counts for food delivery and errand. Click it to open the **已授权用户** (Authorized users) drawer: switch between **全部 / 外卖 / 跑腿** (All / Food delivery / Errand), or type into the search box to filter by phone number (the last digits are enough). Phone numbers are always masked.
 
-If your plan has the channel feature enabled, a **channel bar** appears below each Agent card showing the channel that Agent currently orders through. It defaults to 默认渠道（平台默认）(Default channel / platform default). Click **指派渠道 / 更换渠道** (Assign / Switch channel) to pick a **validated** channel from your pool — it takes effect instantly. An assigned Agent can choose 恢复默认渠道 (Restore default) to revert.
+### 3.4 See an Agent's configured channels
 
-<Frame caption="Expand the channel bar and pick from your validated channel pool">
-  <img src="/images/console/channel-dropdown.png" alt="Channel assignment dropdown" />
-</Frame>
+If your plan has the channel feature enabled, each Agent card has an extra **渠道** (Channels) row that lists, read-only, the channels configured on that Agent: channel number, source, masked secret, and status. With no channel configured, the row says orders go through the platform default channel and are not attributed to you. Plans without the channel feature do not show this row.
 
-Adding and validating channels is covered in [Section 5](#5-channels-dedicated-channel-pool).
+This row is for viewing only. Adding, assigning, and unassigning channels all happen on the **渠道** page, see [Section 5](#5-channel-pool).
 
-## 4. Before Settings: know your plan's capabilities
+## 4. Before channels: know your plan's capabilities
 
-Before enabling the channel feature, understand what each plan can do — the channel feature is only available on SUPERAGENT and PLATFORM. See [Section 6](#6-settings-profile-and-plan-upgrades) for plan details.
+Before using the channel feature, understand what each plan can do. The channel feature is only available on SUPERAGENT and PLATFORM. See [Section 6](#6-account-settings-and-plan-upgrades) for plan details.
 
-## 5. Channels: dedicated channel pool
+## 5. Channel pool
 
 <Note>
-  On a non-superagent / platform plan, this page shows "渠道功能未开放" (Channel feature not enabled). Request an upgrade in Settings first.
+  On a non-superagent / platform plan, the [**渠道**](https://hub.clawdot.net/#/account/channels) (Channels) page shows "渠道要升级后才能用" (channels require an upgrade) with an entry to request one.
 </Note>
 
-**The channel pool is account-level**: once a channel is validated, you can assign it to any number of your Agents and switch anytime. There are two ways to obtain a channel.
+A channel decides whose account an order is attributed to. **The channel pool is account-level**: once a channel is validated, you can assign it to your Agents. An Agent uses one channel at a time; with none assigned, it goes through the platform default channel and orders are not attributed to you. Channels currently apply to the food-delivery link only. There are two ways to obtain a channel.
 
-<Frame caption="Channels page: account-level channel pool + application records">
-  <img src="/images/console/channels-overview.png" alt="Channels page overview" />
-</Frame>
+### 5.1 Already have a food-delivery channel: add it
 
-### 5.1 Already have an Ele.me channel → 添加渠道 (Add channel)
-
-If you already have your own Ele.me channel credentials, click **添加渠道** (Add channel) in the top-right to enter them directly:
+If you already have your own channel credentials, click **录入渠道** (Add channel) in the top-right to enter them directly:
 
 | Field | Description |
 | --- | --- |
-| 备注名 (label) | Optional, for easy identification, e.g. "Acme Delivery" |
-| 渠道号 (channel_no) ✱ | Formatted like `mobile.xxxx` |
-| 登录 source (channel_source) | The opensite source without the `mobile.` prefix |
-| 签名密钥 (channel_secret) ✱ | The joint-login JWT signing key; **stored encrypted, never shown in plaintext after submission** |
-| welfare_3pp | Optional payment code, if any |
+| 渠道编号 (channel number) ✱ | Formatted like `mobile.xxxx` |
+| 签名密钥 (signing secret) ✱ | The signing secret issued by the channel owner; **stored encrypted, never shown again after submission** |
+| 登录标识 (login source), optional | The source identifier without the `mobile.` prefix |
+| 支付码 (payment code), optional | Only needed when integrating a third-party cashier |
+| 备注名 (label), optional | For your own identification |
 
-After submission the channel enters 待验证 (Pending) status; once the platform verifies the credentials it becomes 已验证 (Validated) and can be assigned (this prevents wrong credentials from misattributing orders).
+After you click **提交入池** (Submit to pool), the channel enters **待验证** (Pending) status. Once the platform verifies the credentials it becomes **已验证** (Validated) and can be assigned to an Agent (this prevents wrong credentials from misattributing orders).
 
-<Frame caption="Add channel form">
-  <img src="/images/console/add-channel.png" alt="Add channel form" />
-</Frame>
+### 5.2 No channel yet: request managed setup
 
-### 5.2 No channel yet → 申请渠道 (Apply, handled by us)
-
-Without an Ele.me channel, click **申请渠道** (Apply) and the platform applies to Ele.me on your behalf:
+Without a channel, click **申请代办** (Request managed setup) and the platform sets one up on your behalf:
 
 <Steps>
   <Step title="Fill in basic info">
-    Enter the **渠道平台名称** (channel platform name) and **三方合作 logo URL** (partner logo shown to users, 200×200 px recommended).
+    Enter the **渠道平台名称** (channel platform name) and **合作方 logo 地址** (partner logo URL). Both are required; the logo URL must start with `http://` or `https://`, and 200×200 px is recommended.
   </Step>
   <Step title="(Optional) enable third-party cashier">
-    To integrate a third-party cashier, check **同时接入三方收银** (also integrate third-party cashier) and fill in the six payment fields that appear (test/prod payment endpoints, RSA2 public key, service phone, isv withhold PID / account).
-    <Frame caption="Attachment fields expanded after checking third-party cashier">
-      <img src="/images/console/apply-channel.png" alt="Apply channel form" />
-    </Frame>
-  </Step>
-  <Step title="Not sure how to fill it in? Open the guide">
-    Click **填写指引** (Filling guide) in the top-right of the form; the drawer on the right explains each field (including how to generate the RSA2 public key and look up the Alipay PID).
-    <Frame caption="Filling-guide drawer: per-field explanations">
-      <img src="/images/console/guide-drawer.png" alt="Filling guide drawer" />
-    </Frame>
+    To integrate a third-party cashier, check **同时接入三方收银** (also integrate third-party cashier) and fill in the six fields that appear, all required: third-party test payment endpoint, third-party production payment endpoint, third-party RSA2 public key, service phone, withholding PID, and withholding account.
   </Step>
   <Step title="Submit and track progress">
-    Click **提交申请** (Submit). The 申请记录 (Application records) section below tracks progress: 处理中 (Processing), 已通过 (Approved — credentials are added to the pool above, ready to assign), 未通过 (Rejected — shows the reason; fix and re-apply).
-    <Frame caption="Application records: status at a glance">
-      <img src="/images/console/applications.png" alt="Application records" />
-    </Frame>
+    Click **提交申请** (Submit). The **代办申请** (Managed setup requests) table below tracks progress: **处理中** (Processing), **已办好** (Done — the channel is added to the channel list automatically, ready to assign), **未通过** (Rejected — the reason is shown in the same row).
   </Step>
 </Steps>
 
-### 5.3 Channel cards and assignment
+### 5.3 The channel list and assignment
 
-Each channel in the pool is shown as a card: a status badge (待验证 Pending / 已验证 Validated / 已停用 Disabled), and copyable channel_no and login source. The **secret is always masked** and never shown in plaintext for security. A validated channel has an "assign to Agent" dropdown at the bottom — pick an Agent and click 指派 (Assign). An assigned Agent can be unassigned anytime (falling back to the platform default channel).
+The channel list is grouped by **全部 / 已验证 / 待验证 / 已停用** (All / Validated / Pending / Disabled). Each row shows the channel name, channel number, status, and the Agents using it.
 
-<Frame caption="A validated channel card, with status badge, fields, and assignment area">
-  <img src="/images/console/channel-card.png" alt="Channel card" />
-</Frame>
+- **指派** (Assign): available only for validated channels. Click it, pick an Agent in the drawer, and click **确认指派** (Confirm assign). It takes effect from the next call, and the channel that Agent was using is unassigned automatically.
+- **详情** (Details): view the channel number, login source, payment code, creation time, and the Agents using it. The signing secret only shows "已保存，不再显示" (saved, no longer shown). Click **解除指派** (Unassign) next to an Agent to send it back to the platform default channel.
 
-## 6. Settings: profile and plan upgrades
+## 6. Account settings and plan upgrades
 
-### 6.1 Profile
+### 6.1 Account settings
 
-Edit your display Name and Company, then click **Save Changes**. Email can't be changed; the green **Verified** next to it means your email is verified.
+[**账号设置**](https://hub.clawdot.net/#/account/settings) (Account settings) has two blocks.
 
-<Frame caption="Profile section">
-  <img src="/images/console/settings-profile.png" alt="Settings Profile" />
-</Frame>
+**资料** (Profile): edit your **名字** (name, required) and **公司** (company, optional), then click **保存资料** (Save profile). Your email is your sign-in account and cannot be changed here; to switch email, tell us on the **问题反馈** (Feedback) page.
+
+**登录密码** (Sign-in password): enter your **当前密码** (current password) and a **新密码** (new password, at least 6 characters) twice, then click **修改密码** (Change password). Use the new password the next time you sign in.
 
 ### 6.2 Plan tiers
 
-The Plan section shows four tiers; your current tier has a highlighted border and a **Current** badge:
+The [**档位升级**](https://hub.clawdot.net/#/account/upgrade) (Plan upgrade) page compares four plans in a table; your current plan carries a **当前** (Current) tag:
 
-| Tier | Agents | Rate limit | Daily requests | Daily orders |
-| --- | --- | --- | --- | --- |
-| FREE | 3 | 30/min | 1K | 10 |
-| PRO | 3 | 120/min | 50K | 500 |
-| SUPERAGENT | 100 | 600/min | 500K | 5K |
-| PLATFORM | Unlimited | 600/min | 500K | 5K |
+| Plan | Agents | Requests per minute | Daily requests | Daily orders | Authorized users per Agent |
+| --- | --- | --- | --- | --- | --- |
+| 免费版 (FREE) | 3 | 30 | 1K | 10 | 1 |
+| 专业版 (PRO) | 3 | 120 | 50K | 500 | 10 |
+| 超级 Agent (SUPERAGENT) | 100 | 600 | 500K | 5K | 10K |
+| 平台版 (PLATFORM) | Unlimited | 600 | 500K | 5K | 100K |
 
-The dedicated channel feature (Channels) is only available on SUPERAGENT and PLATFORM.
-
-<Frame caption="The four plan cards, current tier highlighted">
-  <img src="/images/console/plan-tiers.png" alt="Plan tiers" />
-</Frame>
+The channel feature is only available on SUPERAGENT and PLATFORM.
 
 ### 6.3 Request an upgrade
 
 <Steps>
-  <Step title="Click Request Upgrade">
-    Click **Request Upgrade** on a tier card above your current tier (you can only apply upward).
+  <Step title="Click Request upgrade">
+    In the plan table on the **档位升级** page, click **申请升级** (Request upgrade) in a column above your current plan (you can only apply upward).
   </Step>
   <Step title="Fill in the request">
-    Enter your **业务理由 / 用途** (business reason / use case, required), **预估量** (expected volume, required, e.g. "~300K daily requests / 3000 daily orders"), and contact (optional, for follow-up), then click **提交申请** (Submit).
-    <Frame caption="Upgrade request dialog">
-      <img src="/images/console/upgrade-dialog.png" alt="Upgrade request dialog" />
-    </Frame>
+    Enter the **用途** (use case, required), **预估量** (expected volume, required, e.g. "~300K daily requests / 3000 daily orders"), and **联系方式** (contact, optional, for follow-up), then click **提交申请** (Submit).
   </Step>
   <Step title="Wait for review">
-    Only one request can be processing at a time. The 申请历史 (Application history) below shows each request's status; once approved, your plan takes effect automatically.
+    Only one request can be processing at a time; meanwhile the other plans show "已有申请在处理" (a request is already in progress). The **申请记录** (Request history) below shows each request's status: **处理中** (Processing), **已通过** (Approved), or **未通过** (Rejected, with the reason). Once approved, the new plan takes effect immediately.
   </Step>
 </Steps>
+
+## 7. Feedback
+
+To report a bug or ask for a new capability, use [**问题反馈**](https://hub.clawdot.net/#/account/feedback) (Feedback). Switch between **Bug 反馈** (Bug report) and **需求反馈** (Feature request), then fill in a title and description (required); urgency, affected module, and contact are optional. A bug report can add reproduction steps and the expected result, and a feature request can add the expected value.
+
+After you submit, track progress under **我的反馈** (My feedback) further down the page: **待处理** (Open), **处理中** (Processing), **已解决** (Resolved), **已关闭** (Closed).
+
+## 8. Direct connection
+
+[**直连内核**](https://hub.clawdot.net/#/account/direct) (Direct connection) is for developers who connect from their own code. It lists the MCP address and authentication method per capability, plus the binding flow, error-code triage, and the full tool list. If you do not connect directly, you can skip this page.
 
 ## FAQ
 
 <AccordionGroup>
   <Accordion title="I forgot to save my API Key. What now?">
-    No worries. Find the Agent on the Agents page and click the copy button next to its key prefix to copy the full API Key — no Rotate needed. Use **Rotate Key** only when you deliberately want to replace the key (it invalidates the old one immediately, so prepare your service switch first).
+    Find the Agent on the **我的密钥** page and click **显示** (Show) or **复制** (Copy) to get the full Key back — no rotation needed. Only an early-created Key that shows "服务端未回明文，轮换后可见" needs **轮换** (Rotate) to get a new one (it invalidates the old one immediately, so prepare your service switch first).
   </Accordion>
-  <Accordion title="I lost the Consent Grant ID. What now?">
-    Re-run the **Bind User** flow for that phone number to get a new credential; the old one is invalidated, so update it in your service.
+  <Accordion title="I signed up with Google and sign-in says the email or password is wrong.">
+    Accounts created through Google have no password. On the sign-in form, click **忘记密码** (Forgot password), receive a reset code at your sign-up email, set a new password, and then sign in with email and the new password.
   </Accordion>
-  <Accordion title="Why can't I see the Channels feature?">
-    Dedicated channels are only available on SUPERAGENT / PLATFORM plans. Request an upgrade in Settings → Plan.
+  <Accordion title="I lost the user authorization credential. What now?">
+    Run **测试绑定** (Test binding) again (or re-run the binding flow for that user) to get a new credential; the old one is invalidated, so update it in your service.
+  </Accordion>
+  <Accordion title="Why can't I use the channel feature?">
+    Channels are only available on SUPERAGENT / PLATFORM plans. Request an upgrade on the **档位升级** page.
   </Accordion>
   <Accordion title="Why can't I assign a channel right after adding it?">
-    A newly entered channel must be verified by the platform (待验证 Pending → 已验证 Validated) before it can be assigned, to prevent wrong credentials from misattributing orders.
+    A newly added channel must be verified by the platform (待验证 Pending → 已验证 Validated) before it can be assigned, to prevent wrong credentials from misattributing orders.
   </Accordion>
   <Accordion title="What if I'm running out of quota?">
-    When the Dashboard progress bar nears red, request a plan upgrade in Settings ahead of time to avoid being throttled after hitting the cap.
+    Check today's headroom on the **用量与配额** page. When you approach a limit, request a plan upgrade on the **档位升级** page ahead of time to avoid being throttled after hitting the cap.
   </Accordion>
 </AccordionGroup>
