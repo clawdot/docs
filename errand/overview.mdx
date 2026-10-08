@@ -58,7 +58,7 @@ https://paotui.hicaspian.com/mcp/v1
 首次 errand_request_user_bind → errand_verify_user_bind   # 短信验证码绑定 → 拿 consent_grant_id（长期复用）
 0. errand_search_addresses            # (可选) 关键词搜地址 → 拿候选坐标；可 errand_save_address 存起来复用
 0. errand_list_goods_categories       # (可选) 物品品类清单 → 让用户挑一个，回填 errand_quote
-0. errand_list_schedule_slots         # (可选) 预约时间清单 → 用户挑一档，回填 errand_quote 的 scheduled_at
+0. errand_list_schedule_slots         # (可选) 预约取件时间清单 → 用户挑一档，回填 errand_quote 的 scheduled_at
 1. errand_quote                       # 多运力报价 → 拿 quote_id + 各运力 company_code/fee
 2. errand_create                      # 核销 quote_id 下单 → 拿 order_id + cashier_url
 3. 用户打开 cashier_url 完成支付       # 支付成功后平台自动呼叫骑手（无需再调工具）
@@ -127,7 +127,7 @@ flowchart LR
 | 工具 | 说明 |
 |---|---|
 | `errand_list_goods_categories` | 物品品类清单，供用户挑选。 |
-| `errand_list_schedule_slots` | 可选预约送达时间清单（一档 15 分钟），供用户挑「几点送到」。 |
+| `errand_list_schedule_slots` | 可选预约取件时间清单（一档 15 分钟），供用户挑「几点来取」。 |
 | `errand_quote` | 多运力实时报价 + 单次确认令牌。 |
 
 ### 下单

@@ -20,11 +20,11 @@ When a tool call fails at the business level, `content` carries an `error` struc
 | `GOODS_PROHIBITED` | The item name or note mentions a prohibited item; this order can't be delivered. The error message names the specific term and category. |
 | `GOODS_CATEGORY_INVALID` | The item category code isn't in the list; call `errand_list_goods_categories` to get a valid value. |
 | `REMARK_TOO_LONG` | The note to the rider exceeds 200 characters. |
-| `SCHEDULED_AT_INVALID` | The scheduled delivery time isn't a 13-digit millisecond timestamp (passing seconds, a decimal, or a negative number all trigger this). |
-| `SCHEDULED_AT_PAST` | The scheduled delivery time is earlier than now; this is the most common one hit when reusing a past order — ask the user for a new time. |
-| `SCHEDULED_AT_NOT_ON_GRID` | The scheduled delivery time isn't on an available slot; take `value` from the schedule slot list instead of computing it yourself. |
-| `SCHEDULED_AT_TOO_SOON` | The scheduled delivery time is too soon; the error message gives the earliest time currently bookable. |
-| `SCHEDULED_AT_TOO_FAR` | The scheduled delivery time is out of range; the latest bookable time is 23:45 tomorrow (Beijing time). |
+| `SCHEDULED_AT_INVALID` | The scheduled pickup time isn't a 13-digit millisecond timestamp (passing seconds, a decimal, or a negative number all trigger this). |
+| `SCHEDULED_AT_PAST` | The scheduled pickup time is earlier than now; this is the most common one hit when reusing a past order — ask the user for a new time. |
+| `SCHEDULED_AT_NOT_ON_GRID` | The scheduled pickup time isn't on an available slot; take `value` from the schedule slot list instead of computing it yourself. |
+| `SCHEDULED_AT_TOO_SOON` | The scheduled pickup time is too soon; the error message gives the earliest time currently bookable. |
+| `SCHEDULED_AT_TOO_FAR` | The scheduled pickup time is out of range; the latest bookable time is 23:45 tomorrow (Beijing time). |
 | `ERRAND_STATUS_INVALID` | The `status` value used to filter order history isn't supported; the error message lists all valid values. |
 | `ERRAND_TIME_RANGE_INVALID` | The time format used to filter order history is wrong; use `2026-08-01` or `2026-08-01 10:30:00`. |
 | `ERRAND_TIP_INVALID` | The tip amount is invalid; it must be a positive integer (in cents). |

@@ -61,7 +61,7 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 | `person_direct` | boolean \| null | 是否专人直送（骑手不拼单，只送本单）|
 | `insured` | boolean \| null | 本单是否保价 |
 | `remark` | string | 下单时填写的骑手留言；未填写时为空串 |
-| `scheduled_at` | integer \| null | 下单时约定的送达时间（毫秒时间戳）；立即配送的单为 `null` |
+| `scheduled_at` | integer \| null | 下单时约定的预约取件时间（毫秒时间戳）；立即配送的单为 `null` |
 | `pickup_photos` | array | 取件照片链接列表；骑手尚未取件时为空数组 |
 | `finish_photos` | array | 送达照片链接列表；订单完成前为空数组 |
 | `created_at` | string | 创建时间（ISO 8601）|

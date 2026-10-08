@@ -1,11 +1,11 @@
 ---
 title: "errand_list_schedule_slots"
-description: "MCP tool errand_list_schedule_slots — returns the list of schedulable delivery times to fill into errand_quote"
+description: "MCP tool errand_list_schedule_slots — returns the list of schedulable pickup times to fill into errand_quote"
 ---
 
 ## errand_list_schedule_slots
 
-Returns the list of schedulable delivery times, for the user to pick "deliver by when". The selected `value` is passed back into `scheduled_at` on `errand_quote`.
+Returns the list of schedulable pickup times, for the user to pick "when the rider should come to collect". The selected `value` is passed back into `scheduled_at` on `errand_quote`.
 
 Slots are 15 minutes apart, starting no earlier than 45 minutes from now and running through 23:45 tomorrow (Beijing time). When the user wants delivery "as soon as possible", omit `scheduled_at` entirely — do not pass `0`.
 

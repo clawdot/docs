@@ -20,11 +20,11 @@ description: "跑腿工具的统一错误结构与常见错误码"
 | `GOODS_PROHIBITED` | 物品名称或备注涉及禁运物品，本单无法配送；错误消息含具体词与类别。 |
 | `GOODS_CATEGORY_INVALID` | 物品品类码不在清单内；用 `errand_list_goods_categories` 重新取值。 |
 | `REMARK_TOO_LONG` | 骑手留言超过 200 字。 |
-| `SCHEDULED_AT_INVALID` | 预约送达时间不是 13 位毫秒时间戳（传成秒、传成小数或负数都会命中）。 |
-| `SCHEDULED_AT_PAST` | 预约送达时间早于当前时间；复用历史单时最常撞，需重新问用户约几点。 |
-| `SCHEDULED_AT_NOT_ON_GRID` | 预约送达时间不在可选档位上；从预约时间清单里取 `value`，不要自己算。 |
-| `SCHEDULED_AT_TOO_SOON` | 预约送达时间太近；错误消息里给出当前最早可约的时间。 |
-| `SCHEDULED_AT_TOO_FAR` | 预约送达时间超出范围；最晚只能约到明天 23:45（北京时间）。 |
+| `SCHEDULED_AT_INVALID` | 预约取件时间不是 13 位毫秒时间戳（传成秒、传成小数或负数都会命中）。 |
+| `SCHEDULED_AT_PAST` | 预约取件时间早于当前时间；复用历史单时最常撞，需重新问用户约几点。 |
+| `SCHEDULED_AT_NOT_ON_GRID` | 预约取件时间不在可选档位上；从预约时间清单里取 `value`，不要自己算。 |
+| `SCHEDULED_AT_TOO_SOON` | 预约取件时间太近；错误消息里给出当前最早可约的时间。 |
+| `SCHEDULED_AT_TOO_FAR` | 预约取件时间超出范围；最晚只能约到明天 23:45（北京时间）。 |
 | `ERRAND_STATUS_INVALID` | 历史单筛选的 `status` 取值不支持；错误消息里列出全部可选值。 |
 | `ERRAND_TIME_RANGE_INVALID` | 历史单筛选的时间格式不对；写 `2026-08-01` 或 `2026-08-01 10:30:00`。 |
 | `ERRAND_TIP_INVALID` | 小费金额不合法；须为大于 0 的整数（单位分）。 |

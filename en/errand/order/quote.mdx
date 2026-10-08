@@ -33,7 +33,7 @@ Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents)
 | `to_address` | object | Yes | — | Dropoff details, structured as EndpointParty below |
 | `goods` | array | Yes | — | Item list, at least one entry |
 | `total_weight_g` | integer | No | `1000` | Total weight (grams); defaults to 1000g when omitted |
-| `scheduled_at` | integer | No | — | Scheduled delivery time, a 13-digit millisecond timestamp; omit or pass `0` for immediate delivery. **Only a `value` from `errand_list_schedule_slots` is accepted** (15-minute slots, from 45 minutes out through 23:45 tomorrow) — a timestamp you compute yourself is rejected. When reusing a past order, don't reuse its value; that time has already passed and will be rejected |
+| `scheduled_at` | integer | No | — | Scheduled pickup time (when the rider should come to collect), a 13-digit millisecond timestamp; omit or pass `0` for immediate delivery. **Only a `value` from `errand_list_schedule_slots` is accepted** (15-minute slots, from 45 minutes out through 23:45 tomorrow) — a timestamp you compute yourself is rejected. When reusing a past order, don't reuse its value; that time has already passed and will be rejected |
 | `person_direct` | boolean | No | `false` | Dedicated delivery (the courier carries only this order, no bundling); higher fee. Defaults to standard delivery |
 | `insured` | boolean | No | `false` | Whether to insure the shipment (based on `goods` value). Defaults to uninsured |
 | `goods_category_code` | integer | No | — | Item category code, from `errand_list_goods_categories`; omit to bill under the default category. **Claims are decided by this category, not the item name** — make sure the user picks the right one. A code outside the list returns `GOODS_CATEGORY_INVALID` |
@@ -80,11 +80,11 @@ Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents)
 | `fee` | integer | This courier's delivery fee (fen); **choosing this courier makes this the amount charged** |
 | `distance` | integer | Delivery distance, in meters |
 | `coupon_fee` | integer | Courier-side discount amount, in fen (display only) |
-| `estimated_minutes` | integer \| null | Estimated delivery duration in minutes; `null` when distance is unknown |
-| `estimated_arrival_time` | string \| null | Estimated arrival time, `HH:MM` format (Beijing time). For scheduled orders this is the agreed delivery time; `null` when distance is unknown |
+| `estimated_minutes` | integer \| null | Delivery duration in minutes, estimated from the delivery distance; same meaning for immediate and scheduled orders. `null` when distance is unknown |
+| `estimated_arrival_time` | string \| null | Estimated arrival time, `YYYY-MM-DD HH:MM` format (Beijing time, with date). Immediate order = now + delivery duration; scheduled order = scheduled pickup time + delivery duration. `null` when distance is unknown |
 
 <Note>
-  The estimate is derived from the delivery distance (45 minutes within 3 km, plus 5 minutes per additional km), so **every courier in one quote shows the same duration** — those are not duplicate values.
+  The delivery duration is derived from the delivery distance (45 minutes within 3 km, plus 5 minutes per additional km), so **every courier in one quote shows the same duration** — those are not duplicate values.
 
   `fee` is the price quoted here; if the delivery fee has changed by the time you place the order, `errand_create` returns `ERRAND_FEE_CHANGED` — just request a new quote.
 </Note>
@@ -95,10 +95,10 @@ Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents)
 {
   "quote_id": "equote_ggzcyYA4XSwjTQw_heQSXw",
   "quotes": [
-    { "company_code": 1, "company_name": "京东秒送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
-    { "company_code": 2, "company_name": "顺丰", "fee": 450, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
-    { "company_code": 14, "company_name": "蜂鸟品质达", "fee": 480, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" },
-    { "company_code": 5, "company_name": "美团帮送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "12:45" }
+    { "company_code": 1, "company_name": "京东秒送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "2026-10-09 16:25" },
+    { "company_code": 2, "company_name": "顺丰", "fee": 450, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "2026-10-09 16:25" },
+    { "company_code": 14, "company_name": "蜂鸟品质达", "fee": 480, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "2026-10-09 16:25" },
+    { "company_code": 5, "company_name": "美团帮送", "fee": 200, "distance": 1000, "coupon_fee": 500, "estimated_minutes": 45, "estimated_arrival_time": "2026-10-09 16:25" }
   ],
   "expires_in_seconds": 120
 }

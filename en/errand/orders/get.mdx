@@ -61,7 +61,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `person_direct` | boolean \| null | Whether the order is dedicated (the rider carries only this order, no batching) |
 | `insured` | boolean \| null | Whether this order is insured |
 | `remark` | string | Note left for the rider at order time; empty string if none |
-| `scheduled_at` | integer \| null | Agreed delivery time set at order time (millisecond timestamp); `null` for immediate delivery |
+| `scheduled_at` | integer \| null | Scheduled pickup time set at order time (millisecond timestamp); `null` for immediate delivery |
 | `pickup_photos` | array | Pickup photo links; empty array before the rider picks up the goods |
 | `finish_photos` | array | Delivery photo links; empty array before the order is completed |
 | `created_at` | string | Creation time (ISO 8601) |

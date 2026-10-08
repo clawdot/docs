@@ -58,7 +58,7 @@ Minimal loop:
 First time: errand_request_user_bind → errand_verify_user_bind   # SMS code binding → get consent_grant_id (reused long-term)
 0. errand_search_addresses            # (optional) search an address by keyword → get candidate coordinates; errand_save_address to save it for reuse
 0. errand_list_goods_categories       # (optional) item category list → let the user pick one, pass it into errand_quote
-0. errand_list_schedule_slots         # (optional) scheduled-delivery time slot list → user picks one, pass it as errand_quote's scheduled_at
+0. errand_list_schedule_slots         # (optional) scheduled-pickup time slot list → user picks one, pass it as errand_quote's scheduled_at
 1. errand_quote                       # multi-provider quote → get quote_id + each provider's company_code/fee
 2. errand_create                      # redeem quote_id to place the order → get order_id + cashier_url
 3. User opens cashier_url to pay      # after payment succeeds the platform dispatches a rider automatically (no tool call needed)
@@ -127,7 +127,7 @@ Grouped by function, 19 tools in total.
 | Tool | Description |
 |---|---|
 | `errand_list_goods_categories` | List of item categories for the user to pick from. |
-| `errand_list_schedule_slots` | List of optional scheduled-delivery time slots (15-minute grid) for the user to pick "deliver by when". |
+| `errand_list_schedule_slots` | List of optional scheduled-pickup time slots (15-minute grid) for the user to pick "when the rider should come to collect". |
 | `errand_quote` | Live quotes from multiple providers plus a single-use confirmation token. |
 
 ### Ordering

@@ -1,11 +1,11 @@
 ---
 title: "errand_list_schedule_slots"
-description: "MCP 工具 errand_list_schedule_slots —— 返回可选的预约送达时间清单，选中项回填 errand_quote"
+description: "MCP 工具 errand_list_schedule_slots —— 返回可选的预约取件时间清单，选中项回填 errand_quote"
 ---
 
 ## errand_list_schedule_slots
 
-返回可选的预约送达时间清单，摆给用户挑「几点送到」。选中项的 `value` 回填 `errand_quote` 的 `scheduled_at`。
+返回可选的预约取件时间清单，摆给用户挑「几点来取」。选中项的 `value` 回填 `errand_quote` 的 `scheduled_at`。
 
 一档 15 分钟，最早 45 分钟后、最晚明天 23:45（北京时间）。用户说「尽快」就不传 `scheduled_at`，不要传 `0`。
 
