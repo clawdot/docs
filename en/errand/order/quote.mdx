@@ -84,7 +84,7 @@ Coordinates are always **GCJ-02**; monetary fields are always in **fen** (cents)
 | `estimated_arrival_time` | string \| null | Estimated arrival time, `YYYY-MM-DD HH:MM` format (Beijing time, with date). Immediate order = now + delivery duration; scheduled order = scheduled pickup time + delivery duration. `null` when distance is unknown |
 
 <Note>
-  The delivery duration is derived from the delivery distance (45 minutes within 3 km, plus 5 minutes per additional km), so **every courier in one quote shows the same duration** — those are not duplicate values.
+  The delivery duration is derived from the delivery distance (45 minutes within 3 km, plus 5 minutes per additional km), so **couriers with the same distance show the same duration** — those are not duplicate values; couriers reporting different distances get different durations.
 
   `fee` is the price quoted here; if the delivery fee has changed by the time you place the order, `errand_create` returns `ERRAND_FEE_CHANGED` — just request a new quote.
 </Note>
