@@ -19,6 +19,7 @@ description: "MCP 工具 request_user_bind — 发起用户授权绑定（sms �
 | `auth_type` | string | 否 | `"sms"` | 绑定模式，枚举 `"sms"` / `"h5"`；其它值返回 422 |
 | `callback_url` | string \| null | 否 | `null` | **仅 `h5` 有效**：网关侧轮询绑定结果，成功或过期后向该地址 POST 回调（含 `consent_grant_id`）。须为绝对 http(s) URL，禁止内网 / 环回地址。`sms` 模式传入会报错 |
 | `extra` | object \| null | 否 | `null` | 调用方业务透传（JSON 对象，≤2KB）：发起时传入，绑定完成时由 `verify_user_bind` 响应与回调原样回传，网关不解释其内容 |
+| `external_user_id` | string \| null | 否 | `null` | 客户侧用户唯一标识（1–128 字符）：传入后 H5 授权链接、收银台联登 / 支付链接的 `open_id` 用这个值，对用户的唯一性与稳定性由调用方保证；`sms` / `h5` 两种模式都支持。`h5` 模式下，这个手机号的这个 ID 已在别的 Agent 下绑定过（或用了网关保留的 `clw_` 格式）时返回 `EXTERNAL_USER_ID_TAKEN`，每个 Agent 请用自己的 ID |
 | `lang` | string | 否 | — | 该用户之后所有调用返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`；绑定后持续生效，不必每次调用都传 |
 | `include_chinese` | boolean | 否 | false | 为 `true` 时该用户之后所有调用响应同时返回中文原文（`<key>_zh`），见 [双语响应](/mcp/overview) |
 
@@ -74,6 +75,7 @@ description: "MCP 工具 request_user_bind — 发起用户授权绑定（sms �
 | `CAP_NOT_BOUND` | 当前 Agent 未开通外卖能力 |
 | `PUBLIC_REFERENCE_INVALID` | `auth_type` 非 sms/h5、`sms` 模式传了 `callback_url`、`callback_url` 非法（非 http(s) 或内网地址）、或 `extra` 非 JSON 对象 / 超过 2KB。MCP 工具参数无 Literal/模型校验，非法输入归到 `PUBLIC_REFERENCE_INVALID`（如 `auth_type` 非枚举值）|
 | `SMS_COOLDOWN` | 验证码 60 秒冷却中（仅 `sms` 模式）|
+| `EXTERNAL_USER_ID_TAKEN` | 这个手机号的这个 `external_user_id` 已在别的 Agent 下绑定过（或用了网关保留的 `clw_` 格式），不发授权链接；每个 Agent 请用自己的 ID（仅 `h5` 模式）|
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 
