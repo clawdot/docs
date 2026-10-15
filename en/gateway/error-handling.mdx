@@ -67,6 +67,7 @@ The error body contains only `code` and `message`.
 |---|---|---|
 | `IDEMPOTENCY_CONFLICT` | The same confirmation token was used for different order params | Re-preview to get a new confirmation token |
 | `BINDING_LIMIT_REACHED` | Bound-user quota reached | Unbind an existing user or raise the quota |
+| `EXTERNAL_USER_ID_TAKEN` | When starting an H5 binding, another Agent has already bound this phone number with this `external_user_id` (or the ID uses the gateway-reserved `clw_` format) | Give each Agent its own `external_user_id` |
 
 ### Rate limiting (429)
 
@@ -105,7 +106,7 @@ The error body contains only `code` and `message`.
 | 401 | Authentication / authorization failed |
 | 403 | Capability or grant scope mismatch |
 | 404 | Resource not found |
-| 409 | Conflict (idempotency / quota) |
+| 409 | Conflict (idempotency / quota / `external_user_id` taken) |
 | 429 | Request rate exceeded |
 | 500 | Server internal error |
 | 502 | Upstream API error |
