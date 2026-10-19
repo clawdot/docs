@@ -4,6 +4,12 @@ description: "跑腿（同城帮送）MCP 服务：连接方式、授权模型�
 icon: "bike"
 ---
 
+<Warning>
+  **这是旧版直连接入的说明，新接入请改走 Clawdot Hub。**
+
+  登录 hub.clawdot.net → 文档中心：按能力下载完整包（外卖 / 跑腿 / 零售），或按你用的平台接入。本页内容不再更新。[前往 Hub →](https://hub.clawdot.net/#/docs)
+</Warning>
+
 跑腿（同城帮送）是一项独立于外卖点餐的能力：帮用户把物品从一个地点送到另一个地点（代取快递、送文件、捎带物品……），本身不涉及点餐或购物。跑腿通过 **MCP (Model Context Protocol)** 对外提供 Agent 接口，使用 **Streamable HTTP** 传输协议，暴露 **19 个工具**（均带 `errand_` 前缀），覆盖用户授权、备地址、询价、下单、支付到履约跟踪的完整链路。
 
 ## 连接方式

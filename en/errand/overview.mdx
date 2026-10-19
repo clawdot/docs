@@ -4,6 +4,12 @@ description: "The Errand (same-city delivery-run) MCP service: how to connect, t
 icon: "bike"
 ---
 
+<Warning>
+  **This page covers the legacy direct integration. For new integrations, use Clawdot Hub.**
+
+  Sign in at hub.clawdot.net and open **文档中心** (Docs center) to download the full pack for each capability (Delivery / Errand / Retail), or follow the guide for the platform you use. This page is no longer updated. [Go to Hub →](https://hub.clawdot.net/#/docs)
+</Warning>
+
 Errand (same-city delivery-run) is a capability independent from food ordering: it helps a user move an item from one place to another — picking up a package, sending documents, running an errand — and does not itself involve ordering food or shopping. Errand exposes its Agent interface via **MCP (Model Context Protocol)** over the **Streamable HTTP** transport, with **19 tools** (all prefixed `errand_`) covering the full flow from user authorization, saving addresses, and pricing, to placing an order, payment, and delivery tracking.
 
 ## Connecting
