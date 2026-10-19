@@ -24,6 +24,10 @@
             {
                 "language": "cn",
                 "default": true,
+                "banner": {
+                    "content": "接入文档已迁到 Clawdot Hub：外卖、跑腿、零售三个能力包和最新接入方式　**[前往 Hub 文档中心 →](https://hub.clawdot.net/#/docs)**",
+                    "dismissible": true
+                },
                 "tabs": [
                     {
                         "tab": "主页",
@@ -225,6 +229,10 @@
             },
             {
                 "language": "en",
+                "banner": {
+                    "content": "Integration docs have moved to Clawdot Hub: Delivery, Errand, and Retail packs. **[Go to Hub docs →](https://hub.clawdot.net/#/docs)**",
+                    "dismissible": true
+                },
                 "tabs": [
                     {
                         "tab": "Home",

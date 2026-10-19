@@ -1,0 +1,4 @@
+/* 顶部横幅（docs.json 各语言的 banner）
+   Mintlify 只给横幅 px-2，关闭按钮 absolute 压在右侧 16–32px：手机上换行的文字会压到 ×，
+   ≥768px 单行截断时链接会被截掉。左右各让 40px，文字不压 ×，也保持居中。 */
+#banner{padding-left:2.5rem;padding-right:2.5rem}
