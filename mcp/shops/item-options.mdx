@@ -50,6 +50,29 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 </Note>
 
 <Note>
+  **多维规格用 `spec_groups` 画按钮。** 星巴克这类商品的规格是「杯型 × 温度」的组合，`sku_options` 会列出每一种组合（3 种杯型 × 5 种温度 = 15 项），`name` 只是把两个值拼起来，不适合直接画成按钮。`spec_groups` 把同一批规格按维度拆成两行：
+
+  ```json
+  "spec_groups": [
+    {"name": "杯型", "values": [
+      {"value": "中杯(355ml)", "selected": false, "available": true},
+      {"value": "大杯(473ml)", "selected": true, "available": true},
+      {"value": "超大杯(592ml)", "selected": false, "available": true}]},
+    {"name": "温度", "values": [
+      {"value": "热", "selected": true, "available": true},
+      {"value": "微热", "selected": false, "available": true},
+      {"value": "冰", "selected": false, "available": true},
+      {"value": "少冰", "selected": false, "available": true},
+      {"value": "去冰", "selected": false, "available": true}]}
+  ]
+  ```
+
+  - 每行按 `values` 的顺序画，`selected: true` 的高亮，`available: false` 的置灰。
+  - 用户选好后，拿各行选中的值去 `sku_options[].specs` 里找完全一样的那一项，用它的 `sku_id` 下单。`spec_groups` 里没有 `sku_id`。
+  - 只有 1 个选项的维度也会返回，显不显示由你决定。只有 1 个规格或没有规格的商品不返回这个字段。
+</Note>
+
+<Note>
   **配料按规格区分、随规格内嵌。** 配料与 SKU 绑定（不同杯型可选项可能不同），因此每个 `sku_options[]` 条目内嵌**该规格自己的** `ingredient_options`——换规格直接读目标规格的内嵌列表，无需再调一次。`selected: true` 只会出现在**选中规格**（`sku_options[].selected: true`）的配料候选里；其余规格的候选只标 `selected_by_default` / `available`（那个规格不会随单，故一律 `selected: false`）。**无规格商品**（`sku_options` 为空数组）的配料候选放在该结果项的顶层 `ingredient_options` 字段，仅此时出现。
 </Note>
 
@@ -114,6 +137,11 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
 | `items[].sku_options[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类。超过会下单失败 |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
+| `items[].spec_groups` | array | **仅 2 个及以上规格的商品**返回：把 `sku_options` 按规格维度分好组（如「杯型」「温度」），用来画成多行按钮。见下方说明 |
+| `items[].spec_groups[].name` | string | 维度名（如「杯型」）|
+| `items[].spec_groups[].values[].value` | string | 该维度下的一个选项（如「大杯(473ml)」），顺序与商家在 App 里的顺序一致 |
+| `items[].spec_groups[].values[].selected` | boolean | 当前生效的规格在这个维度上选的是不是它 |
+| `items[].spec_groups[].values[].available` | boolean | 选它、其他维度保持当前选择时，能不能对上一个可买的规格；`false` 时按钮置灰 |
 | `items[].ingredient_options` | array | **仅无规格商品**（`sku_options` 为空）返回：该商品唯一形态的配料候选，条目结构同上 |
 
 **失败项字段**：

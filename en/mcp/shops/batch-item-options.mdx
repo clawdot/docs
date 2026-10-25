@@ -10,7 +10,7 @@ Fetches the full spec and ingredient candidates of items across **several shops*
 Use it when you have found a few shops, picked a few items in each, and want to compare specs and prices side by side. When shops come from a search, you do not know up front how many you will get, so calling per shop means writing a loop of unknown length into your orchestration; this tool gets everything in one call.
 
 <Note>
-  **Each item is returned exactly as [`get_item_options`](/en/mcp/shops/item-options) returns it** — `sku_options` / `ingredient_options` / the `selected` marking / `promo_labels` / `price_steps` all carry the same meaning and usage, so they are not repeated here; this page only covers the per-shop grouping layer. Everything that page warns about (candidates converging on your current selection, same-name-different-option, never multiplying by portion count, checking the price echo) applies here too.
+  **Each item is returned exactly as [`get_item_options`](/en/mcp/shops/item-options) returns it** — `sku_options` / `spec_groups` / `ingredient_options` / the `selected` marking / `promo_labels` / `price_steps` all carry the same meaning and usage, so they are not repeated here; this page only covers the per-shop grouping layer. Everything that page warns about (candidates converging on your current selection, same-name-different-option, never multiplying by portion count, checking the price echo) applies here too.
 </Note>
 
 ### Parameters
