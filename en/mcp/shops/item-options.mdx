@@ -50,6 +50,29 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 </Note>
 
 <Note>
+  **Use `spec_groups` to draw multi-dimension specs.** For items like Starbucks drinks, a spec is a combination of cup size × temperature, and `sku_options` lists every combination (3 sizes × 5 temperatures = 15 entries); `name` just joins the two values and is not meant to be drawn as a button. `spec_groups` splits the same skus into one row per dimension:
+
+  ```json
+  "spec_groups": [
+    {"name": "Cup size", "values": [
+      {"value": "Medium (355 ml)", "selected": false, "available": true},
+      {"value": "Large (473 ml)", "selected": true, "available": true},
+      {"value": "Extra large (592 ml)", "selected": false, "available": true}]},
+    {"name": "Temperature", "values": [
+      {"value": "Hot", "selected": true, "available": true},
+      {"value": "Warm", "selected": false, "available": true},
+      {"value": "Iced", "selected": false, "available": true},
+      {"value": "Light ice", "selected": false, "available": true},
+      {"value": "No ice", "selected": false, "available": true}]}
+  ]
+  ```
+
+  - Draw each row in `values` order, highlight `selected: true`, grey out `available: false`.
+  - Once the user has picked, find the `sku_options[]` entry whose `specs` match the picked values exactly and order with its `sku_id`. `spec_groups` carries no `sku_id`.
+  - A dimension with a single choice is still returned; whether to show it is up to you. Items with one sku or none do not carry this field.
+</Note>
+
+<Note>
   **Ingredients are per-sku and nested per sku.** Ingredients are bound to a specific sku (different cup sizes may offer different options), so every `sku_options[]` entry nests **that sku's own** `ingredient_options` — to switch sku, just read the target sku's nested list; no second call needed. `selected: true` only appears inside the **selected sku's** list (`sku_options[].selected: true`); other skus' candidates carry `selected_by_default` / `available` only and are always `selected: false`, since that sku would not be ordered. For **items with no sku dimension** (`sku_options` is an empty array), the single candidate set is returned as a top-level `ingredient_options` field on that result entry — present only in that case.
 </Note>
 
@@ -114,6 +137,11 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
 | `items[].sku_options[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit. Exceeding it fails the order |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | Whether the order would actually carry this option; can only be `true` inside the selected sku's list |
+| `items[].spec_groups` | array | **Only for items with 2 or more skus**: the same skus grouped by spec dimension (e.g. cup size, temperature), for drawing one row of buttons per dimension. See the note below |
+| `items[].spec_groups[].name` | string | Dimension name (e.g. "Cup size") |
+| `items[].spec_groups[].values[].value` | string | One choice in that dimension (e.g. "Large (473 ml)"), in the same order as the merchant shows it in the app |
+| `items[].spec_groups[].values[].selected` | boolean | Whether the sku currently in effect uses this choice for this dimension |
+| `items[].spec_groups[].values[].available` | boolean | Whether picking this choice, with the other dimensions kept as currently selected, lands on a sku that can be bought; grey the button out when `false` |
 | `items[].ingredient_options` | array | **Only for items with no sku dimension** (`sku_options` empty): the item's single candidate set, same entry structure as above |
 
 **Failure entry fields**:
