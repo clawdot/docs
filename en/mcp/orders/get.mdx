@@ -19,6 +19,7 @@ Queries the current status of a single order by its platform order ID. The gatew
 | `order_id` | string | Yes | — | Platform order ID (`ord_` prefix), used as-is from the `create_order` response |
 | `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; defaults to the language set at binding time (Chinese if unset) |
 | `include_chinese` | boolean | No | false | When `true`, the response also includes the Chinese original (`<key>_zh`) — see [Bilingual responses](/mcp/overview) |
+| `with_pay_qr` | boolean | No | false | When `true`, an unpaid order gains a `detail_qr_url` (QR-code image URL) next to `detail_url`; the user scans it with a phone to open the same page |
 
 ### Returns
 
@@ -63,9 +64,21 @@ Queries the current status of a single order by its platform order ID. The gatew
 | `delivery.rider_name` | string \| null | Courier name. `null` until a courier accepts the job |
 | `delivery.rider_phone` | string \| null | Courier phone number — hand it to the user to call directly. `null` until a courier accepts the job |
 | `detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days. For orders created with `require_phone_verify: true`, the link first asks for the last 4 digits of the ordering phone number |
+| `detail_qr_url` | string | Only present when `with_pay_qr: true` was passed and the order is awaiting payment (`status` is `pending_payment`): URL of a QR-code PNG image (https) encoding `detail_url`; valid for 15 minutes, then opening it returns 404. Absent for other statuses, or if the image could not be generated (not `null`) |
 | `created_at` | string \| null | Order creation time (ISO 8601) |
 | `paid_at` | string \| null | Payment time (currently always `null`; upstream does not return this field yet) |
 | `completed_at` | string \| null | Completion time (currently always `null`; upstream does not return this field yet) |
+
+For an unpaid order, `with_pay_qr: true` adds a `detail_qr_url` next to `detail_url` (relevant fields only):
+
+```json
+{
+  "status": "pending_payment",
+  "status_text": "待支付",
+  "detail_url": "https://g.clawdot.ai/demo2",
+  "detail_qr_url": "https://eleme-gateway.hicaspian.com/qr/act_DEMO9876zyxw5432vuts.png"
+}
+```
 
 **`status` enum vs `status_text`:**
 
@@ -105,6 +118,19 @@ See [Error Handling](/en/gateway/error-handling) for the full list.
   "arguments": {
     "consent_grant_id": "cg_your_consent_grant",
     "order_id": "<from create_order>"
+  }
+}
+```
+
+With a payment QR code (unpaid order):
+
+```json
+{
+  "name": "get_order_status",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from create_order>",
+    "with_pay_qr": true
   }
 }
 ```

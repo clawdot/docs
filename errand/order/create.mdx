@@ -35,6 +35,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 | `company_code` | integer | 是 | — | 选定运力编码，须在本次报价集内；决定支付金额（= 该运力 `fee`）|
 | `callback_url` | string | 否 | — | 订单状态回调推送地址；须为公网可访问的 http(s) 地址，`localhost` 与内网地址会被拒绝。详见[状态回调](/errand/callbacks) |
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
+| `with_pay_qr` | boolean | 否 | false | 为 `true` 时，待支付的单在 `cashier_url` 旁多一个 `cashier_qr_url`（付款二维码的图片地址），用户用手机扫码即可进入同一个支付页 |
 
 ### 返回
 
@@ -49,6 +50,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 | `pay_status` | string | 恒为 `unpaid`（未支付）|
 | `quote_fee` | integer | 应付金额（= 所选运力 `fee`），单位分 |
 | `cashier_url` | string | 收银台支付页链接，交给用户打开完成支付 |
+| `cashier_qr_url` | string | 仅传 `with_pay_qr: true` 时才有：`cashier_url` 的二维码图片地址（https，PNG），码里就是 `cashier_url`。到最晚付款时间 `payment_expire_at` 为止有效，过期后打开是 404；没生成成功时没有这个键（不是 `null`），下单照常，请让用户直接打开 `cashier_url` |
 | `payment_expire_at` | string | 最晚付款时间（北京时间），自下单起 2 分钟；过点即不再受理支付、订单随后自动关闭。**拿到链接请立即交给用户**；过期重新询价下单不产生费用 |
 
 **响应同时带上这笔订单的整单信息**，与 [errand_get_order](/errand/orders/get) 订单详情的基础字段、`errand_list_orders` 的列表条目完全一致（`status_desc` / `timeline` / `rider` 只在查询在途订单时才有，待支付单不带）——创建后立即可用，不必再查一次。整单信息包括：
@@ -103,6 +105,20 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 }
 ```
 
+传了 `with_pay_qr: true` 时，`cashier_url` 旁多一个 `cashier_qr_url`（仅列出相关字段）：
+
+```json
+{
+  "order_id": "err_demo0000000000000000000000000001",
+  "status": "pending_payment",
+  "pay_status": "unpaid",
+  "quote_fee": 200,
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001",
+  "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png",
+  "payment_expire_at": "2026-10-31T10:27:03"
+}
+```
+
 ### 错误码
 
 | code | 说明 |
@@ -130,6 +146,20 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
     "quote_id": "<来自 errand_quote>",
     "company_code": 1,
     "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```
+
+要付款二维码时：
+
+```json
+{
+  "name": "errand_create",
+  "arguments": {
+    "quote_id": "<来自 errand_quote>",
+    "company_code": 1,
+    "consent_grant_id": "cg_your_consent_grant",
+    "with_pay_qr": true
   }
 }
 ```

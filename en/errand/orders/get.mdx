@@ -25,6 +25,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 |-----------|------|----------|---------|-------------|
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
 | `order_id` | string | Yes | — | Order ID (`err_` prefix) |
+| `with_pay_qr` | boolean | No | false | When `true`, an unpaid order gains a `cashier_qr_url` (payment QR-code image URL) next to `cashier_url`; the user scans it with a phone to reach the same payment page |
 
 ### Returns
 
@@ -67,6 +68,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `created_at` | string | Creation time (ISO 8601) |
 | `payment_expire_at` | string \| null | Payment deadline (Beijing time), 2 minutes after the order is placed; past that point payment is no longer accepted and the order closes shortly after. **Only unpaid orders have a value** — `null` for every other status |
 | `cashier_url` | string \| null | Cashier payment page URL — the same one returned at order creation; hand it to the user to complete payment. **Only unpaid orders have a value** — `null` for every other status |
+| `cashier_qr_url` | string | Only present when `with_pay_qr: true` was passed and the order is awaiting payment: URL of a QR-code PNG image (https) encoding `cashier_url`. Valid until the payment deadline `payment_expire_at`, then opening it returns 404. Absent (not `null`) for other statuses or if the image could not be generated |
 | `status_desc` | string | (open orders only) Localized status text from the delivery provider, e.g. "Waiting for rider assignment" |
 | `timeline` | array | (open orders only) Status change timeline |
 | `timeline[].status` | string | Status text |
@@ -110,6 +112,19 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
     { "status": "Order placed", "time": 1783783044897 },
     { "status": "Waiting for rider assignment", "time": 1783783107917 }
   ]
+}
+```
+
+For an unpaid order, `with_pay_qr: true` adds a `cashier_qr_url` next to `cashier_url` (relevant fields only):
+
+```json
+{
+  "order_id": "err_demo0000000000000000000000000001",
+  "status": "pending_payment",
+  "pay_status": "unpaid",
+  "payment_expire_at": "2026-10-31T10:27:03",
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001",
+  "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png"
 }
 ```
 
@@ -159,6 +174,19 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
   "arguments": {
     "consent_grant_id": "cg_your_consent_grant",
     "order_id": "<from errand_create / errand_list_orders>"
+  }
+}
+```
+
+With a payment QR code (unpaid order):
+
+```json
+{
+  "name": "errand_get_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from errand_create / errand_list_orders>",
+    "with_pay_qr": true
   }
 }
 ```

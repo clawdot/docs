@@ -35,6 +35,7 @@ Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order
 | `company_code` | integer | Yes | — | Selected courier code; must be within this quote's results — determines the amount charged (= that courier's `fee`) |
 | `callback_url` | string | No | — | Order-status callback URL; must be a publicly reachable http(s) address — `localhost` and private addresses are rejected. See [Status Callbacks](/en/errand/callbacks) |
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
+| `with_pay_qr` | boolean | No | false | When `true`, an unpaid order gains a `cashier_qr_url` (payment QR-code image URL) next to `cashier_url`; the user scans it with a phone to reach the same payment page |
 
 ### Returns
 
@@ -49,6 +50,7 @@ Redeems the `quote_id` returned by `errand_quote` into a **pending-payment order
 | `pay_status` | string | Always `unpaid` |
 | `quote_fee` | integer | Amount payable (= the selected courier's `fee`), in fen |
 | `cashier_url` | string | Cashier payment page URL; hand this to the user to complete payment |
+| `cashier_qr_url` | string | Only present when `with_pay_qr: true` was passed: URL of a QR-code PNG image (https) encoding `cashier_url`. Valid until the payment deadline `payment_expire_at`, then opening it returns 404. Absent (not `null`) if the image could not be generated — the order is still created, so have the user open `cashier_url` directly |
 | `payment_expire_at` | string | Payment deadline (Beijing time), 2 minutes after the order is placed; past that point payment is no longer accepted and the order closes shortly after. **Hand the link to the user right away**; missing the window costs nothing — just quote and order again |
 
 **The response also carries this order's full order info**, using exactly the same base fields as the order detail from [errand_get_order](/en/errand/orders/get) and the entries returned by `errand_list_orders` (`status_desc` / `timeline` / `rider` appear only when you query an in-flight order — a pending-payment order carries none of them) — available immediately, no extra lookup needed. The full order info includes:
@@ -119,6 +121,20 @@ For each field's exact type and when it can be `null`, see the order detail in [
 | `CASHIER_UNAVAILABLE` | The cashier is temporarily unavailable; retry placing the order later |
 | `ERRAND_UPSTREAM_ERROR` | Delivery service returned an error; retry later |
 
+With `with_pay_qr: true`, a `cashier_qr_url` appears next to `cashier_url` (relevant fields only):
+
+```json
+{
+  "order_id": "err_demo0000000000000000000000000001",
+  "status": "pending_payment",
+  "pay_status": "unpaid",
+  "quote_fee": 200,
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001",
+  "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png",
+  "payment_expire_at": "2026-10-31T10:27:03"
+}
+```
+
 See [Error Handling](/en/errand/errors) for the full list.
 
 ### Example call
@@ -130,6 +146,20 @@ See [Error Handling](/en/errand/errors) for the full list.
     "quote_id": "<from errand_quote>",
     "company_code": 1,
     "consent_grant_id": "cg_your_consent_grant"
+  }
+}
+```
+
+With a payment QR code:
+
+```json
+{
+  "name": "errand_create",
+  "arguments": {
+    "quote_id": "<from errand_quote>",
+    "company_code": 1,
+    "consent_grant_id": "cg_your_consent_grant",
+    "with_pay_qr": true
   }
 }
 ```

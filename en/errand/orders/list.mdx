@@ -21,12 +21,13 @@ Paginates the consenting user's errand order history, sorted by creation time de
 | `status` | string | No | — | Only return orders in the given status(es); comma-separate multiple values, e.g. `dispatching,delivering`. See the status enum below. An unsupported status returns an error rather than an empty list |
 | `created_after` | string | No | — | Only return orders placed after this time, **in Beijing time**. Write `2026-08-01` or `2026-08-01 10:30:00` |
 | `created_before` | string | No | — | Only return orders placed before this time, same format as above. A date-only value includes the whole of that day (e.g. filtering up to Aug 10 includes all of Aug 10) |
+| `with_pay_qr` | boolean | No | false | When `true`, each unpaid order in the list gains a `cashier_qr_url` (payment QR-code image URL) next to `cashier_url`; the user scans it with a phone to reach the same payment page |
 
 ### Returns
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `orders` | array | Order list, sorted by creation time descending (newest first). Each order has the same field structure as the `errand_get_order` response, minus the fields that only appear on open orders (`status_desc` / `timeline` / `rider`) — see that page for the full field reference |
+| `orders` | array | Order list, sorted by creation time descending (newest first). Each order has the same field structure as the `errand_get_order` response, minus the fields that only appear on open orders (`status_desc` / `timeline` / `rider`) — see that page for the full field reference. With `with_pay_qr: true`, unpaid orders gain a `cashier_qr_url`, same meaning as in `errand_get_order` |
 | `next_offset` | integer \| null | Next-page cursor; `null` means there are no more |
 
 ```json
@@ -67,6 +68,24 @@ Paginates the consenting user's errand order history, sorted by creation time de
 <Warning>
   The amount fields (`quote_fee` / `actual_fee` / `tip_fee` / `cancel_fee` / `goods_total_amount_fen`) are all in **cents (integer)**, not yuan.
 </Warning>
+
+With `with_pay_qr: true`, unpaid orders in the list gain a `cashier_qr_url` (relevant fields only):
+
+```json
+{
+  "orders": [
+    {
+      "order_id": "err_demo0000000000000000000000000001",
+      "status": "pending_payment",
+      "pay_status": "unpaid",
+      "payment_expire_at": "2026-10-31T10:27:03",
+      "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001",
+      "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png"
+    }
+  ],
+  "next_offset": null
+}
+```
 
 ### Order status enum (`status`)
 
@@ -112,6 +131,20 @@ Paginates the consenting user's errand order history, sorted by creation time de
     "consent_grant_id": "cg_your_consent_grant",
     "limit": 5,
     "status": "dispatching,delivering"
+  }
+}
+```
+
+With a payment QR code:
+
+```json
+{
+  "name": "errand_list_orders",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "limit": 5,
+    "status": "pending_payment",
+    "with_pay_qr": true
   }
 }
 ```
