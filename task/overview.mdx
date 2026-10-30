@@ -4,7 +4,7 @@ description: "一单一个 task，照服务端给的下一步走：外卖、跑�
 sidebarTitle: "概览"
 ---
 
-{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+{/* 来源：Hub《接口参考》v2.23（2026-10-30，827f1878）。由 scripts/gen_task_interface.py 生成，勿手改 */}
 
 一单一个 task：先 create_task 拿 task_id，再按返回里 next_action 指的工具和动作，一组一组调外卖、跑腿或零售的分组工具，每次都带 task_id。每一步把候选交回来让用户挑；下单、取消这种不可逆的一步只认确认页给的 confirm_ref。下单前想改，重调前面那一组即可。
 

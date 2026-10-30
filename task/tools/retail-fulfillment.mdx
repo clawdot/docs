@@ -3,7 +3,7 @@ title: "retail_fulfillment"
 description: "查单与物流"
 ---
 
-{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+{/* 来源：Hub《接口参考》v2.23（2026-10-30，827f1878）。由 scripts/gen_task_interface.py 生成，勿手改 */}
 
 查单与物流。任何时候、任何 task 里都能调，不影响这个 task 走到哪一步。action=status 查一张收款单的付款与下单进度（不带 order_id 查本 task 的，带了查别的）；action=list 列最近的收款单；action=logistics 看物流（同 status 带不带 order_id，可带 sub_order_id）。（只读）
 

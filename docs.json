@@ -41,71 +41,6 @@
                         ]
                     },
                     {
-                        "tab": "任务接口",
-                        "groups": [
-                            {
-                                "group": "概览",
-                                "pages": [
-                                    "task/overview",
-                                    "task/connect",
-                                    "task/response"
-                                ]
-                            },
-                            {
-                                "group": "通用",
-                                "pages": [
-                                    "task/tools/create-task",
-                                    "task/tools/get-task",
-                                    "task/tools/fork-task",
-                                    "task/tools/update-task",
-                                    "task/tools/memory"
-                                ]
-                            },
-                            {
-                                "group": "外卖",
-                                "pages": [
-                                    "task/tools/food-authorize",
-                                    "task/tools/food-address",
-                                    "task/tools/food-browse",
-                                    "task/tools/food-cart",
-                                    "task/tools/food-place-order",
-                                    "task/tools/food-fulfillment"
-                                ]
-                            },
-                            {
-                                "group": "跑腿",
-                                "pages": [
-                                    "task/tools/errand-authorize",
-                                    "task/tools/errand-address",
-                                    "task/tools/errand-goods",
-                                    "task/tools/errand-place-order",
-                                    "task/tools/errand-fulfillment",
-                                    "task/tools/errand-cancel-order"
-                                ]
-                            },
-                            {
-                                "group": "零售",
-                                "pages": [
-                                    "task/tools/retail-authorize",
-                                    "task/tools/retail-browse",
-                                    "task/tools/retail-address",
-                                    "task/tools/retail-checkout",
-                                    "task/tools/retail-place-order",
-                                    "task/tools/retail-fulfillment"
-                                ]
-                            },
-                            {
-                                "group": "零售售后 · 退货退款",
-                                "pages": [
-                                    "task/tools/retail-aftersale",
-                                    "task/tools/retail-refund-apply",
-                                    "task/tools/retail-refund-return",
-                                    "task/tools/retail-refund-cancel"
-                                ]
-                            }
-                        ]
-                    },
-                    {
                         "tab": "Overview 概览",
                         "groups": [
                             {
@@ -289,6 +224,71 @@
                                 ]
                             }
                         ]
+                    },
+                    {
+                        "tab": "任务接口",
+                        "groups": [
+                            {
+                                "group": "概览",
+                                "pages": [
+                                    "task/overview",
+                                    "task/connect",
+                                    "task/response"
+                                ]
+                            },
+                            {
+                                "group": "通用",
+                                "pages": [
+                                    "task/tools/create-task",
+                                    "task/tools/get-task",
+                                    "task/tools/fork-task",
+                                    "task/tools/update-task",
+                                    "task/tools/memory"
+                                ]
+                            },
+                            {
+                                "group": "外卖",
+                                "pages": [
+                                    "task/tools/food-authorize",
+                                    "task/tools/food-address",
+                                    "task/tools/food-browse",
+                                    "task/tools/food-cart",
+                                    "task/tools/food-place-order",
+                                    "task/tools/food-fulfillment"
+                                ]
+                            },
+                            {
+                                "group": "跑腿",
+                                "pages": [
+                                    "task/tools/errand-authorize",
+                                    "task/tools/errand-address",
+                                    "task/tools/errand-goods",
+                                    "task/tools/errand-place-order",
+                                    "task/tools/errand-fulfillment",
+                                    "task/tools/errand-cancel-order"
+                                ]
+                            },
+                            {
+                                "group": "零售",
+                                "pages": [
+                                    "task/tools/retail-authorize",
+                                    "task/tools/retail-browse",
+                                    "task/tools/retail-address",
+                                    "task/tools/retail-checkout",
+                                    "task/tools/retail-place-order",
+                                    "task/tools/retail-fulfillment"
+                                ]
+                            },
+                            {
+                                "group": "零售售后 · 退货退款",
+                                "pages": [
+                                    "task/tools/retail-aftersale",
+                                    "task/tools/retail-refund-apply",
+                                    "task/tools/retail-refund-return",
+                                    "task/tools/retail-refund-cancel"
+                                ]
+                            }
+                        ]
                     }
                 ]
             },
@@ -306,17 +306,6 @@
                                 "group": "Home",
                                 "pages": [
                                     "en/index"
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "tab": "Task API",
-                        "groups": [
-                            {
-                                "group": "Task API",
-                                "pages": [
-                                    "en/task/overview"
                                 ]
                             }
                         ]
@@ -502,6 +491,17 @@
                                     "en/errand/status",
                                     "en/errand/errors",
                                     "en/errand/faq"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Task API",
+                        "groups": [
+                            {
+                                "group": "Task API",
+                                "pages": [
+                                    "en/task/overview"
                                 ]
                             }
                         ]

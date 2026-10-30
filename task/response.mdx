@@ -3,7 +3,7 @@ title: "返回结构与枚举"
 description: "任务接口所有工具共用的返回形状、被拒时的形状、状态与错误码"
 ---
 
-{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+{/* 来源：Hub《接口参考》v2.23（2026-10-30，827f1878）。由 scripts/gen_task_interface.py 生成，勿手改 */}
 
 ## 返回（所有工具同一个形状，在 structuredContent 里）
 
@@ -126,7 +126,7 @@ description: "任务接口所有工具共用的返回形状、被拒时的形状
 | `insufficient_balance` | 付费方开发者的账户余额不够建一个新 task（create_task / fork_task）：付费方在控制台「充值」页充值后再调，余额与扣费在「余额」页看；已有的 task 照常可用。 |
 | `nothing_to_fork` | from_last 时，30 天内没有已结束的单可 fork：用 create_task 开一个。 |
 | `amount_unknown` | 算不出实付（或取消要扣的）金额，不出确认页：重新预览或重新预检取消。 |
-| `amount_over_limit` | 金额超过接入方设的上限，不出确认页：减商品后再预览。 |
+| `amount_over_limit` | 单笔金额默认不设上限；按接入方设了上限时，超限的单下不了，不出确认页：减商品后再预览。 |
 | `contact_required` | 跑腿选的已存地址缺电话，下不了单：按新地址搜一份、带上联系人和电话再选。 |
 | `cancel_fee_changed` | 预检之后违约金变了，没有取消：重新预检取消，让用户再确认。 |
 | `consent_required` | 用户还没授权或授权已失效：话里要手机号就在对话里问一次、带上 context.phone 重调这一步；带了 auth_url 就原样发给用户，授权完再调一次。 |

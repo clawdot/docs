@@ -3,7 +3,7 @@ title: "errand_goods"
 description: "物品与运力"
 ---
 
-{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+{/* 来源：Hub《接口参考》v2.23（2026-10-30，827f1878）。由 scripts/gen_task_interface.py 生成，勿手改 */}
 
 物品与运力。两端都选好后，选品类、询价、选运力。action=categories 看品类（必选，理赔只看品类）；action=slots 看可预约的送达时间；action=quote 询价（category 品类句柄，goods 物品 [\{name, qty\}]；slot 时段句柄，不传 = 立即送；可带 total_weight_g、insured、person_direct、remark）；action=choose 选一家运力（ref），出确认页，确认页那一项的 ref 就是下单用的 confirm_ref。
 

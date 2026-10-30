@@ -3,7 +3,7 @@ title: "retail_aftersale"
 description: "售后"
 ---
 
-{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+{/* 来源：Hub《接口参考》v2.23（2026-10-30，827f1878）。由 scripts/gen_task_interface.py 生成，勿手改 */}
 
 售后。零售售后：一个 task 办一张售后单（一张收款单里的一个订单行）。action=locate 定位（out_trade_no 必填，一单多行时带 line 选订单行）；action=prepare 出确认页，kind=refund 申请退款（先不带 reason 看可退金额与原因，再带 reason；标了「要说明」的原因要带 reason_text，必须是用户自己说的原话）、kind=return 回传退货运单（carrier 只能从候选里选，invoice_no 是用户给的真实运单号）、kind=cancel 撤销售后（撤了钱不退），确认页那一项的 ref 就是提交用的 confirm_ref；action=progress 查售后与资金进度（任何 task 里都能调，带 order_id 查别的售后单）；action=reconcile 提交结果不明时只读核对。
 

@@ -248,14 +248,14 @@ def main():
             name = b["src"].split("/")[-1]
             (img / name).write_bytes(git_show(a.hub, a.ref, f"{DIAG}/{name}", binary=True))
 
-    # docs.json：中文「任务接口」tab 放在「主页」之后
+    # docs.json：中文「任务接口」tab 放在最后（「跑腿MCP」之后）
     dj = ROOT / "docs.json"
     d = json.loads(dj.read_text())
     cn = next(x for x in d["navigation"]["languages"] if x["language"] == "cn")
     tab = {"tab": TAB, "groups": [{"group": "概览", "pages": ["task/overview", "task/connect", "task/response"]}]
            + [{"group": g, "pages": p} for g, p in nav.items()]}
     tabs = [x for x in cn["tabs"] if x["tab"] != TAB]
-    tabs.insert(1, tab)
+    tabs.append(tab)
     cn["tabs"] = tabs
     dj.write_text(json.dumps(d, indent=4, ensure_ascii=False) + "\n")
 

@@ -3,7 +3,7 @@ title: "retail_address"
 description: "定收货地址"
 ---
 
-{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+{/* 来源：Hub《接口参考》v2.23（2026-10-30，827f1878）。由 scripts/gen_task_interface.py 生成，勿手改 */}
 
 定收货地址。商品选好后定收货地址。action=search 列已存地址（电话只给打码号）；action=select 选一个（ref；标了「缺」的选不了）；action=divisions 逐级查行政区划（parent 上一级的 code，不传从全国查起），拿到区县 code；action=save 新增地址（receiver 收件人、receiver_phone 手机号、address_detail 详细地址、division_code 区县 code，可带 town_division_code、is_default），带 ref 是整条替换那一条（没给的字段会被清空）。
 
