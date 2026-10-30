@@ -14,6 +14,7 @@ Adds a tip to an already-placed errand order to encourage a faster pickup. **A t
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
 | `order_id` | string | Yes | — | Order ID (`err_` prefix) |
 | `tip_fee` | integer | Yes | — | Tip amount to add this time (cents), must be greater than 0 |
+| `with_pay_qr` | boolean | No | false | When `true`, a `cashier_qr_url` (tip-payment QR-code image URL) appears next to `cashier_url`; the user scans it with a phone to reach the same payment page |
 
 ### Returns
 
@@ -27,6 +28,7 @@ Adds a tip to an already-placed errand order to encourage a faster pickup. **A t
 | `tip_fee` | integer | Tip amount added this time (cents) |
 | `status` | string | Always `pending_payment`, meaning this tip order is awaiting payment |
 | `cashier_url` | string | Checkout link for the tip — hand it to the user to open and complete payment |
+| `cashier_qr_url` | string | Only present when `with_pay_qr: true` was passed: URL of a QR-code PNG image (https) encoding the tip's `cashier_url`. Valid for 15 minutes, then opening it returns 404. Absent (not `null`) if the image could not be generated — the tip order is still created, so have the user open `cashier_url` directly |
 
 ```json
 {
@@ -34,6 +36,18 @@ Adds a tip to an already-placed errand order to encourage a faster pickup. **A t
   "tip_fee": 100,
   "status": "pending_payment",
   "cashier_url": "https://g.clawdot.ai/xk2IP"
+}
+```
+
+Response with `with_pay_qr: true`:
+
+```json
+{
+  "order_id": "err_demo0000000000000000000000000001",
+  "tip_fee": 100,
+  "status": "pending_payment",
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001&tip=1",
+  "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO9876zyxw5432vuts.png"
 }
 ```
 
@@ -63,6 +77,20 @@ Adds a tip to an already-placed errand order to encourage a faster pickup. **A t
     "consent_grant_id": "cg_your_consent_grant",
     "order_id": "<from errand_create / errand_list_orders>",
     "tip_fee": 100
+  }
+}
+```
+
+With a payment QR code:
+
+```json
+{
+  "name": "errand_add_tip",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<from errand_create / errand_list_orders>",
+    "tip_fee": 100,
+    "with_pay_qr": true
   }
 }
 ```

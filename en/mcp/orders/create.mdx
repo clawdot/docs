@@ -12,7 +12,7 @@ Places the order using the `preview_id` and `confirmation_token` returned by a p
 </Note>
 
 <Note>
-  This tool is **idempotent**, keyed on `confirmation_token`. The idempotency fingerprint compares `preview_id` + `confirmation_token` + `payment_method`, plus whether `require_phone_verify` is `true` (**not** `callback_url`). Repeating the call with the same `confirmation_token`: if those match the first call, it returns the first result; if any differs, it returns `IDEMPOTENCY_CONFLICT`. A token places exactly one order — to order again, run `preview_order` for a fresh token. Note: changing only `callback_url` (the other three unchanged) is not a conflict — it replays and **restarts status tracking** (so callbacks may be delivered more than once).
+  This tool is **idempotent**, keyed on `confirmation_token`. The idempotency fingerprint compares `preview_id` + `confirmation_token` + `payment_method`, plus whether each of `require_phone_verify` and `with_pay_qr` is `true` (**not** `callback_url`). Repeating the call with the same `confirmation_token`: if those match the first call, it returns the first result; if any differs, it returns `IDEMPOTENCY_CONFLICT`. A token places exactly one order — to order again, run `preview_order` for a fresh token. Note: changing only `callback_url` (the other three unchanged) is not a conflict — it replays and **restarts status tracking** (so callbacks may be delivered more than once).
 </Note>
 
 ### Parameters
@@ -27,8 +27,11 @@ Places the order using the `preview_id` and `confirmation_token` returned by a p
 | `require_phone_verify` | boolean | No | `false` | When `true`, this order's payment / detail links first ask for the last 4 digits of the ordering phone number; the order page opens only after a correct entry (see below) |
 | `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; defaults to the language set at binding time (Chinese if unset) |
 | `include_chinese` | boolean | No | false | When `true`, the response also includes the Chinese original (`<key>_zh`) — see [Bilingual responses](/mcp/overview) |
+| `with_pay_qr` | boolean | No | false | When `true`, `payment_action` gains an `action_qr_url` (image URL of a payment QR code); the user scans it with a phone to reach the same payment page (see below) |
 
 **About `require_phone_verify`:** when `true`, every link for this order — the `payment_action.action_url` returned here, and the `detail_url` later returned by `get_order_status` / `list_orders` — first shows a confirmation page asking for the last 4 digits of the phone number used to place the order; the order page opens only after a correct entry. Once confirmed, the same browser is not asked again for 24 hours; after 5 wrong attempts the order's links are locked for 24 hours. Useful when links travel through chat and may reach the wrong person. The setting is fixed at order creation and cannot be changed later; omitted or `false` leaves the links exactly as before.
+
+**About `with_pay_qr`:** when `true`, `payment_action` carries one extra key, `action_qr_url`: the URL of a QR-code PNG image (https) that encodes `action_url` itself — handy when the user pays from another device. The image is valid for 15 minutes; after that, opening it returns 404. If the image could not be generated the key is absent (not `null`), the order is still created, and you should have the user open `action_url` directly. Omitted or `false` leaves the response exactly as before.
 
 **About `callback_url`:** must be an absolute `http`/`https` URL; loopback / private / link-local hosts are rejected. When set, **every status change on this order POSTs one event** to that URL, until the order ends (`completed` / `cancelled` / `failed` / `refunded`). Status is checked roughly every 2 seconds while unpaid, and every 30 seconds after payment. If the order has not ended after 2 hours, a final `timeout` event is sent and tracking stops, so you are never left waiting.
 
@@ -129,6 +132,7 @@ A failed delivery is retried three times (after 1 / 2 / 4 seconds) and then drop
 | `payment_action.action_id` | string | Action ID (`act_` prefix) |
 | `payment_action.action_type` | string | Action type, currently `open_h5` (open the H5 payment page) |
 | `payment_action.action_url` | string | Payment page URL to guide the user through payment; for orders created with `require_phone_verify: true`, it first asks for the last 4 digits of the ordering phone number |
+| `payment_action.action_qr_url` | string | Only present when `with_pay_qr: true` was passed: URL of a QR-code PNG image (https) encoding `action_url`; valid for 15 minutes, then opening it returns 404. Absent if the image could not be generated |
 | `payment_action.expires_at` | string | Action expiry (ISO 8601, UTC); valid for ~30 minutes |
 | `extra_map` | object | Extension fields; always an object, `{}` when empty. Unrelated to the `extra` field of the bind tools |
 | `extra_map.next_url` | string | Only for channels with their own checkout: opening it takes the user straight to that channel's checkout to pay; valid for 15 minutes after the order is created. When absent, use `payment_action.action_url` as usual |
@@ -140,6 +144,20 @@ For channels with their own checkout, `extra_map` also carries `next_url`:
 {
   "extra_map": {
     "next_url": "https://order.hicaspian.com/h5/pay-next/8084736215249374708/5c1e0f2a..."
+  }
+}
+```
+
+With `with_pay_qr: true`, `payment_action` carries an extra `action_qr_url` (only `payment_action` shown):
+
+```json
+{
+  "payment_action": {
+    "action_id": "act_DEMO1234abcd5678efgh",
+    "action_type": "open_h5",
+    "action_url": "https://g.clawdot.ai/demo1",
+    "action_qr_url": "https://eleme-gateway.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png",
+    "expires_at": "2026-10-31T03:57:06+00:00"
   }
 }
 ```
@@ -156,7 +174,7 @@ For channels with their own checkout, `extra_map` also carries `next_url`:
 | `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
 | `PUBLIC_REFERENCE_INVALID` | `preview_id` / `confirmation_token` invalid or expired, the two do not match (not from the same preview), or `callback_url` is invalid |
-| `IDEMPOTENCY_CONFLICT` | The same `confirmation_token` was reused but `preview_id`, `payment_method` or `require_phone_verify` differs from the first call; re-preview for a fresh token |
+| `IDEMPOTENCY_CONFLICT` | The same `confirmation_token` was reused but `preview_id`, `payment_method`, `require_phone_verify` or `with_pay_qr` differs from the first call; re-preview for a fresh token |
 | `ORDER_FAILED` | Order creation failed; re-preview and retry |
 | `ELEME_ERROR` | Upstream order API error; retry later |
 
@@ -185,6 +203,20 @@ With phone confirmation on the links:
     "preview_id": "<from preview_order>",
     "confirmation_token": "<from preview_order>",
     "require_phone_verify": true
+  }
+}
+```
+
+With a payment QR code:
+
+```json
+{
+  "name": "create_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "preview_id": "<from preview_order>",
+    "confirmation_token": "<from preview_order>",
+    "with_pay_qr": true
   }
 }
 ```

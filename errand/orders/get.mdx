@@ -25,6 +25,7 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 |------|------|------|------|------|
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
 | `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
+| `with_pay_qr` | boolean | 否 | false | 为 `true` 时，待支付的单在 `cashier_url` 旁多一个 `cashier_qr_url`（付款二维码的图片地址），用户用手机扫码即可进入同一个支付页 |
 
 ### 返回
 
@@ -67,6 +68,7 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 | `created_at` | string | 创建时间（ISO 8601）|
 | `payment_expire_at` | string \| null | 最晚付款时间（北京时间），自下单起 2 分钟；过点即不再受理支付、订单随后自动关闭。**只有未支付的单有值**，其余状态为 `null` |
 | `cashier_url` | string \| null | 收银台支付页链接，与下单时给的是同一个，可直接交给用户打开付款。**只有未支付的单有值**，其余状态为 `null` |
+| `cashier_qr_url` | string | 仅传 `with_pay_qr: true` 且订单待支付时才有：`cashier_url` 的二维码图片地址（https，PNG）。到最晚付款时间 `payment_expire_at` 为止有效，过期后打开是 404；其余状态、或没生成成功时没有这个键（不是 `null`）|
 | `status_desc` | string | （仅在途订单返回）配送方当前状态的文案，如「等待分配骑士」|
 | `timeline` | array | （仅在途订单返回）状态变化时间线 |
 | `timeline[].status` | string | 状态文案 |
@@ -110,6 +112,19 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
     { "status": "待下单", "time": 1783783044897 },
     { "status": "等待分配骑士", "time": 1783783107917 }
   ]
+}
+```
+
+待支付的订单传 `with_pay_qr: true` 时，`cashier_url` 旁多一个 `cashier_qr_url`（仅列出相关字段）：
+
+```json
+{
+  "order_id": "err_demo0000000000000000000000000001",
+  "status": "pending_payment",
+  "pay_status": "unpaid",
+  "payment_expire_at": "2026-10-31T10:27:03",
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001",
+  "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png"
 }
 ```
 
@@ -159,6 +174,19 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
   "arguments": {
     "consent_grant_id": "cg_your_consent_grant",
     "order_id": "<来自 errand_create / errand_list_orders>"
+  }
+}
+```
+
+要付款二维码时（待支付单）：
+
+```json
+{
+  "name": "errand_get_order",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>",
+    "with_pay_qr": true
   }
 }
 ```

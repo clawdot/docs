@@ -21,12 +21,13 @@ description: "MCP 工具 errand_list_orders —— 分页查询跑腿历史订�
 | `status` | string | 否 | — | 只看指定状态的单，多个状态用英文逗号分隔，如 `dispatching,delivering`。取值见下方订单状态枚举；填了不存在的状态会报错，不会返回空列表 |
 | `created_after` | string | 否 | — | 只看这个时间之后下的单，**按北京时间**。写 `2026-08-01` 或 `2026-08-01 10:30:00` |
 | `created_before` | string | 否 | — | 只看这个时间之前下的单，写法同上；只写日期时包含当天全天（如筛到 8 月 10 号，含 10 号当天）|
+| `with_pay_qr` | boolean | 否 | false | 为 `true` 时，列表里待支付的单在 `cashier_url` 旁多一个 `cashier_qr_url`（付款二维码的图片地址），用户用手机扫码即可进入同一个支付页 |
 
 ### 返回
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `orders` | array | 订单列表，按下单时间倒序（新单在前）。单条订单的字段结构与 `errand_get_order` 的返回一致，但不含仅在途订单才有的附加字段（`status_desc` / `timeline` / `rider`），完整字段说明见该页 |
+| `orders` | array | 订单列表，按下单时间倒序（新单在前）。单条订单的字段结构与 `errand_get_order` 的返回一致，但不含仅在途订单才有的附加字段（`status_desc` / `timeline` / `rider`），完整字段说明见该页。传 `with_pay_qr: true` 时，待支付的单多一个 `cashier_qr_url`，含义同 `errand_get_order` |
 | `next_offset` | integer \| null | 下一页的 offset；为 `null` 表示没有更多了 |
 
 ```json
@@ -67,6 +68,24 @@ description: "MCP 工具 errand_list_orders —— 分页查询跑腿历史订�
 <Warning>
   金额字段（`quote_fee` / `actual_fee` / `tip_fee` / `cancel_fee` / `goods_total_amount_fen`）单位均为**分（整数）**，不是元。
 </Warning>
+
+列表里待支付的单传 `with_pay_qr: true` 时，多一个 `cashier_qr_url`（仅列出相关字段）：
+
+```json
+{
+  "orders": [
+    {
+      "order_id": "err_demo0000000000000000000000000001",
+      "status": "pending_payment",
+      "pay_status": "unpaid",
+      "payment_expire_at": "2026-10-31T10:27:03",
+      "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001",
+      "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO1234abcd5678efgh.png"
+    }
+  ],
+  "next_offset": null
+}
+```
 
 ### 订单状态枚举（`status`）
 
@@ -112,6 +131,20 @@ description: "MCP 工具 errand_list_orders —— 分页查询跑腿历史订�
     "consent_grant_id": "cg_your_consent_grant",
     "limit": 5,
     "status": "dispatching,delivering"
+  }
+}
+```
+
+要付款二维码时：
+
+```json
+{
+  "name": "errand_list_orders",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "limit": 5,
+    "status": "pending_payment",
+    "with_pay_qr": true
   }
 }
 ```

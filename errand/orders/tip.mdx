@@ -14,6 +14,7 @@ description: "MCP 工具 errand_add_tip —— 给跑腿订单加小费催单，
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `errand_verify_user_bind`），标识已授权用户 |
 | `order_id` | string | 是 | — | 订单 ID（`err_` 前缀）|
 | `tip_fee` | integer | 是 | — | 本次要加的小费金额（分），必须大于 0 |
+| `with_pay_qr` | boolean | 否 | false | 为 `true` 时，在 `cashier_url` 旁多一个 `cashier_qr_url`（小费付款二维码的图片地址），用户用手机扫码即可进入同一个支付页 |
 
 ### 返回
 
@@ -27,6 +28,7 @@ description: "MCP 工具 errand_add_tip —— 给跑腿订单加小费催单，
 | `tip_fee` | integer | 本次加的小费金额（分）|
 | `status` | string | 恒为 `pending_payment`，表示这笔小费单待支付 |
 | `cashier_url` | string | 小费收银台支付链接，交给用户打开完成支付 |
+| `cashier_qr_url` | string | 仅传 `with_pay_qr: true` 时才有：小费支付链接的二维码图片地址（https，PNG），码里就是 `cashier_url`。15 分钟内有效，过期后打开是 404；没生成成功时没有这个键（不是 `null`），小费单照常创建，请让用户直接打开 `cashier_url` |
 
 ```json
 {
@@ -34,6 +36,18 @@ description: "MCP 工具 errand_add_tip —— 给跑腿订单加小费催单，
   "tip_fee": 100,
   "status": "pending_payment",
   "cashier_url": "https://g.clawdot.ai/xk2IP"
+}
+```
+
+传 `with_pay_qr: true` 时的返回：
+
+```json
+{
+  "order_id": "err_demo0000000000000000000000000001",
+  "tip_fee": 100,
+  "status": "pending_payment",
+  "cashier_url": "https://console.hicaspian.com/errand/pay?orderNo=demo0001&tip=1",
+  "cashier_qr_url": "https://paotui.hicaspian.com/qr/act_DEMO9876zyxw5432vuts.png"
 }
 ```
 
@@ -63,6 +77,20 @@ description: "MCP 工具 errand_add_tip —— 给跑腿订单加小费催单，
     "consent_grant_id": "cg_your_consent_grant",
     "order_id": "<来自 errand_create / errand_list_orders>",
     "tip_fee": 100
+  }
+}
+```
+
+要付款二维码时：
+
+```json
+{
+  "name": "errand_add_tip",
+  "arguments": {
+    "consent_grant_id": "cg_your_consent_grant",
+    "order_id": "<来自 errand_create / errand_list_orders>",
+    "tip_fee": 100,
+    "with_pay_qr": true
   }
 }
 ```
