@@ -1,0 +1,23 @@
+---
+title: "food_authorize"
+description: "查或发起授权"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+查或发起授权。查或发起这个用户在 food 的授权。status 只查；start 没授权时发起（没带手机号先要手机号，带了回授权链接）。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+查或发起这个用户在 food 的授权。status 只查；start 没授权时发起（没带手机号先要手机号，带了回授权链接）。授权完成后回这个 task 的 get_task，按 next_action 往下走。任何状态的 task 都能调，不推进 task、不计费。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：status / start；各动作做什么见上面的说明。 |
+| `context` | object | 否 | phone 只在 start 时带：\{"phone": "&lt;用户的手机号&gt;"\}；只用来发起授权，不保存 |

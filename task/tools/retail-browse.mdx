@@ -1,0 +1,33 @@
+---
+title: "retail_browse"
+description: "搜商品与选规格"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+搜商品与选规格。先挑商品，再定地址。action=search 搜商品（keyword，可带 category、brand、price_min / price_max（元）、in_stock_only、sort_by、page）；action=item 看一件商品的规格、价格与库存（ref 取自 search 的候选）；action=select 选定规格与数量（ref 取自 item 的候选，qty 默认 1）。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+零售第一组：先挑商品，再定地址。action=search 搜商品（keyword，可带 category、brand、price_min / price_max（元）、in_stock_only、sort_by、page）；action=item 看一件商品的规格、价格与库存（ref 取自 search 的候选）；action=select 选定规格与数量（ref 取自 item 的候选，qty 默认 1）。一笔只买一个规格：要换先 action=remove 清掉。库存显示「未知」的照实告诉用户。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：search / item / select / remove；各动作做什么见上面的说明。 |
+| `keyword` | string | 否 | 商品关键词（用于 search） |
+| `category` | string | 否 | （用于 search） |
+| `brand` | string | 否 | （用于 search） |
+| `price_min` | number | 否 | 最低价（元）（用于 search） |
+| `price_max` | number | 否 | 最高价（元）（用于 search） |
+| `in_stock_only` | boolean | 否 | （用于 search） |
+| `sort_by` | string | 否 | 不传按相关性（用于 search） |
+| `page` | integer | 否 | （用于 search） |
+| `ref` | string | 否 | next_action.options[].ref，原样回传（item、select 时必填） |
+| `qty` | integer | 否 | （用于 select） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

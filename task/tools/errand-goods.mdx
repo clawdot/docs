@@ -1,0 +1,31 @@
+---
+title: "errand_goods"
+description: "物品与运力"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+物品与运力。两端都选好后，选品类、询价、选运力。action=categories 看品类（必选，理赔只看品类）；action=slots 看可预约的送达时间；action=quote 询价（category 品类句柄，goods 物品 [\{name, qty\}]；slot 时段句柄，不传 = 立即送；可带 total_weight_g、insured、person_direct、remark）；action=choose 选一家运力（ref），出确认页，确认页那一项的 ref 就是下单用的 confirm_ref。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+跑腿第二组：两端都选好后，选品类、询价、选运力。action=categories 看品类（必选，理赔只看品类）；action=slots 看可预约的送达时间；action=quote 询价（category 品类句柄，goods 物品 [{name, qty}]；slot 时段句柄，不传 = 立即送；可带 total_weight_g、insured、person_direct、remark）；action=choose 选一家运力（ref），出确认页，确认页那一项的 ref 就是下单用的 confirm_ref。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：categories / slots / quote / choose；各动作做什么见上面的说明。 |
+| `category` | string | 否 | 品类句柄（errand_goods categories 摆出的 ref）（quote 时必填） |
+| `goods` | array&lt;object&gt; | 否 | 物品，名称写用户原话（quote 时必填） |
+| `slot` | string | 否 | 送达时段句柄（errand_goods slots 摆出的 ref）；要尽快就不传（用于 quote） |
+| `total_weight_g` | integer | 否 | 总重量（克）（用于 quote） |
+| `insured` | boolean | 否 | 保价（另收费，用户决定）（用于 quote） |
+| `person_direct` | boolean | 否 | 专人直送（不拼单，更贵）（用于 quote） |
+| `remark` | string | 否 | 给骑手的备注，≤200 字（用于 quote） |
+| `ref` | string | 否 | next_action.options[].ref，原样回传（choose 时必填） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

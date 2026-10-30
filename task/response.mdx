@@ -1,0 +1,137 @@
+---
+title: "返回结构与枚举"
+description: "任务接口所有工具共用的返回形状、被拒时的形状、状态与错误码"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+## 返回（所有工具同一个形状，在 structuredContent 里）
+
+**顶层（所有工具同一个形状）**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `task_id` | string | task 号，之后每次调用都带它；memory 工具不挂 task，这里是空串。 |
+| `capability` | string | 这个 task 办的事：food 外卖、errand 跑腿、retail 零售、retail_aftersale 零售售后；刚开、还没定办什么时为空。 |
+| `group` | string | 产出这一屏的那一组（如 address、browse、cart）；create_task、get_task 时是 task 当前所在的组。 |
+| `status` | string | task 现在的状态，7 个取值见「枚举取值」；看它决定下一步。 |
+| `context` | object | task 的 context（目前只有 memory 一项），create_task 或 update_task 时设的。 |
+| `next_action` | object | 下一步做什么：该调哪个工具、哪个动作，候选在 options 里，见下面 next_action 一组。 |
+| `result` | object / null | 这一步的结果，随工具与动作不同：如选址后的 address、搜店的 next_offset、购物车的 cart、预览的 preview、下单后的 order（含付款链接 pay_url）、跑腿询价的 quote；缺东西时是 needs，列出要问用户要的参数。 |
+| `usage` | object | 用量，见下面 usage 一组。 |
+| `schema` | object（可选） | 默认不带。超级 Agent / 平台版在控制台「我的密钥」Agent 卡片上打开「原始数据」后才带，且只在这一次调了上游时带：那一步的原始数据，见下面 schema 一组。 |
+| `memory` | object（可选） | 开着记忆时附加：applied 写明这次按记忆补了什么，reminder 是要提醒用户的话，notes 是给你的说明；memory 工具记下时有 receipt。 |
+
+**next_action（下一步做什么）**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `next_action.type` | string | 4 个取值见「枚举取值」。 |
+| `next_action.summary` | string | 给人看的一句话，直接展示给用户；会变，不要解析。 |
+| `next_action.tool` | string / null | 下一步该调的工具，一定是工具清单里有的；task 结束且无事可做时为 null。 |
+| `next_action.action` | string / null | 那个工具的 action 取值；通用工具与下单、取消工具为 null。 |
+| `next_action.options` | array | 这一屏的候选；没有候选时是空数组。 |
+| `next_action.options[].ref` | string | 选它就把 ref 原样传给下一步（入参 ref，确认页那一项就是 confirm_ref），不要自己拼；只认这一屏摆出来的。 |
+| `next_action.options[].label` | string | 给人看的名称。 |
+| `next_action.options[].detail` | object | 帮用户做决定的事实（价格、配送时间、距离这类），给人看的键值对：照原样展示，不要依赖具体键名；要结构化数据看 schema（打开原始数据后才有）。 |
+| `next_action.options[].kind` | string | 候选类别，取值见「枚举取值」。 |
+
+**usage（用量）**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `usage.valid_task` | boolean / null | 建出来的 task 一律 true（按 task 计费，建了就算）；memory 工具不挂 task，为 null。 |
+| `usage.tool_calls` | integer | 这个 task 到目前调了几次上游。 |
+| `usage.tokens` | integer | 目前恒为 0。 |
+
+**schema（打开原始数据后才带，且只在调了上游时）**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `schema.version` | integer | 外壳版本，现为 1。 |
+| `schema.stop` | string | 这份数据来自哪一步，写成「组.动作」，如 browse.select。 |
+| `schema.tool` | string | 那一步实际调的底层工具名，字段含义可对照工具接口里的同名工具。 |
+| `schema.ref_keys` | object | payload 里哪个列表的哪个字段等于这一屏的 next_action.options[].ref；对不上时为空对象。 |
+| `schema.payload` | object | 那次调用的返回，已去掉电话、凭证这类不外传的字段。 |
+
+**被拒时（另一种形状）**
+
+<Note>
+被拒时返回 \{error, message\}，按情况多带下表几项，不是上面那个形状；被拒的那一步不调上游、不改 task。
+</Note>
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `error` | string | 错误码，取值见「枚举取值」。 |
+| `message` | string | 给人看的原因，中文，可以直接转告用户。 |
+| `auth_url` | string | 可选。用户还没授权、这次带了手机号时给的授权链接（message 里也有同一条）：原样发给用户，用户授权完再调一次。 |
+| `expires_in` | integer | 可选。授权链接还有几秒失效；过期了再调一次会重新要手机号、发新链接。 |
+| `task_id` | string | 可选。被拒的那一步属于哪个 task。 |
+| `old_order_status` | string | 可选。fork_task 因旧单还没结束被拒时，旧单现在的状态。 |
+| `holder_task_id` | string | 可选。带 order_id 进来、这一单正记在你另一个没结束的 task 上时，那个 task 的 task_id：到那个 task 里办。 |
+| `next_action` | object | 可选。被拒后该去哪：type、summary、tool、action 四项，含义同上（没有 options）。 |
+
+## 枚举取值
+
+**status**
+
+| 取值 | 说明 |
+|---|---|
+| `collecting` | 要问用户要东西（门牌、联系人、想吃什么），缺的列在 result.needs；或这一组办完，next_action 指着下一组。（next_action.type = need_input / none） |
+| `need_confirmation` | 摆了候选或出了确认页：让用户挑一个，把 ref 原样传给 next_action 指的那一步。（next_action.type = user_confirmation） |
+| `executing` | 下单或取消正在执行：稍后再 get_task。（next_action.type = none） |
+| `completed` | 已下单，拿到了订单号；之后调查单那一组看进度。（next_action.type = none） |
+| `cancelled` | 已取消（跑腿）。（next_action.type = none） |
+| `indeterminate` | 不知道成没成：下单或取消的请求发出去了，但没拿到确定结果。**既不要重试，也不要当失败另开一单**；按 next_action 去查单那一组的 list，请用户核对最近的订单。（next_action.type = external_reconciliation） |
+| `failed` | 过期：闲置 7 天或建了 15 天还没下单。要再办就用新的 idempotency_key 调 create_task。（next_action.type = none） |
+
+**next_action.type**
+
+| 取值 | 说明 |
+|---|---|
+| `need_input` | 缺信息：问用户要了，再调 next_action 指的那一步。 |
+| `user_confirmation` | 等用户挑选或确认。 |
+| `external_reconciliation` | 只能对账，对应 indeterminate；不是重试。 |
+| `none` | 这一步不用问用户：按 tool / action 接着调，或 task 已经结束。 |
+
+**next_action.options[].kind**
+
+| 取值 | 说明 |
+|---|---|
+| `item` | 店铺、商品，或跑腿的物品品类、送达时段、运力。 |
+| `item_spec` | 规格（大杯 / 中杯…）。 |
+| `item_ingredient` | 加料。 |
+| `saved_address` | 地址簿里已有的地址，选中就能用。 |
+| `new_address` | 搜出来的新地址，选中时还要带门牌、联系人和电话。 |
+| `confirm` | 确认页那一项：它的 ref 就是下单或取消用的 confirm_ref。 |
+
+**error**
+
+| 取值 | 说明 |
+|---|---|
+| `invalid_argument` | 参数缺、类型错、action 不在取值里（message 会列出合法值）、context 带了不认的键：改参数再调；task_id 长度或字符不对也回它（抄错了），从最近一次返回里原样复制。 |
+| `task_not_found` | task 不存在，或不是这个用户的（API Key 调用时也可能是用户编号和建 task 时不同）：先逐字核对 task_id 和用户编号，确实要另开一单才调 create_task。 |
+| `not_enabled` | 任务接口按平台逐个开放，你的平台还没开放时，调任何工具都回它；平台还没开通零售时，只有零售的工具回它（不用重新授权，请平台方开通）。 |
+| `not_applicable` | 调各能力的授权工具（如 food_authorize）时回：你的接入方式不在这里授权，直接调能力的第一步，按返回的提示走。 |
+| `step_out_of_order` | 跳步了（如还没选地址就搜店）：next_action 指着该先调的那一组。 |
+| `ref_not_offered` | 传的 ref 不在这一屏摆出来的候选里（自己拼的、上一屏的、被改动清掉的）：重调摆出它的那一步。 |
+| `confirm_ref_invalid` | 确认凭证不能用（篡改、过期、用过、不是这个 task 的、金额对不上）：按 next_action 取回仍有效的那张，或重新出确认页。 |
+| `task_closed` | task 已下单、已取消、结果不明或已过期，不能再改：看 status 决定下一步。 |
+| `busy` | 同一个 task 上一个调用还没完：稍后 get_task 再看。 |
+| `fork_not_allowed` | fork_task 指名的 task 现在不能 fork（还没开始办事、下单结果不明、已过期或正在下单），或这个能力不能 fork。 |
+| `old_order_active` | 旧单还没结束，不能 fork：old_order_status 是旧单现在的状态，next_action 指出该怎么办。 |
+| `old_order_unknown` | 查不到旧单的实时状态，暂时不能 fork：可以用 create_task 另开一个。 |
+| `order_not_found` | 带的 order_id 用这个用户的授权查不到（单号不对，或不是这个用户的单）：列出最近的单核对单号。 |
+| `order_occupied` | 带的 order_id 正记在另一个没结束的 task 上：带了 holder_task_id 就到那个 task 里办。 |
+| `insufficient_balance` | 付费方开发者的账户余额不够建一个新 task（create_task / fork_task）：付费方在控制台「充值」页充值后再调，余额与扣费在「余额」页看；已有的 task 照常可用。 |
+| `nothing_to_fork` | from_last 时，30 天内没有已结束的单可 fork：用 create_task 开一个。 |
+| `amount_unknown` | 算不出实付（或取消要扣的）金额，不出确认页：重新预览或重新预检取消。 |
+| `amount_over_limit` | 金额超过接入方设的上限，不出确认页：减商品后再预览。 |
+| `contact_required` | 跑腿选的已存地址缺电话，下不了单：按新地址搜一份、带上联系人和电话再选。 |
+| `cancel_fee_changed` | 预检之后违约金变了，没有取消：重新预检取消，让用户再确认。 |
+| `consent_required` | 用户还没授权或授权已失效：话里要手机号就在对话里问一次、带上 context.phone 重调这一步；带了 auth_url 就原样发给用户，授权完再调一次。 |
+| `upstream_error` | 服务方这边出了问题（含平台配置），与用户操作无关：如实告诉用户稍后再试。 |
+
+<Warning>
+**状态 `indeterminate`**，不知道成没成：下单或取消的请求发出去了，但没拿到确定结果。**既不要重试，也不要当失败另开一单**；按 next_action 去查单那一组的 list，请用户核对最近的订单。
+</Warning>

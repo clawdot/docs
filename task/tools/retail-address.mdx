@@ -1,0 +1,31 @@
+---
+title: "retail_address"
+description: "定收货地址"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+定收货地址。商品选好后定收货地址。action=search 列已存地址（电话只给打码号）；action=select 选一个（ref；标了「缺」的选不了）；action=divisions 逐级查行政区划（parent 上一级的 code，不传从全国查起），拿到区县 code；action=save 新增地址（receiver 收件人、receiver_phone 手机号、address_detail 详细地址、division_code 区县 code，可带 town_division_code、is_default），带 ref 是整条替换那一条（没给的字段会被清空）。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+零售第二组：商品选好后定收货地址。action=search 列已存地址（电话只给打码号）；action=select 选一个（ref；标了「缺」的选不了）；action=divisions 逐级查行政区划（parent 上一级的 code，不传从全国查起），拿到区县 code；action=save 新增地址（receiver 收件人、receiver_phone 手机号、address_detail 详细地址、division_code 区县 code，可带 town_division_code、is_default），带 ref 是整条替换那一条（没给的字段会被清空）。存好且信息齐全就直接选上。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：search / divisions / select / save；各动作做什么见上面的说明。 |
+| `parent` | string | 否 | 上一级的 code（用于 divisions） |
+| `ref` | string | 否 | next_action.options[].ref，原样回传（用于 select、save；select 时必填） |
+| `receiver` | string | 否 | 收件人（save 时必填） |
+| `receiver_phone` | string | 否 | 收件人手机号（save 时必填） |
+| `address_detail` | string | 否 | 详细地址（街道、门牌）（save 时必填） |
+| `division_code` | string | 否 | 区县 code（divisions 查到的 level 4）（save 时必填） |
+| `town_division_code` | string | 否 | 乡镇街道 code（level 5），有就带（用于 save） |
+| `is_default` | boolean | 否 | （用于 save） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

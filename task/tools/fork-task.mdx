@@ -1,0 +1,24 @@
+---
+title: "fork_task"
+description: "照旧单再来一单"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+照旧单再来一单。照着一个 task 再开一个新 task：下单后改主意、「还是上次那个」，或下单前想留着原方案另试一版。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+照着一个 task 再开一个新 task：下单后改主意、「还是上次那个」，或下单前想留着原方案另试一版。复制旧 task 的已选，不复制确认凭证和订单，新 task 要重新预览、确认才下单；旧 task 原样保留，可以回去接着走。task_id 指名旧 task（已下单的，或还在下单前的）；或 from_last=true 加 capability，取这个账号在该能力下最近一个 30 天内、已结束的单（返回的 result.fork 写明选中了哪个）。下单后的 fork 会实时查一次旧单：旧单没结束、不能 fork 时 next_action 指出该怎么办；旧单没付款时 result.fork 会标出来。下单前 fork 时已选会在新 task 里重新建一遍，建不回来的列在 result.fork.rebuild_failed。没复制的已选（如会过期的时段、只能用一次的报价）列在 result.fork.dropped，按 next_action 重拉那几步的候选，旧 task 的那些句柄在新 task 里不认。context 可带（同 create_task），不带就沿用旧 task 的。下单前只想改一项不用 fork，在原 task 里重调那一组即可。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 否 | 旧 task 的 task_id（已下单，或还在下单前、已开始办事的）；与 from_last 二选一 |
+| `from_last` | boolean | 否 | true = 取最近一单（要同时给 capability） |
+| `capability` | string | 否 | from_last=true 时必填 |
+| `context` | object | 否 | utterance（必填）：用户这一轮的原话。memory（选填）：这次别按平时的偏好来 \{"memory": \{"use": false\}\}；替家人点 \{"memory": \{"for": "&lt;称呼&gt;"\}\} |
+| `idempotency_key` | string | 是 | 幂等键：调用方给这一次 fork 生成的唯一键（如 UUID），重试时带同一个；同一个键只 fork 出一个 task、只计一次，再调回那个 task 现在的样子。与 create_task 的键互不相通 |

@@ -1,0 +1,21 @@
+---
+title: "update_task"
+description: "改 task 的 context"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+改 task 的 context。改一个 task 的 context（如记忆开关），只影响之后的调用：不调上游、不改各组已选的结果。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+改一个 task 的 context（如记忆开关），只影响之后的调用：不调上游、不改各组已选的结果。回的是改完之后的 get_task。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。memory（选填）：这次别按平时的偏好来 \{"memory": \{"use": false\}\}；替家人点 \{"memory": \{"for": "&lt;称呼&gt;"\}\} |

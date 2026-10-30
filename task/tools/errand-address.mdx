@@ -1,0 +1,30 @@
+---
+title: "errand_address"
+description: "定两端地址"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+定两端地址。定两端地址，每次都带 end（from 取件 / to 送达）。action=search 搜地址（keyword 地名，不给就只列已存地址；city 选填）；action=select 选一个（ref 取自同一端最近一次的候选）。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+跑腿第一组：定两端地址，每次都带 end（from 取件 / to 送达）。action=search 搜地址（keyword 地名，不给就只列已存地址；city 选填）；action=select 选一个（ref 取自同一端最近一次的候选）。选新地址（new_address）还要 detail（门牌）、contact_name、contact_phone；已存地址（saved_address）只要 ref，标了「缺电话」的选不了。换一端会清掉报价和运力，不清另一端。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：search / select；各动作做什么见上面的说明。 |
+| `end` | string | 否 | 哪一端：from 取件、to 送达（search、select 时必填） |
+| `keyword` | string | 否 | 地名、小区、楼名；不给就只列已存地址（用于 search） |
+| `city` | string | 否 | 城市，如 杭州（用于 search） |
+| `ref` | string | 否 | next_action.options[].ref，原样回传（select 时必填） |
+| `detail` | string | 否 | 门牌（新地址必填）（用于 select） |
+| `contact_name` | string | 否 | 联系人（新地址必填）（用于 select） |
+| `contact_phone` | string | 否 | 联系电话（新地址必填）（用于 select） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

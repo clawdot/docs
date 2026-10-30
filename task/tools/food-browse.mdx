@@ -1,0 +1,27 @@
+---
+title: "food_browse"
+description: "选店选菜"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+选店选菜。选店、看菜单、看规格。action=search 搜店（keyword 是店名或品类，不要放商品）；action=select 选店并拉菜单；action=menu 在这家店的菜单里过滤或翻页（menu_keyword 是菜单内过滤，不是搜店词）；action=item 看一件商品的规格与加料。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+外卖第二组：选店、看菜单、看规格。action=search 搜店（keyword 是店名或品类，不要放商品）；action=select 选店并拉菜单；action=menu 在这家店的菜单里过滤或翻页（menu_keyword 是菜单内过滤，不是搜店词）；action=item 看一件商品的规格与加料。选店会清掉购物车。用户要另一家店的东西：要换店才在这里选店；两家都要就别在这里选，用新的幂等键调 create_task 另开一个。回这家的菜单用 menu，不要重选。search 不给 keyword 就是浏览附近的店（带距离、配送费，用 offset 翻页）。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：search / select / menu / item；各动作做什么见上面的说明。 |
+| `keyword` | string | 否 | 搜店词：店名或品类，如 奶茶；不给就浏览附近的店（用于 search） |
+| `offset` | integer | 否 | 翻页：上一次返回的 next_offset（用于 search、menu） |
+| `ref` | string | 否 | next_action.options[].ref，原样回传（select、item 时必填） |
+| `menu_keyword` | string | 否 | 菜单内过滤，如 拿铁；不给就整本菜单（用于 menu） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

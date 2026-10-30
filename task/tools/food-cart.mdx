@@ -1,0 +1,29 @@
+---
+title: "food_cart"
+description: "加购与预览"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+加购与预览。改购物车、预览。action=update 把一款商品的份数设成 quantity（0–99，一共几份、不是再加几份；0 = 删掉），二选一定位：ref（ln_&lt;n&gt;）改那一行的份数，或 item 商品（多规格的要 sku，加料放 options 数组、每样一份）按这款定位、没有就新加一行；同样参数重调结果不变。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+外卖第三组：改购物车、预览。action=update 把一款商品的份数设成 quantity（0–99，一共几份、不是再加几份；0 = 删掉），二选一定位：ref（ln_<n>）改那一行的份数，或 item 商品（多规格的要 sku，加料放 options 数组、每样一份）按这款定位、没有就新加一行；同样参数重调结果不变。action=preview 预览（order_remark 整单备注，选填），出确认页，确认页那一项的 ref 就是下单用的 confirm_ref。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：update / preview；各动作做什么见上面的说明。 |
+| `ref` | string | 否 | 购物车行号 ln_&lt;n&gt;：只改这一行的份数；与 item 二选一（用于 update） |
+| `item` | string | 否 | 商品句柄：按这款商品定位，购物车里没有就新加一行；与 ref 二选一（用于 update） |
+| `sku` | string | 否 | 规格句柄（多规格必填；只配 item）（用于 update） |
+| `options` | array&lt;string&gt; | 否 | 加料句柄，每样一份（只配 item）。只传要改的项，没传的必选组按默认补；换杯型传 sku，不放这里（用于 update） |
+| `quantity` | integer | 否 | 这款一共几份（不是再加几份；再来一份 = 原份数 + 1），0 = 删掉这一行（update 时必填） |
+| `order_remark` | string | 否 | 整单备注，只转给商家；不给时按用户记的忌口与同意告诉商家的过敏补（见 memory.applied）（用于 preview） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

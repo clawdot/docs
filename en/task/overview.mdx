@@ -1,0 +1,40 @@
+---
+title: "Task API"
+description: "One task per order, guided step by step by the server: delivery, errand, and retail in 27 tools at one endpoint"
+sidebarTitle: "Overview"
+---
+
+<Note>
+  The full Task API reference is in Chinese only. [Read it here →](/task/overview)
+</Note>
+
+The Task API is the default way to connect to Clawdot. Each order is one **task**: call `create_task` to get a `task_id`, then follow the `next_action` in every response, which names the next tool and action to call. The server keeps the order of steps, returns candidates for the user to pick from, and stops once for explicit confirmation before anything is paid for or cancelled.
+
+## Endpoints
+
+Base URL: `https://hub.clawdot.net`. Transport: MCP Streamable HTTP.
+
+| Endpoint | Capabilities | Tools |
+|---|---|---|
+| `/mcp/task` | Delivery, errand, retail | 27 |
+| `/mcp/task/food` | Delivery | 11 |
+| `/mcp/task/errand` | Errand | 11 |
+| `/mcp/task/retail` | Retail and retail after-sales | 15 |
+
+## Authentication
+
+- **OAuth 2.1**: in clients that support MCP authorization (Claude, Claude Code, and similar), just add the endpoint URL. An unauthenticated request returns `401` pointing to `/.well-known/oauth-protected-resource/mcp/task`, and the client follows standard discovery.
+- **API Key** (server to server): send `Authorization: Bearer <your API key>` and `X-Clawdot-User-Ref: <your end user's ID>` on every request. Generate the key in the Clawdot Hub console under **My keys**.
+
+Every task tool except `get_task`, `fork_task`, and `memory` requires `context.utterance`: the user's own words for this turn, copied verbatim.
+
+## Learn more
+
+<CardGroup cols={2}>
+  <Card title="Task API reference (Chinese)" icon="book-open" href="/task/overview">
+    Connection, authorization, response shape, and all 27 tools
+  </Card>
+  <Card title="Clawdot Hub" icon="arrow-up-right-from-square" href="https://hub.clawdot.net/#/docs">
+    Connector packs, plugins, capability packs, and the developer console
+  </Card>
+</CardGroup>

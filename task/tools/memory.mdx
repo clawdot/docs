@@ -1,0 +1,23 @@
+---
+title: "memory"
+description: "用户的记忆"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+用户的记忆。用户的记忆：记住 / 忘掉 / 看看记了什么 / 给一个能自己查看和删除的链接。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+用户的记忆：记住 / 忘掉 / 看看记了什么 / 给一个能自己查看和删除的链接。不挂 task，不要 task_id。action=remember 带 items（每条一个对象：kind 是 taste 口味 / diet 忌口 / allergy 过敏 时带 value，member 家庭成员带 label（只要称呼），place 常用地点带 alias、city、address_keyword；替家人记带 about = 称呼）；记过敏、家庭成员要用户明确同意，带 user_agreed: true；过敏另问用户要不要在备注里告诉商家，同意就带 tell_merchant: true。action=forget 带 ids（list 里的 memory_id）或 all: true；action=list 列出；action=link 给链接。记下后把结果 memory.receipt 里的 note 原话转告用户，有 ask 就照它问。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `action` | string | 是 | 取值：remember / forget / list / link；各动作做什么见上面的说明。 |
+| `items` | array&lt;object&gt; | 否 | remember：要记的几条 |
+| `ids` | array&lt;integer&gt; | 否 | forget：list 里的 memory_id |
+| `all` | boolean | 否 | forget：全部忘掉 |
