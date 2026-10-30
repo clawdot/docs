@@ -1,0 +1,23 @@
+---
+title: "retail_refund_return"
+description: "确认回传运单"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+确认回传运单。**不可逆**：真回传退货运单。confirm_ref 取自 retail_aftersale prepare kind=return 确认页那一项的 ref，只能用一次。（**不可逆**）
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+真回传退货运单。confirm_ref 取自 retail_aftersale prepare kind=return 确认页那一项的 ref，只能用一次。⚠️ 不可逆：没得到用户明确同意不要调；结果不明时不要重调，按 next_action 核对。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `confirm_ref` | string | 是 | 确认页那一项的 ref，原样回传 |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

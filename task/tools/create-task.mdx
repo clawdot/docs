@@ -1,0 +1,22 @@
+---
+title: "create_task"
+description: "开一个 task"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+开一个 task。开一个 task（一单从选地址到履约的一次事务），回 task_id 和下一步该调的工具。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+开一个 task（一单从选地址到履约的一次事务），回 task_id 和下一步该调的工具。之后每次调能力工具都带这个 task_id。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `capability` | string | 否 | 可不传：不传就先开一个没定办什么的 task，第一次调哪个能力的工具就归哪个能力；传了当场定下 |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。memory（选填）：这次别按平时的偏好来 \{"memory": \{"use": false\}\}；替家人点 \{"memory": \{"for": "&lt;称呼&gt;"\}\} |
+| `idempotency_key` | string | 是 | 幂等键：调用方给这一单生成的唯一键（如 UUID），重试时带同一个；同一个键只建一个 task、只计一次，再调回那个 task 现在的样子 |

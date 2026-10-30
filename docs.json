@@ -25,7 +25,7 @@
                 "language": "cn",
                 "default": true,
                 "banner": {
-                    "content": "接入文档已迁到 Clawdot Hub：外卖、跑腿、零售三个能力包和最新接入方式　**[前往 Hub 文档中心 →](https://hub.clawdot.net/#/docs)**",
+                    "content": "新接入请用任务接口：外卖、跑腿、零售一个地址办全　**[查看任务接口 →](/task/overview)**　能力包与控制台在 [Clawdot Hub](https://hub.clawdot.net/#/docs)",
                     "dismissible": true
                 },
                 "tabs": [
@@ -36,6 +36,71 @@
                                 "group": "主页",
                                 "pages": [
                                     "index"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "任务接口",
+                        "groups": [
+                            {
+                                "group": "概览",
+                                "pages": [
+                                    "task/overview",
+                                    "task/connect",
+                                    "task/response"
+                                ]
+                            },
+                            {
+                                "group": "通用",
+                                "pages": [
+                                    "task/tools/create-task",
+                                    "task/tools/get-task",
+                                    "task/tools/fork-task",
+                                    "task/tools/update-task",
+                                    "task/tools/memory"
+                                ]
+                            },
+                            {
+                                "group": "外卖",
+                                "pages": [
+                                    "task/tools/food-authorize",
+                                    "task/tools/food-address",
+                                    "task/tools/food-browse",
+                                    "task/tools/food-cart",
+                                    "task/tools/food-place-order",
+                                    "task/tools/food-fulfillment"
+                                ]
+                            },
+                            {
+                                "group": "跑腿",
+                                "pages": [
+                                    "task/tools/errand-authorize",
+                                    "task/tools/errand-address",
+                                    "task/tools/errand-goods",
+                                    "task/tools/errand-place-order",
+                                    "task/tools/errand-fulfillment",
+                                    "task/tools/errand-cancel-order"
+                                ]
+                            },
+                            {
+                                "group": "零售",
+                                "pages": [
+                                    "task/tools/retail-authorize",
+                                    "task/tools/retail-browse",
+                                    "task/tools/retail-address",
+                                    "task/tools/retail-checkout",
+                                    "task/tools/retail-place-order",
+                                    "task/tools/retail-fulfillment"
+                                ]
+                            },
+                            {
+                                "group": "零售售后 · 退货退款",
+                                "pages": [
+                                    "task/tools/retail-aftersale",
+                                    "task/tools/retail-refund-apply",
+                                    "task/tools/retail-refund-return",
+                                    "task/tools/retail-refund-cancel"
                                 ]
                             }
                         ]
@@ -230,7 +295,7 @@
             {
                 "language": "en",
                 "banner": {
-                    "content": "Integration docs have moved to Clawdot Hub: Delivery, Errand, and Retail packs. **[Go to Hub docs →](https://hub.clawdot.net/#/docs)**",
+                    "content": "New integrations: use the Task API, with delivery, errand, and retail at one endpoint. **[Task API →](/en/task/overview)** Packs and console are on [Clawdot Hub](https://hub.clawdot.net/#/docs).",
                     "dismissible": true
                 },
                 "tabs": [
@@ -241,6 +306,17 @@
                                 "group": "Home",
                                 "pages": [
                                     "en/index"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "tab": "Task API",
+                        "groups": [
+                            {
+                                "group": "Task API",
+                                "pages": [
+                                    "en/task/overview"
                                 ]
                             }
                         ]

@@ -1,0 +1,23 @@
+---
+title: "retail_checkout"
+description: "预览"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+预览。商品和地址都选好后，action=preview 刷新商品、算实付，出确认页；确认页那一项的 ref 就是建收款单用的 confirm_ref（10 分钟有效）。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+零售第三组：商品和地址都选好后，action=preview 刷新商品、算实付，出确认页；确认页那一项的 ref 就是建收款单用的 confirm_ref（10 分钟有效）。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：preview；各动作做什么见上面的说明。 |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

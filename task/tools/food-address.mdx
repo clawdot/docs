@@ -1,0 +1,30 @@
+---
+title: "food_address"
+description: "定送到哪"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+定送到哪。定送到哪。action=search 搜地址（keyword 小区或楼名，不给就只列已存地址；带 keyword 搜新地址时带上 city，不带就只在用户上次的位置附近搜，新用户搜不出来）；action=select 选一个（ref 取自候选）。
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+外卖第一组：定送到哪。action=search 搜地址（keyword 小区或楼名，不给就只列已存地址；带 keyword 搜新地址时带上 city，不带就只在用户上次的位置附近搜，新用户搜不出来）；action=select 选一个（ref 取自候选）。选新地址（new_address）还要 address_detail（门牌）、contact_name（≤12 字）、contact_phone，可带 tag（≤6 字）；已存地址（saved_address）只要 ref。换地址会清掉已选的店和购物车。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：search / select；各动作做什么见上面的说明。 |
+| `keyword` | string | 否 | 小区 / 楼名；不给就只列已存地址（用于 search） |
+| `city` | string | 否 | 城市，如 杭州；带 keyword 搜新地址时要带，不带新用户搜不出来（用于 search） |
+| `ref` | string | 否 | next_action.options[].ref，原样回传（select 时必填） |
+| `address_detail` | string | 否 | 门牌（新地址必填）（用于 select） |
+| `contact_name` | string | 否 | 联系人（新地址必填，≤12 字）（用于 select） |
+| `contact_phone` | string | 否 | 联系电话（新地址必填）（用于 select） |
+| `tag` | string | 否 | 标签（≤6 字，如 家 / 公司）（用于 select） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |

@@ -1,0 +1,123 @@
+---
+title: "接入与授权"
+description: "任务接口的连接地址、OAuth 授权链、API Key 与用户第一次使用时的授权"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+## 怎么连
+
+| 项 | 说明 |
+|---|---|
+| 开放范围 | 按平台逐个开放：已对专用 agent（连接时登录开发者账号、选的那个 agent）与 API Key 开放。未开放的平台能连上、能看到工具清单，调任何工具都回 not_enabled。 |
+| OAuth 访问票 | 在 Claude、Claude Code 这类支持 MCP 授权的平台里，连接地址填 /mcp/task 即可：没带票时回 401，按标准指向任务接口自己的发现地址；在工具接口（/mcp）连接时拿到的访问票这里也认。 |
+| API Key | 服务端对服务端：请求头带 Authorization: Bearer &lt;你的 API Key&gt;，并且每个请求（含 initialize、tools/list）都带 X-Clawdot-User-Ref = 你这边终端用户的 ID（1–128 个可见 ASCII 字符，不含空格）；缺了、带了多个或不合规回 HTTP 400。API Key 由超级 Agent / 平台版开发者在控制台「我的密钥」自助生成，认不出或已撤回 401。 |
+| 用户授权 | 没授权的用户 create_task 回的 next_action 指向这个能力的授权工具（如 food_authorize）：调它（action=start），要手机号就带 context.phone 再调，把授权链接发给用户，用户完成后再调它（action=status），授权完成就按它回的 next_action 往下走。办事中途授权失效时，工具回 consent_required：话里要手机号时，在对话里问一次用户的手机号，参数照旧、另加 context = \{"phone": "&lt;手机号&gt;"\} 重调同一步，回包带授权链接 auth_url；原样发给用户，用户在页面里完成授权、回到对话后，再调这一步（不用再带手机号）就自动核验，同一个 task 接着走。手机号只用来发起这一次授权，不保存。 |
+
+<Note>
+端点 `/mcp/task`，外卖、跑腿、零售的工具都在这一个地址上；在工具接口连接时拿到的访问票这里也认。
+</Note>
+
+## 每一步都带用户原话
+
+<Info>
+**每一步都带用户原话 `context.utterance`（必填）。**`create_task`、`update_task` 与外卖、跑腿、零售各组工具都要带：放用户这一轮说的原话，逐字照抄，不改写、不总结；这一步用户没说新话（Agent 自己往下走）就带用户最近说的那一句。没有对话界面的接入方，带用户在你界面上的原始输入。**2026-10-27 起**不带或为空串回 `invalid_argument`，不建 task、不调上游，补上原话用同样的参数重调即可；在这之前不带的照常执行、不收原话。`get_task`、`fork_task`、`memory` 不收这个字段。全量连接器包 `clawdot-local-life` 升到 0.2.0、插件升到 0.5.1（分能力的三个连接器包内容没变，不升版）；不论连的是哪个连接器包或分能力地址，宿主都要断开重连、开新会话才拿得到新的工具参数；用能力包脚本调用的，同样在 `context` 里带上原话。
+</Info>
+
+## 分能力地址
+
+| 地址 | 能力 | 工具数 | 什么时候用 |
+|---|---|---|---|
+| `/mcp/task` | 外卖、跑腿、零售 | 27 | 默认：一个地址办全部能力 |
+| `/mcp/task/food` | 外卖 | 11 | 只接外卖：工具清单里只有外卖的工具与通用工具 |
+| `/mcp/task/errand` | 跑腿 | 11 | 只接跑腿：工具清单里只有跑腿的工具与通用工具 |
+| `/mcp/task/retail` | 零售、零售售后 | 15 | 只接零售：工具清单里只有零售的工具与通用工具 |
+
+<Note>
+同一个服务、同一张票：在哪个地址连上拿的访问票，几个地址都认，API Key 也一样；分的是工具清单，不是权限。分能力地址上只列本能力的工具，在那里开别的能力的单会被拒，并告诉你该连哪个地址。同一个平台只配一个地址：要两个以上的能力、或说不准，就连全量地址。
+</Note>
+
+## 协议与端点
+
+| 项 | 说明 |
+|---|---|
+| Transport | MCP Streamable HTTP。 |
+| Endpoint | 任务接口 `/mcp/task`（分能力地址 `/mcp/task/food`、`/mcp/task/errand`、`/mcp/task/retail`，见 [分能力地址](/task/connect#分能力地址)）；工具接口 `/mcp`。基地址 `https://hub.clawdot.net`。 |
+| Auth | `Authorization: Bearer <访问票>`（访问票由授权链签发，见 [授权链](#授权链)）；任务接口另收 API Key，见 [怎么连](/task/connect#怎么连)。 |
+| Discovery | 标准 MCP 授权发现：401 的 `WWW-Authenticate` 指向 PRM `/.well-known/oauth-protected-resource/mcp`；授权服务器元数据在 `/.well-known/oauth-authorization-server`。MCP Client 通过 `tools/list` 发现工具。 |
+| Call | MCP Client 通过 `tools/call` 调用工具；请求头另带 `Content-Type: application/json`、`Accept: application/json, text/event-stream`。 |
+
+HTTP Header 只负责识别接入方与用户（都在票里）。**工具参数里没有 `consent_grant_id` 这类字段**，由服务端注入。
+
+### 授权发现
+
+第一次来会看到的三样东西：
+
+```bash
+curl -si -X POST https://hub.clawdot.net/mcp -H 'Content-Type: application/json' -d '{}' | head -5
+# HTTP/2 401
+# www-authenticate: Bearer error="invalid_token", resource_metadata="https://hub.clawdot.net/.well-known/oauth-protected-resource/mcp"
+
+curl -s https://hub.clawdot.net/.well-known/oauth-protected-resource/mcp
+# {"resource":"https://hub.clawdot.net/mcp","authorization_servers":["https://hub.clawdot.net/"],"scopes_supported":["delivery","errand"],"bearer_methods_supported":["header"]}
+
+curl -s https://hub.clawdot.net/.well-known/oauth-authorization-server
+# authorization_endpoint / token_endpoint / registration_endpoint / device_authorization_endpoint / revocation_endpoint
+# grant_types_supported: authorization_code · refresh_token · urn:ietf:params:oauth:grant-type:device_code
+# code_challenge_methods_supported: S256
+```
+
+<Note>
+上例打的是工具接口 `/mcp`。连任务接口时，401 的 `resource_metadata` 指向 `/.well-known/oauth-protected-resource/mcp/task`，其中 `resource` 是 `https://hub.clawdot.net/mcp/task`；MCP Client 照标准发现走即可。
+</Note>
+
+| 端点 | 路径 | 用途 |
+|---|---|---|
+| 授权服务器元数据 | `/.well-known/oauth-authorization-server` | RFC 8414 |
+| 受保护资源元数据 | `/.well-known/oauth-protected-resource/mcp/task` · `/.well-known/oauth-protected-resource/mcp` | RFC 9728，两种接口各一份 |
+| 动态注册 | `/register` | 公共客户端，不发 secret；`grant_types` 须为 `authorization_code` + `refresh_token`；回调地址须在接入白名单内 |
+| 授权 | `/authorize` | 浏览器授权链入口，PKCE S256 |
+| 设备码 | `/device_authorization` · `/device` | 设备码授权链：前者发码，后者是用户在手机上打开的输码页 |
+| 换票 / 续期 | `/token` | `authorization_code` · `refresh_token` · `urn:ietf:params:oauth:grant-type:device_code` |
+| 吊销 | `/revoke` | 作废票 |
+
+## 授权链
+
+### 浏览器授权链（连接器包 / 插件 / 填地址）
+
+1. **DCR** `POST /register`：`client_name`、`redirect_uris`、`grant_types=[authorization_code, refresh_token]`、`response_types=[code]`、`token_endpoint_auth_method=none` → `client_id`。回调地址决定是哪个接入方；回环地址（`http://127.0.0.1:*/callback`）还要看 `client_name`。
+2. **授权** `GET /authorize?response_type=code&client_id=…&redirect_uri=…&state=…&code_challenge=…&code_challenge_method=S256&scope=delivery errand&resource=<base>/mcp` → 302 到连接页。
+3. **开发者在连接页**登录或注册开发者账号，选一个专用 agent 或新建一个（不填手机号）→ 302 回 `redirect_uri?code=…&state=…`。
+4. **换票** `POST /token`（`grant_type=authorization_code` + `code_verifier` + `resource`）→ `access_token`（3600 秒）、`refresh_token`（30 天）、`scope`。
+5. **续期** `POST /token`（`grant_type=refresh_token`）→ 新的一对；**旧续期票立即作废**，务必存新的。
+
+### 设备码授权链（没有浏览器回调的宿主：自建服务端、无屏设备）
+
+1. `POST /device_authorization`（`client_id` + `scope`）→ `device_code`、`user_code`（8 位）、`verification_uri`、`verification_uri_complete`、`interval`（5 秒）、`expires_in`（600 秒）。`client_id` 由虾点建档时发放，**不是凭证**。
+2. 把 `verification_uri_complete`（或 `user_code`）原样转给用户；用户在任意浏览器打开、输码，登录开发者账号、选专用 agent。
+3. 每 `interval` 秒 `POST /token`（`grant_type=urn:ietf:params:oauth:grant-type:device_code` + `device_code` + `client_id`）；未完成回 `authorization_pending`，完成后回票，形状同浏览器链。
+4. 码错、码过期、码已用：页面只说同一句话，不区分原因。
+
+## 用户授权
+
+任务接口上，没授权的用户 `create_task` 回的 `next_action` 指向这个能力的授权工具（如 `food_authorize`）：调它（`action=start`），要手机号就在对话里问一次、带上 `context.phone` 再调，拿到一条授权链接原样发给用户；用户完成后再调它（`action=status`），授权完成就按它回的 `next_action` 往下走。办事中途任何一步回 `consent_required` 时同样处理：问手机号带上它重调同一步、把链接发给用户，用户完成后再调这一步就自动接着走，不用回来点任何按钮。
+
+1. 工具回 `consent_required`，话里要手机号：Agent 在对话里问一次用户的手机号（对话里已经说过的直接带上，不用再问）。
+2. 参数照旧、另加 `context = {"phone": "<手机号>"}` 重调同一步，回包带授权链接 `auth_url` 与 `expires_in`。
+3. 把授权链接原样发给用户；用户在页面里确认是本人授权、回到对话。
+4. 再调这一步（不用再带手机号），服务端自动核验，同一个 task 接着走；还没完成就原样回同一条链接，不重发。
+
+- 手机号只用来发起这一次授权，服务端不保存。
+- 话里会写明用哪个打码号授权：用户在页面里登录的若是另一个号，会一直等到链接过期——在对话里报页面里用的那个号，重新走一次。
+- 授权给的是连接时选的那个专用 agent，Agent 转述时要说清授权给谁。
+- 零售用同一次授权；用户的授权里还没有零售时，第一次买东西会再要一次授权，走法同上。
+
+## API Key（服务端对服务端）
+
+服务端对服务端的可信平台不走浏览器授权链：用 API Key 直接接任务接口。超级 Agent / 平台版开发者登录控制台，在「我的密钥」给自己的 agent 生成（新建时选「同时生成 API Key」或在卡片上点「生成 API Key」），明文只显示一次；一把绑接入方自己的一个 agent，同一时刻只有一把有效，重新生成后旧的立即失效。
+
+服务端对服务端：请求头带 Authorization: Bearer &lt;你的 API Key&gt;，并且每个请求（含 initialize、tools/list）都带 X-Clawdot-User-Ref = 你这边终端用户的 ID（1–128 个可见 ASCII 字符，不含空格）；缺了、带了多个或不合规回 HTTP 400。API Key 由超级 Agent / 平台版开发者在控制台「我的密钥」自助生成，认不出或已撤回 401。
+
+API Key 接入同样要带 `context.utterance`（见 [接入与授权](/task/connect#每一步都带用户原话)），2026-10-27 起不带回 `invalid_argument`。没有对话界面的，放用户在你界面上的原始输入（比如搜索框里打的字、语音转出的那句话）；用户只是点了按钮没说话的，带他最近输入的那一句。实在拿不到的，接入前单独和我们谈。
+
+用户第一次用时的授权与其他接法一样，见 [用户授权](#用户授权)。

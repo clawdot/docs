@@ -1,0 +1,25 @@
+---
+title: "retail_fulfillment"
+description: "查单与物流"
+---
+
+{/* 来源：Hub《接口参考》v2.22（2026-10-29，d6118051）。由 scripts/gen_task_interface.py 生成，勿手改 */}
+
+查单与物流。任何时候、任何 task 里都能调，不影响这个 task 走到哪一步。action=status 查一张收款单的付款与下单进度（不带 order_id 查本 task 的，带了查别的）；action=list 列最近的收款单；action=logistics 看物流（同 status 带不带 order_id，可带 sub_order_id）。（只读）
+
+## 工具说明（与线上 tools/list 同源）
+
+```text
+先调 create_task 拿 task_id，再带着它调本工具。
+零售第五组：任何时候、任何 task 里都能调，不影响这个 task 走到哪一步。action=status 查一张收款单的付款与下单进度（不带 order_id 查本 task 的，带了查别的）；action=list 列最近的收款单；action=logistics 看物流（同 status 带不带 order_id，可带 sub_order_id）。付没付只以 status 查到的为准，从支付页跳回来不算付款成功。
+```
+
+## 参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `task_id` | string | 是 | create_task 返回的 task_id |
+| `action` | string | 是 | 取值：status / list / logistics；各动作做什么见上面的说明。 |
+| `order_id` | string | 否 | 收款单号（list 列出的 order_id）；不传就查本 task 自己的单（用于 status、logistics） |
+| `sub_order_id` | string | 否 | 子订单号（status 的 sub_orders 里）；不传取第一个（用于 logistics） |
+| `context` | object | 是 | utterance（必填）：用户这一轮的原话。phone 只在回 consent_required 要手机号时带：\{"phone": "&lt;用户的手机号&gt;"\}，同样的参数重调这一步；只用来发起授权，不保存 |
