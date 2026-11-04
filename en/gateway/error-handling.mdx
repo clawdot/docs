@@ -66,6 +66,7 @@ The error body contains only `code` and `message`.
 | Error code | Description | Suggestion |
 |---|---|---|
 | `IDEMPOTENCY_CONFLICT` | The same confirmation token was used for different order params | Re-preview to get a new confirmation token |
+| `COUPON_CHANGED` | The discount became invalid at order time. No order was created and nothing was charged | Call `quote_cart` and `preview_order` again, tell the user the new price, and order after they confirm |
 | `BINDING_LIMIT_REACHED` | Bound-user quota reached | Unbind an existing user or raise the quota |
 | `EXTERNAL_USER_ID_TAKEN` | When starting an H5 binding, another Agent has already bound this phone number with this `external_user_id` (or the ID uses the gateway-reserved `clw_` format) | Give each Agent its own `external_user_id` |
 

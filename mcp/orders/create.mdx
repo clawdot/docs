@@ -175,6 +175,7 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
 | `PUBLIC_REFERENCE_INVALID` | `preview_id` / `confirmation_token` 无效或过期、两者不匹配（非同一次预览），或 `callback_url` 不合法 |
 | `IDEMPOTENCY_CONFLICT` | 同一 `confirmation_token` 重复调用，但 `preview_id`、`payment_method`、`require_phone_verify` 或 `with_pay_qr` 与首次不一致；需重新预览取新令牌 |
+| `COUPON_CHANGED` | 优惠在下单时已失效，这笔单没有创建，也没有扣款。本次 `preview_id` 和 `confirmation_token` 不能再用。请重新调用 `quote_cart`、`preview_order`，把新价格告诉用户并得到确认后，用新的 `preview_id` 和 `confirmation_token` 再下单 |
 | `ORDER_FAILED` | 订单创建失败；重新预览后重试 |
 | `ELEME_ERROR` | 上游下单 API 错误；稍后重试 |
 
