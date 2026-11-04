@@ -66,6 +66,7 @@ description: "统一错误格式与全部错误码"
 | 错误码 | 说明 | 处理建议 |
 |---|---|---|
 | `IDEMPOTENCY_CONFLICT` | 同一确认令牌用于了不同的下单参数 | 重新预览获取新的确认令牌 |
+| `COUPON_CHANGED` | 优惠在下单时已失效，这笔单没有创建，也没有扣款 | 重新调用 `quote_cart`、`preview_order`，把新价格告诉用户并得到确认后再下单 |
 | `BINDING_LIMIT_REACHED` | 已达可绑定用户数上限 | 先解绑现有用户或申请提升配额 |
 | `EXTERNAL_USER_ID_TAKEN` | 发起 H5 绑定时，这个手机号的这个 `external_user_id` 已在别的 Agent 下绑定过（或用了网关保留的 `clw_` 格式） | 每个 Agent 用自己的 `external_user_id` |
 

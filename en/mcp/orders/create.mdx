@@ -175,6 +175,7 @@ With `with_pay_qr: true`, `payment_action` carries an extra `action_qr_url` (onl
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
 | `PUBLIC_REFERENCE_INVALID` | `preview_id` / `confirmation_token` invalid or expired, the two do not match (not from the same preview), or `callback_url` is invalid |
 | `IDEMPOTENCY_CONFLICT` | The same `confirmation_token` was reused but `preview_id`, `payment_method`, `require_phone_verify` or `with_pay_qr` differs from the first call; re-preview for a fresh token |
+| `COUPON_CHANGED` | The discount became invalid at order time. No order was created and nothing was charged. This `preview_id` and `confirmation_token` can't be reused. Call `quote_cart` and `preview_order` again, tell the user the new price and get their confirmation, then order with the new `preview_id` and `confirmation_token` |
 | `ORDER_FAILED` | Order creation failed; re-preview and retry |
 | `ELEME_ERROR` | Upstream order API error; retry later |
 
