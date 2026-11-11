@@ -105,6 +105,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 | `items[].ingredient_options[].required` | boolean | Whether this option's group is required; if you skip a required group, its default option is added for you |
 | `items[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
 | `items[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit |
+| `items[].ingredient_options[].max_total_quantity` | integer | The most portions the group's options may **add up to**, e.g. Burger King's "Add-ons": cheese + tomato together at most 6. Each option is still capped by its own `max_quantity`; both limits apply. Returned only on groups where it actually limits; exceeding it fails the order |
 | `items[].ingredient_options[].available` | boolean | Whether this option is selectable: reflects only whether it is sold out / delisted, **not option-to-option exclusions** (see the note below) |
 | `total_items` | integer | How many items the filter selected: the number of matches when `keyword` is passed, every dish on the menu otherwise.<br/>Shop-level required-group items are **always returned but never counted**, so `items` can hold more rows than this |
 | `has_more` | boolean | Whether there is a next page |
@@ -147,7 +148,7 @@ Fetches a shop's menu. Each returned item carries a gateway-minted `item_id` (pl
 
 
 <Note>
-  **`grouped=true` returns ingredients in a different shape.** With `grouped=true`, ingredients come back as `ingredient_groups` instead of the flat `ingredient_options`: group-level info (`group_name` / `required` / `multi_select` / `max_select`) appears once on the group rather than repeating on every option, and the options themselves sit in `options[]` with field-for-field identical values. The two shapes are **mutually exclusive** — you get one or the other, never both — and carry exactly the same content.
+  **`grouped=true` returns ingredients in a different shape.** With `grouped=true`, ingredients come back as `ingredient_groups` instead of the flat `ingredient_options`: group-level info (`group_name` / `required` / `multi_select` / `max_select` / `max_total_quantity`) appears once on the group rather than repeating on every option, and the options themselves sit in `options[]` with field-for-field identical values. The two shapes are **mutually exclusive** — you get one or the other, never both — and carry exactly the same content.
 
   ```json
   "ingredient_groups": [

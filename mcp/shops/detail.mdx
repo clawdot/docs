@@ -105,6 +105,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 | `items[].ingredient_options[].required` | boolean | 该选项所在的组是否必选；必选组你没选时会自动补上该组默认项 |
 | `items[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
 | `items[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类 |
+| `items[].ingredient_options[].max_total_quantity` | integer | 该组各选项份数**加起来**最多几份，如汉堡王「加料」芝士 + 番茄合计最多 6 份；每项上限仍看 `max_quantity`，两个都要满足。只在会限制到的组返回，超过会下单失败 |
 | `items[].ingredient_options[].available` | boolean | 该选项是否可选：只表示它本身有没有售罄 / 下架，**不含选项之间的互斥**（见下方提示）|
 | `total_items` | integer | 本次筛选选中的商品数：传了 `keyword` 时是命中数，没传时是整本菜单的商品数。<br/>店铺必选组商品**始终返回、但从不计入**，所以 `items` 的条数可能大于它 |
 | `has_more` | boolean | 是否还有下一页 |
@@ -147,7 +148,7 @@ description: "MCP 工具 get_shop_menu — 拉取店铺的可下单菜单，返�
 
 
 <Note>
-  **`grouped=true` 时配料换一种形状返回。** 传 `grouped=true` 后，配料不再是平铺的 `ingredient_options`，而是按组返回 `ingredient_groups`：组信息（`group_name` / `required` / `multi_select` / `max_select`）只出现在组上一次，不再逐条重复；选项本身放在 `options[]` 里，字段与平铺形式逐字段一致。两种形式**二选一，不会同时出现**，内容完全相同。
+  **`grouped=true` 时配料换一种形状返回。** 传 `grouped=true` 后，配料不再是平铺的 `ingredient_options`，而是按组返回 `ingredient_groups`：组信息（`group_name` / `required` / `multi_select` / `max_select` / `max_total_quantity`）只出现在组上一次，不再逐条重复；选项本身放在 `options[]` 里，字段与平铺形式逐字段一致。两种形式**二选一，不会同时出现**，内容完全相同。
 
   ```json
   "ingredient_groups": [

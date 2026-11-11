@@ -24,7 +24,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `items[].sku_id` | string | No | `null` | SKU ID (from the menu item's optional SKUs) |
 | `items[].quantity` | integer | Yes | — | Quantity, ≥ 1 |
 | `items[].ingredient_option_ids` | string[] | No | `[]` | Ingredient / option IDs (from the menu item's options; for a non-default SKU use that SKU's `sku_options[].ingredient_options`) |
-| `items[].ingredient_quantities` | array | No | `[]` | Portion counts for specific options, e.g. "Espresso shots x3", shaped `[{option_id, quantity}]`; only options whose `max_quantity` exceeds 1 accept it, and exceeding it fails the order. Listing an option here **counts as selecting it**, so it need not repeat in `ingredient_option_ids`; omit and each option uses its own `default_quantity` (the merchant-recommended count) |
+| `items[].ingredient_quantities` | array | No | `[]` | Portion counts for specific options, e.g. "Espresso shots x3", shaped `[{option_id, quantity}]`; only options whose `max_quantity` exceeds 1 accept it; exceeding `max_quantity`, or letting a group's total exceed its `max_total_quantity`, fails the order. Listing an option here **counts as selecting it**, so it need not repeat in `ingredient_option_ids`; omit and each option uses its own `default_quantity` (the merchant-recommended count) |
 | `items[].remark` | string | No | `""` | Per-item note |
 | `lang` | string | No | — | Language for this response. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; defaults to the language set at binding time (Chinese if unset) |
 | `include_chinese` | boolean | No | false | When `true`, the response also includes the Chinese original (`<key>_zh`) — see [Bilingual responses](/mcp/overview) |
@@ -72,6 +72,7 @@ Prices the items selected in a cart: validates the shop / cart / items, calls th
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
 | `PUBLIC_REFERENCE_INVALID` | `cart_id` invalid or expired, `shop_id` and `cart_id` mismatch, or `item_id` not part of this `cart_id`. `address_id` is only validated when the primary pricing call (`cats_price`) fails and falls back to the `render_quote` branch; an invalid `address_id` maps to this code there |
 | `CART_PRICE_INVALID` | `items[].quantity` is not an integer or is less than 1. MCP passes raw dicts that bypass pydantic, so the service validates them internally |
+| `CART_PRICE_INVALID` | An add-on group's portions add up to more than its `max_total_quantity` (Burger King "Add-ons": 4 cheese + 3 tomato = 7 > 6); `message` names the group and the counts |
 | `ELEME_ERROR` | Upstream pricing call failed |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
