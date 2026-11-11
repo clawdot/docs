@@ -24,7 +24,7 @@ description: "MCP 工具，对已选商品的购物车算价，返回价格明�
 | `items[].sku_id` | string | 否 | `null` | SKU ID（来自菜单项的可选 SKU）|
 | `items[].quantity` | integer | 是 | — | 数量，≥ 1 |
 | `items[].ingredient_option_ids` | string[] | 否 | `[]` | 配料 / 做法选项 ID 列表（来自菜单项的可选项；非默认规格用该规格 `sku_options[].ingredient_options` 的 option_id）|
-| `items[].ingredient_quantities` | array | 否 | `[]` | 为某个选项指定份数，如「浓缩份数 x3」，格式 `[{option_id, quantity}]`；仅 `max_quantity` 大于 1 的选项可用，超出会下单失败。列在这里即**视同已选**，不必再写进 `ingredient_option_ids`；不传则按各选项的 `default_quantity`（商家推荐份数） |
+| `items[].ingredient_quantities` | array | 否 | `[]` | 为某个选项指定份数，如「浓缩份数 x3」，格式 `[{option_id, quantity}]`；仅 `max_quantity` 大于 1 的选项可用；超出 `max_quantity`，或同组合计超出 `max_total_quantity`，都会下单失败。列在这里即**视同已选**，不必再写进 `ingredient_option_ids`；不传则按各选项的 `default_quantity`（商家推荐份数） |
 | `items[].remark` | string | 否 | `""` | 单品备注 |
 | `lang` | string | 否 | — | 本次返回内容使用的语言，枚举 `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`；不传则用绑定时设定的语言（默认中文） |
 | `include_chinese` | boolean | 否 | false | 为 `true` 时响应同时返回中文原文（`<key>_zh`），见 [双语响应](/mcp/overview) |
@@ -72,6 +72,7 @@ description: "MCP 工具，对已选商品的购物车算价，返回价格明�
 | `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 提供方 |
 | `PUBLIC_REFERENCE_INVALID` | `cart_id` 无效或过期、`shop_id` 与 `cart_id` 不匹配，或 `item_id` 不属于该 `cart_id`。`address_id` 仅在主算价（`cats_price`）失败、回退到 `render_quote` 分支时才会校验，无效时也归到此码 |
 | `CART_PRICE_INVALID` | `items[].quantity` 非整数或小于 1。MCP 传入原始 dict 绕过 pydantic，由 service 内部校验 |
+| `CART_PRICE_INVALID` | 某个加料组各项份数加起来超过 `max_total_quantity`（如汉堡王「加料」芝士 4 份 + 番茄 3 份 = 7 > 6）；`message` 会点名组和份数 |
 | `ELEME_ERROR` | 上游算价接口异常 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。

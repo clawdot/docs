@@ -95,7 +95,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 </Note>
 
 <Note>
-  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app, so you can add several portions. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and each option uses its own `default_quantity` (the merchant-recommended count).
+  **Portion-style options use `ingredient_quantities`.** Options whose `max_quantity` exceeds 1 (e.g. Starbucks espresso shots) render as a stepper in the app, so you can add several portions. Set the count via `items[].ingredient_quantities` on `quote_cart` / `preview_order`; omit it and each option uses its own `default_quantity` (the merchant-recommended count). When the group carries `max_total_quantity`, the portions of all its options together must also stay within it (Burger King's "Add-ons": cheese + tomato at most 6). This tool does not block it for you — grey out the group's plus buttons once the total reaches the cap.
 
   **Do not multiply `price_delta` by the portion count.** Merchants price extra portions in tiers: espresso shots are free for 1-2 portions and ¥4 at the 3rd; mocha sauce is ¥3 for 1-4 portions and ¥6 total for 5-8. Options that carry `price_steps` must be read from that table. **Options without it must not be multiplied either** — for those, `price_delta` is what you pay no matter how many portions you add. In short: never multiply by the portion count.
 </Note>
@@ -136,6 +136,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 | `items[].sku_options[].ingredient_options[].required` | boolean | Whether this option's group is required; if you skip a required group, its default option is added for you |
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | Whether the group accepts several picks at once; when `false`, sending two options from the same group fails the order |
 | `items[].sku_options[].ingredient_options[].max_select` | integer \| null | How many **kinds** the group allows (not portions — see `max_quantity`); `1` for single-choice groups, `null` means no limit. Exceeding it fails the order |
+| `items[].sku_options[].ingredient_options[].max_total_quantity` | integer | The most portions the group's options may **add up to**, e.g. Burger King's "Add-ons": cheese + tomato together at most 6. Each option is still capped by its own `max_quantity`; both limits apply. Returned only on groups where it actually limits; exceeding it fails the order |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | Whether the order would actually carry this option; can only be `true` inside the selected sku's list |
 | `items[].spec_groups` | array | **Only for items with 2 or more skus**: the same skus grouped by spec dimension (e.g. cup size, temperature), for drawing one row of buttons per dimension. See the note below |
 | `items[].spec_groups[].name` | string | Dimension name (e.g. "Cup size") |
@@ -154,7 +155,7 @@ The top level is `{ "items": [...] }`, where `items` is **1:1 and in the same or
 
 
 <Note>
-  **`grouped=true` returns ingredients in a different shape.** With `grouped=true`, ingredients come back as `ingredient_groups` instead of the flat `ingredient_options`: group-level info (`group_name` / `required` / `multi_select` / `max_select`) appears once on the group rather than repeating on every option, and the options themselves sit in `options[]` with field-for-field identical values. The two shapes are **mutually exclusive** — you get one or the other, never both — and carry exactly the same content.
+  **`grouped=true` returns ingredients in a different shape.** With `grouped=true`, ingredients come back as `ingredient_groups` instead of the flat `ingredient_options`: group-level info (`group_name` / `required` / `multi_select` / `max_select` / `max_total_quantity`) appears once on the group rather than repeating on every option, and the options themselves sit in `options[]` with field-for-field identical values. The two shapes are **mutually exclusive** — you get one or the other, never both — and carry exactly the same content.
 
   ```json
   "ingredient_groups": [

@@ -95,7 +95,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 </Note>
 
 <Note>
-  **份数型选项用 `ingredient_quantities` 加份。** `max_quantity` 大于 1 的选项（如星巴克「浓缩份数」）在 App 上是加减号，可加多份。下单时用 `quote_cart` / `preview_order` 的 `items[].ingredient_quantities` 指定份数；不传则按各选项的 `default_quantity`（商家推荐份数）下单。
+  **份数型选项用 `ingredient_quantities` 加份。** `max_quantity` 大于 1 的选项（如星巴克「浓缩份数」）在 App 上是加减号，可加多份。下单时用 `quote_cart` / `preview_order` 的 `items[].ingredient_quantities` 指定份数；不传则按各选项的 `default_quantity`（商家推荐份数）下单。组上有 `max_total_quantity` 时，同组各项份数加起来也不能超过它（如汉堡王「加料」芝士 + 番茄合计最多 6 份）；本接口不会替你拦，合计到上限时请把该组的加号置灰。
 
   **加多份的钱不能拿 `price_delta` 乘份数。** 商家常按档位定价：「浓缩份数」是 1~2 份免费、第 3 份才 ¥4；「摩卡酱」是 1~4 份 ¥3、5~8 份一共 ¥6。带 `price_steps` 的选项照它查表；**没有这个字段也不要乘**——那表示加多少份都收 `price_delta` 这一个数。换句话说，任何时候都不需要拿份数去乘。
 </Note>
@@ -136,6 +136,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 | `items[].sku_options[].ingredient_options[].required` | boolean | 该选项所在的组是否必选；必选组你没选时会自动补上该组默认项 |
 | `items[].sku_options[].ingredient_options[].multi_select` | boolean | 该组能否同时选多项；`false` 时同组只能选一项，选两项会下单失败 |
 | `items[].sku_options[].ingredient_options[].max_select` | integer \| null | 该组最多可选几**种**（不是几份，份数看 `max_quantity`）；单选组为 `1`，`null` 表示不限种类。超过会下单失败 |
+| `items[].sku_options[].ingredient_options[].max_total_quantity` | integer | 该组各选项份数**加起来**最多几份，如汉堡王「加料」芝士 + 番茄合计最多 6 份；每项上限仍看 `max_quantity`，两个都要满足。只在会限制到的组返回，超过会下单失败 |
 | `items[].sku_options[].ingredient_options[].selected` | boolean | 按当前选择下单实际会带上的项；仅选中规格的候选可能为 `true` |
 | `items[].spec_groups` | array | **仅 2 个及以上规格的商品**返回：把 `sku_options` 按规格维度分好组（如「杯型」「温度」），用来画成多行按钮。见下方说明 |
 | `items[].spec_groups[].name` | string | 维度名（如「杯型」）|
@@ -154,7 +155,7 @@ description: "MCP 工具 get_item_options — 一次批量拉取多个商品的�
 
 
 <Note>
-  **`grouped=true` 时配料换一种形状返回。** 传 `grouped=true` 后，配料不再是平铺的 `ingredient_options`，而是按组返回 `ingredient_groups`：组信息（`group_name` / `required` / `multi_select` / `max_select`）只出现在组上一次，不再逐条重复；选项本身放在 `options[]` 里，字段与平铺形式逐字段一致。两种形式**二选一，不会同时出现**，内容完全相同。
+  **`grouped=true` 时配料换一种形状返回。** 传 `grouped=true` 后，配料不再是平铺的 `ingredient_options`，而是按组返回 `ingredient_groups`：组信息（`group_name` / `required` / `multi_select` / `max_select` / `max_total_quantity`）只出现在组上一次，不再逐条重复；选项本身放在 `options[]` 里，字段与平铺形式逐字段一致。两种形式**二选一，不会同时出现**，内容完全相同。
 
   ```json
   "ingredient_groups": [
