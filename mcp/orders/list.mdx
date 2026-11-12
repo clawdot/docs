@@ -46,7 +46,7 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
           "line_total": 2300,
           "quantity": 1,
           "description": "标准冰/七分糖",
-          "image_url": "https://img.alicdn.com/i3/2215646075688/O1CN01SeLKKLgum8F1hk6i_!!2215646075688-2-koubei.png"
+          "image_url": "https://img.alicdn.com/imgextra/i1/O1CN01example_item.png"
         }
       ],
       "address_id": "addr_9198205b27df48b7bd2cc4ba894b7045",
@@ -54,10 +54,10 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
         "display_name": "亲橙Hub(2号门)",
         "address_detail": "621",
         "city": "",
-        "lat": 30.276617,
-        "lng": 120.030885,
+        "lat": 30.250000,
+        "lng": 120.150000,
         "contact_name": "王xx",
-        "contact_phone_masked": "188****2920",
+        "contact_phone_masked": "138****0000",
         "tag": "家"
       },
       "detail_url": "https://g.clawdot.ai/9Kd3T",
@@ -95,7 +95,7 @@ description: "MCP 工具，分页查询当前授权用户的历史订单列表�
 | `orders[].address.lat` | number \| null | 纬度（高德地图 GCJ-02 坐标系）|
 | `orders[].address.lng` | number \| null | 经度（高德地图 GCJ-02 坐标系）|
 | `orders[].address.contact_name` | string \| null | 联系人称呼 |
-| `orders[].address.contact_phone_masked` | string \| null | 脱敏联系电话，如 `188****2920` |
+| `orders[].address.contact_phone_masked` | string \| null | 脱敏联系电话，如 `138****0000` |
 | `orders[].address.tag` | string | 地址标签（自定义字符串）；未打标为空字符串 |
 | `orders[].detail_url` | string \| null | 订单详情页链接，可直接发给用户查看订单进度；未支付的订单打开后可继续支付。与 `get_order_status` 的同名字段指向同一个页面。每次调用返回的链接可能不同，但都可用——不要用作订单标识或做前后比对。链接有效期 30 天。下单时传了 `require_phone_verify: true` 的订单，打开链接时先要求输入下单手机号后 4 位确认本人 |
 | `orders[].created_at` | string | 下单时间（ISO 8601）|
