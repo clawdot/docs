@@ -46,7 +46,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
           "line_total": 2300,
           "quantity": 1,
           "description": "Regular ice / 70% sugar",
-          "image_url": "https://img.alicdn.com/i3/2215646075688/O1CN01SeLKKLgum8F1hk6i_!!2215646075688-2-koubei.png"
+          "image_url": "https://img.alicdn.com/imgextra/i1/O1CN01example_item.png"
         }
       ],
       "address_id": "addr_9198205b27df48b7bd2cc4ba894b7045",
@@ -54,10 +54,10 @@ Paginates the consenting user's order history, sorted by creation time in descen
         "display_name": "Orange Hub (Gate 2)",
         "address_detail": "621",
         "city": "",
-        "lat": 30.276617,
-        "lng": 120.030885,
+        "lat": 30.250000,
+        "lng": 120.150000,
         "contact_name": "Wang",
-        "contact_phone_masked": "188****2920",
+        "contact_phone_masked": "138****0000",
         "tag": "home"
       },
       "detail_url": "https://g.clawdot.ai/9Kd3T",
@@ -95,7 +95,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `orders[].address.lat` | number \| null | Latitude (AMap GCJ-02 coordinate system) |
 | `orders[].address.lng` | number \| null | Longitude (AMap GCJ-02 coordinate system) |
 | `orders[].address.contact_name` | string \| null | Contact name |
-| `orders[].address.contact_phone_masked` | string \| null | Masked contact phone, e.g. `188****2920` |
+| `orders[].address.contact_phone_masked` | string \| null | Masked contact phone, e.g. `138****0000` |
 | `orders[].address.tag` | string | Address tag (free-form string); empty string when not set |
 | `orders[].detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Same page as `detail_url` from `get_order_status`. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days. For orders created with `require_phone_verify: true`, the link first asks for the last 4 digits of the ordering phone number |
 | `orders[].created_at` | string | Order creation time (ISO 8601) |
