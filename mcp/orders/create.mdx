@@ -136,14 +136,16 @@ description: "MCP 工具，用预览得到的 preview_id + confirmation_token �
 | `payment_action.expires_at` | string | 动作过期时间（ISO 8601，UTC）；有效期约 30 分钟 |
 | `extra_map` | object | 扩展信息，恒为对象，没有内容时为 `{}`。与绑定接口的 `extra` 无关 |
 | `extra_map.next_url` | string | 使用自有收银台的渠道才返回：用户打开即进入该渠道的收银台付款，下单后 15 分钟内有效。没有该字段时照常使用 `payment_action.action_url` |
+| `extra_map.pay_order_id` | string | 与 `next_url` 同时返回：收银台支付请求 `extendParams` 里的 `orderId`。用它把支付请求对应回本单 `order_id`，两者不是同一个值 |
 | `callback_registered` | boolean | 是否已注册支付回调（即请求是否带了有效 `callback_url`）|
 
-使用自有收银台的渠道，`extra_map` 里会多一个 `next_url`：
+使用自有收银台的渠道，`extra_map` 里会多出 `next_url` 和 `pay_order_id`：
 
 ```json
 {
   "extra_map": {
-    "next_url": "https://order.hicaspian.com/h5/pay-next/8888888888888888888/5c1e0f2a..."
+    "next_url": "https://order.hicaspian.com/h5/pay-next/8888888888888888888/5c1e0f2a...",
+    "pay_order_id": "8888888888888888888"
   }
 }
 ```

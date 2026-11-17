@@ -136,14 +136,16 @@ A failed delivery is retried three times (after 1 / 2 / 4 seconds) and then drop
 | `payment_action.expires_at` | string | Action expiry (ISO 8601, UTC); valid for ~30 minutes |
 | `extra_map` | object | Extension fields; always an object, `{}` when empty. Unrelated to the `extra` field of the bind tools |
 | `extra_map.next_url` | string | Only for channels with their own checkout: opening it takes the user straight to that channel's checkout to pay; valid for 15 minutes after the order is created. When absent, use `payment_action.action_url` as usual |
+| `extra_map.pay_order_id` | string | Returned together with `next_url`: the `orderId` inside `extendParams` of the checkout's pay request. Use it to match that pay request back to this order's `order_id`; the two are different values |
 | `callback_registered` | boolean | Whether a payment callback was registered (i.e. whether the request carried a valid `callback_url`) |
 
-For channels with their own checkout, `extra_map` also carries `next_url`:
+For channels with their own checkout, `extra_map` also carries `next_url` and `pay_order_id`:
 
 ```json
 {
   "extra_map": {
-    "next_url": "https://order.hicaspian.com/h5/pay-next/8888888888888888888/5c1e0f2a..."
+    "next_url": "https://order.hicaspian.com/h5/pay-next/8888888888888888888/5c1e0f2a...",
+    "pay_order_id": "8888888888888888888"
   }
 }
 ```
