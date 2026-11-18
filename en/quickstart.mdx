@@ -12,7 +12,7 @@ icon: "rocket"
   The recommended integration is the Task API: delivery, errand, and retail at one endpoint. See [Task API](/en/task/overview).
 </Warning>
 
-Clawdot Gateway exposes food-delivery capabilities to AI Agents as **MCP tools**. This guide first connects you to MCP, then walks a single chain of tool calls to run a complete order from scratch.
+Clawdot Gateway exposes food-delivery capabilities to AI Agents as **MCP tools**. This guide first connects you to MCP, then walks a single sequence of tool calls to run a complete order from scratch.
 
 ## 1. Connect over MCP
 
@@ -201,14 +201,14 @@ After placing the order, you can check its current status and details anytime.
 </Steps>
 
 <Note>
-  **No-password payment signing (account-level, one-time)**: no-password payment requires the user to sign once; afterwards subsequent no-password orders are charged automatically. It is an **account-level, one-time prerequisite** — not bound to any single order and not done per order — so it is independent of the order chain above. Use `get_sign_action(consent_grant_id, return_url)` (**takes no `order_id`**) to get the H5 signing link for the user to complete, then check signing progress with `get_sign_status`. See [Initiate No-Password Signing](/en/mcp/payment/sign-action).
+  **No-password payment signing (account-level, one-time)**: no-password payment requires the user to sign once; afterwards subsequent no-password orders are charged automatically. It is an **account-level, one-time prerequisite** — not bound to any single order and not done per order — so it is independent of the order flow above. Use `get_sign_action(consent_grant_id, return_url)` (**takes no `order_id`**) to get the H5 signing link for the user to complete, then check signing progress with `get_sign_status`. See [Initiate No-Password Signing](/en/mcp/payment/sign-action).
 </Note>
 
-## The full chain at a glance
+## The full flow at a glance
 
 `select_address` (-> address_id) -> `search_shops` (with address_id, -> shop_id + cart_id) -> `get_shop_menu` (-> item_id / sku_id) -> `quote_cart` (-> quote_id) -> `preview_order` (-> preview_id + confirmation_token) -> `create_order` (-> order_id) -> `get_order_status`
 
-Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is issued by the gateway and **passed back as-is** — never construct them yourself or mix them across chains.
+Every cross-step ID (`shop_id` / `cart_id` / `address_id` / `preview_id` …) is issued by the gateway and **passed back as-is** — never construct them yourself or mix them across flows.
 
 ## Next steps
 

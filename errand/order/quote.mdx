@@ -8,7 +8,7 @@ description: "MCP 工具 errand_quote —— 提交收发两端要素与货品�
 提交收发两端要素与货品，返回多家运力的实时报价。报价打包为单次确认令牌 `quote_id`，选定一家运力后传给 `errand_create` 完成下单。
 
 <Note>
-  **下单链路**：`errand_request_user_bind` → `errand_verify_user_bind` 拿到 `consent_grant_id` → （可选）`errand_search_addresses` / `errand_list_goods_categories` / `errand_list_schedule_slots` → **`errand_quote`** 得 `quote_id` + 各运力 `company_code` / `fee` → `errand_create` 下单 → 用户打开 `cashier_url` 完成支付。
+  **下单流程**：`errand_request_user_bind` → `errand_verify_user_bind` 拿到 `consent_grant_id` → （可选）`errand_search_addresses` / `errand_list_goods_categories` / `errand_list_schedule_slots` → **`errand_quote`** 得 `quote_id` + 各运力 `company_code` / `fee` → `errand_create` 下单 → 用户打开 `cashier_url` 完成支付。
 </Note>
 
 <Note>

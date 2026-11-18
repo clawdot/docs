@@ -93,7 +93,7 @@ Skills 平台采用 **API Key + 用户授权（consent grant）** 的双层认�
 - **一对一**：一个 consent grant 对应一个用户（绑「Agent + 用户 + 能力」三元关系）
 - **有效期**：默认 **90 天**；到期或轮换后需用户重新绑定
 - **来源**：用户通过绑定流程（SMS 验证码 / H5）**本人授权**后获得；`verify_user_bind` 成功返回 `consent_grant_id`、`scopes`、`expires_at`（ISO 8601）
-- **存储**：明文仅本次返回一次，落库仅存哈希，请妥善保存
+- **存储**：明文仅本次返回一次，网关只保存其哈希，请妥善保存
 - **传递**：作为每个 MCP 工具的 `consent_grant_id` 参数传入（不放进 body，也不走请求头）
 - **失效**：到达 `expires_at` 过期，或被 `revoke_user_bind` 撤销后即时失效，需重新绑定获取新的
 
@@ -159,7 +159,7 @@ Skills 平台在数据访问层强制执行严格的隔离策略：
 2. 服务端验证 API Key，解析出 `agent_id`
 3. 服务端验证 `consent_grant_id`，定位已授权用户与其授权能力
 4. 数据库查询条件：`WHERE agent_id = ? AND user_id = ?`
-5. 任何跨越这两个条件的查询都会被拒绝（授权属于其它能力 / 服务商返回 `CONSENT_GRANT_WRONG_CAP`，能力未开通返回 `CAP_NOT_BOUND`）
+5. 任何跨越这两个条件的查询都会被拒绝（授权属于其它能力时返回 `CONSENT_GRANT_WRONG_CAP`，能力未开通返回 `CAP_NOT_BOUND`）
 
 ## 用户授权生命周期
 
@@ -206,7 +206,7 @@ Skills 平台在数据访问层强制执行严格的隔离策略：
 
   <Card title="403 Forbidden" icon="ban">
     **无权限访问**
-    - 授权属于其它能力 / 服务商（`CONSENT_GRANT_WRONG_CAP`）
+    - 授权属于其它能力（`CONSENT_GRANT_WRONG_CAP`）
     - 当前 Agent 未开通该能力（`CAP_NOT_BOUND`）
   </Card>
 

@@ -144,7 +144,7 @@ sequenceDiagram
 | `CONSENT_GRANT_REQUIRED` | 401 | 缺少 consent_grant_id |
 | `CONSENT_GRANT_INVALID` | 401 | consent_grant_id 无效或已过期 |
 | `CONSENT_GRANT_EXPIRED` | 401 | 用户授权已过期，需重新授权 |
-| `CONSENT_GRANT_WRONG_CAP` | 403 | 授权属于其它能力 / 服务商 |
+| `CONSENT_GRANT_WRONG_CAP` | 403 | 授权属于其它能力 |
 | `CAP_NOT_BOUND` | 403 | 当前 Agent 未开通该能力 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。

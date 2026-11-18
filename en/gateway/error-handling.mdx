@@ -84,18 +84,18 @@ The error body contains only `code` and `message`.
 |---|---|---|
 | `ORDER_FAILED` | Order creation failed | Re-preview and retry |
 
-### Upstream (502)
+### Food-delivery platform (502)
 
 | Error code | Description | Suggestion |
 |---|---|---|
-| `ELEME_ERROR` | Taobao Flash / Eleme upstream API error | Retry later |
-| `SIGN_ADDRESS_NOT_FOUND` | Upstream response returned no sign address | Retry later |
+| `ELEME_ERROR` | The food-delivery platform (Taobao Flash / Eleme) is temporarily unavailable or returned an error | Retry later |
+| `SIGN_ADDRESS_NOT_FOUND` | The platform returned no sign address | Retry later |
 
 ### Service unavailable (503)
 
 | Error code | Description | Suggestion |
 |---|---|---|
-| `PROVIDER_NOT_AVAILABLE` | Provider adapter is temporarily unavailable | Retry later |
+| `PROVIDER_NOT_AVAILABLE` | The platform is temporarily unavailable | Retry later |
 | `HOMEPAGE_URL_CONFIG_MISSING` | Server is missing the secret required to generate the homepage URL | Contact the platform |
 
 ## HTTP status code summary
@@ -110,5 +110,5 @@ The error body contains only `code` and `message`.
 | 409 | Conflict (idempotency / quota / `external_user_id` taken) |
 | 429 | Request rate exceeded |
 | 500 | Server internal error |
-| 502 | Upstream API error |
+| 502 | Food-delivery platform error |
 | 503 | Service temporarily unavailable |

@@ -1,19 +1,19 @@
 ---
 title: "select_address"
-description: "MCP 工具 select_address — 把一条地址搜索建议落库为网关地址，或重新选用已保存地址，返回下单链路用的 address_id"
+description: "MCP 工具 select_address — 把一条地址搜索建议保存为网关地址，或重新选用已保存地址，返回下单流程用的 address_id"
 ---
 
 ## select_address
 
-把一条地址搜索建议（`suggestion_token`）连同收货人信息落库为一条网关地址，或直接重新选用一条已保存的地址（`address_id`），返回网关地址 ID `address_id`，供后续 `search_shops`、`preview_order` 等使用。
+把一条地址搜索建议（`suggestion_token`）连同收货人信息保存为一条网关地址，或直接重新选用一条已保存的地址（`address_id`），返回网关地址 ID `address_id`，供后续 `search_shops`、`preview_order` 等使用。
 
 <Note>
-  **地址链路**：`search_addresses` 得建议的 `token` → **`select_address`**（带 `token` + 收货人）得 `address_id` → 用于 `search_shops`（定位）/ `preview_order`（下单）。`address_id` 由网关签发并原样回传，不要自造。
+  **地址流程**：`search_addresses` 得建议的 `token` → **`select_address`**（带 `token` + 收货人）得 `address_id` → 用于 `search_shops`（定位）/ `preview_order`（下单）。`address_id` 由网关签发并原样回传，不要自造。
 </Note>
 
 <Note>
   **两种用法（二选一）**：
-  - **新建**：传 `suggestion_token`（来自 `search_addresses` 的 `token`）+ `contact_name` + `contact_phone` + `address_detail`，网关在上游注册一条新配送地址并落库。
+  - **新建**：传 `suggestion_token`（来自 `search_addresses` 的 `token`）+ `contact_name` + `contact_phone` + `address_detail`，网关登记一条新配送地址并保存。
   - **重选**：传已保存的 `address_id`，直接取回该地址（仍需带 `contact_name` / `contact_phone`，但不会改动已存记录）。
 
   两者都不传会返回 `PUBLIC_REFERENCE_INVALID`。
@@ -28,7 +28,7 @@ description: "MCP 工具 select_address — 把一条地址搜索建议落库为
 | `address_id` | string \| null | 否 | `null` | 已保存的网关地址 ID（来自上一次 `select_address`）；重选已存地址时传此字段。与 `suggestion_token` 二选一，两者都不传会报错 |
 | `contact_name` | string | 是 | — | 收货人姓名，**最多 12 个字符**（按字符数计，中英文同；首尾空格不计）。超长返回 `PUBLIC_REFERENCE_INVALID`，message 会点名 `contact_name` |
 | `contact_phone` | string | 是 | — | 收货人手机号 |
-| `address_detail` | string | 否 | `""` | 门牌 / 楼层 / 房间号。新建 POI 地址时**必须非空**（上游拒绝空白门牌），否则返回 `DETAIL_REQUIRED` |
+| `address_detail` | string | 否 | `""` | 门牌 / 楼层 / 房间号。新建 POI 地址时**必须非空**（不接受空白门牌），否则返回 `DETAIL_REQUIRED` |
 
 ### 返回
 
@@ -51,14 +51,14 @@ description: "MCP 工具 select_address — 把一条地址搜索建议落库为
 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
-| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 |
 | `PUBLIC_REFERENCE_INVALID` | `address_id` 无效 / 不属于当前授权用户，`suggestion_token` 与 `address_id` 都未传，或参数不合法（如 `contact_name` 超过 12 个字符）|
 | `SUGGESTION_EXPIRED` | `suggestion_token` 无效或已过期，需重新调用 `search_addresses` |
 | `CONTACT_REQUIRED` | 缺收货人姓名或手机号 |
 | `DETAIL_REQUIRED` | 新建 POI 地址时缺非空门牌 / 楼层 |
 | `ADDRESS_CONTACT_NAME_TOO_LONG` | 收货人姓名超过 12 个字符，平台拒绝注册（正常情况下会先被参数校验拦成 `PUBLIC_REFERENCE_INVALID`）|
 | `ADDRESS_CREATE_REJECTED` | 平台拒绝注册该地址（业务原因）。换一条地址建议重试 |
-| `ELEME_ERROR` | 上游注册地址失败（网络 / 平台异常）|
+| `ELEME_ERROR` | 外卖平台登记地址失败（网络 / 平台异常）|
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

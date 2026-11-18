@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/clawdot/open-gateway-clawdot-skill/
 API_KEY=clw_your_api_key                                    # 必填：Agent 身份
 GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP 端点（默认即此，可不填）
 # CONSENT_GRANT_ID=                                          # 只读预注入（可选）；正常流程绑定后凭证存共享缓存 ~/.clawdot/
-# 可选：CLAWDOT_HOME（共享凭证缓存目录）、DEFAULT_LAT / DEFAULT_LNG（冷启动兜底定位）
+# 可选：CLAWDOT_HOME（共享凭证缓存目录）、DEFAULT_LAT / DEFAULT_LNG（冷启动默认定位）
 ```
 
 其中 `API_KEY` 必填，`GATEWAY_MCP_URL` 用默认值即可。到[开发者中心](https://hub.clawdot.net/#/account/keys)的 **我的密钥** 页创建 Agent，拿到 `clw_` 开头的 API Key。

@@ -8,7 +8,7 @@ description: "MCP 工具 errand_search_addresses —— 按关键词或当前位
 搜索地址，同时返回两份结果：搜到的候选地点（`candidates`），以及用户已经存过、且命中本次搜索的地址（`saved_matches`）。同名地址可能有多处，不要自动取第一个，应摆给用户挑。`saved_matches` 里的地址门牌和联系电话都已经齐全，选中即可直接下单，不必再让用户重新报一遍。
 
 <Note>
-  **地址链路**：搜到候选地点后，用 `errand_save_address` 存进地址簿；命中 `saved_matches` 的地址已经存过，可以跳过保存，直接拿 `id` 当 `address_id` 下单。
+  **地址流程**：搜到候选地点后，用 `errand_save_address` 存进地址簿；命中 `saved_matches` 的地址已经存过，可以跳过保存，直接拿 `id` 当 `address_id` 下单。
 </Note>
 
 ### 两种找法，至少给一样

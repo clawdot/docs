@@ -12,7 +12,7 @@ Deletes one of the user's saved addresses. Once deleted, the `address_id` is imm
 </Note>
 
 <Note>
-  **Only deletes the consenting user's own address; others are unaffected.** `address_id` is scoped to the consenting user, so a delete only removes this user's saved record. The upstream delivery address book is shared by phone number (one phone == one Eleme account); the gateway reclaims the upstream address only when **no record still references it**, so deleting never removes an upstream address that is still used elsewhere on the same account.
+  **Only deletes the consenting user's own address; others are unaffected.** `address_id` is scoped to the consenting user, so a delete only removes this user's saved record. Delivery addresses are shared by phone number (one phone == one Eleme account); an address is removed only when **no record still references it**, so deleting never affects an address still used elsewhere on the same account.
 </Note>
 
 <Note>
@@ -41,7 +41,7 @@ Deletes one of the user's saved addresses. Once deleted, the `address_id` is imm
 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
 | `CAP_NOT_BOUND` | The delivery capability is not enabled for this agent |
-| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability |
 | `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid, expired, not owned by the consenting user, or already deleted |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.

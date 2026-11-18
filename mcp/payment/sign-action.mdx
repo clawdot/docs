@@ -5,10 +5,10 @@ description: "MCP 工具，为已授权用户发起免密支付签约，返回�
 
 ## get_sign_action
 
-为当前授权用户发起免密支付签约：网关先查询用户签约状态，未签约则向上游申请签约地址，并签发一个用于打开签约 H5 页的 `action`。已签约的用户不会返回签约链接。
+为当前授权用户发起免密支付签约：网关先查询用户签约状态，未签约则申请签约地址，并签发一个用于打开签约 H5 页的 `action`。已签约的用户不会返回签约链接。
 
 <Note>
-  **签约链路**：先调用本工具拿到 `action`；若 `action.action_type` 为 `open_h5`，把用户引导到 `action.action_url`（H5 签约页）完成签约，签约完成后浏览器跳回你传入的 `return_url`。随后用 `get_sign_status` 轮询签约结果。若 `action.action_type` 为 `none`，说明用户已签约，无需再打开页面。免密签约是发起免密支付类订单的前置条件。
+  **签约流程**：先调用本工具拿到 `action`；若 `action.action_type` 为 `open_h5`，把用户引导到 `action.action_url`（H5 签约页）完成签约，签约完成后浏览器跳回你传入的 `return_url`。随后用 `get_sign_status` 轮询签约结果。若 `action.action_type` 为 `none`，说明用户已签约，无需再打开页面。免密签约是发起免密支付类订单的前置条件。
 </Note>
 
 ### 参数
@@ -16,7 +16,7 @@ description: "MCP 工具，为已授权用户发起免密支付签约，返回�
 | 参数 | 类型 | 必填 | 默认 | 说明 |
 |------|------|------|------|------|
 | `consent_grant_id` | string | 是 | — | 用户授权 ID（`cg_` 前缀，来自 `verify_user_bind`），标识已授权用户 |
-| `return_url` | string | 是 | — | 用户在 H5 签约页完成签约后浏览器跳回的地址，由调用方提供；网关原样透传给上游签约页 |
+| `return_url` | string | 是 | — | 用户在 H5 签约页完成签约后浏览器跳回的地址，由调用方提供；网关原样带给签约页 |
 
 ### 返回
 
@@ -47,10 +47,10 @@ description: "MCP 工具，为已授权用户发起免密支付签约，返回�
 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
 | `CAP_NOT_BOUND` | 该 Agent 未开通该能力 |
-| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
-| `SIGN_ADDRESS_NOT_FOUND` | 上游响应未返回签约地址 |
-| `ELEME_ERROR` | 淘宝闪购 / 饿了么上游 API 错误 |
-| `PROVIDER_NOT_AVAILABLE` | 服务商适配器暂不可用 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 |
+| `SIGN_ADDRESS_NOT_FOUND` | 未取得签约地址 |
+| `ELEME_ERROR` | 外卖平台（淘宝闪购 / 饿了么）返回错误 |
+| `PROVIDER_NOT_AVAILABLE` | 外卖平台暂不可用 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

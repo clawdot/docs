@@ -8,7 +8,7 @@ description: "MCP 工具：解除当前用户授权，滞空凭证使旧 consent
 解除当前用户的授权：滞空 binding 行上的凭证，使本次使用的 `consent_grant_id` 即刻失效。Agent 的凭证不受影响。
 
 <Note>
-  **授权链路**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用 → **`revoke_user_bind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。默认情况下用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达；手机号或设备交给其他人使用时，传 `reset_history: true` 清退，重新绑定后看不到此前的地址与历史订单。
+  **授权流程**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用 → **`revoke_user_bind`** 解除授权。解除后该 `consent_grant_id` 立即失效，再次为该用户操作需重新走绑定流程（`request_user_bind` + `verify_user_bind`）铸发新的 `consent_grant_id`。默认情况下用户已保存的地址与历史订单不删除，用同一手机号重新绑定后自动重新可达；手机号或设备交给其他人使用时，传 `reset_history: true` 清退，重新绑定后看不到此前的地址与历史订单。
 </Note>
 
 ### 参数
@@ -37,7 +37,7 @@ description: "MCP 工具：解除当前用户授权，滞空凭证使旧 consent
 | `CONSENT_GRANT_INVALID` | `consent_grant_id` 无效或已失效（例如已被解除）|
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期 |
 | `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 |
-| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

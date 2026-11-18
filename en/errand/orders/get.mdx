@@ -5,7 +5,7 @@ description: "MCP tool errand_get_order — fetches errand order details; open o
 
 ## errand_get_order
 
-Fetches the details of a single errand order. **Open orders** (dispatched but not yet settled) have their status synced in real time from the delivery provider, adding `status_desc` / `timeline` / `rider` fields to the response; settled orders return only the local record. An open-order lookup takes roughly 0.8 seconds; a settled one, under 0.1 seconds.
+Fetches the details of a single errand order. **Open orders** (dispatched but not yet settled) have their status synced in real time from the courier, adding `status_desc` / `timeline` / `rider` fields to the response; settled orders return only the local record. An open-order lookup takes roughly 0.8 seconds; a settled one, under 0.1 seconds.
 
 <Note>
   **This page is the single source of truth for errand order fields**: the response from a successful `errand_create`, an `errand_get_order` lookup, and each entry in `errand_list_orders` all use exactly the same field set (`errand_list_orders` entries simply omit the fields that only appear on open orders). Once you understand the field table here, the other two follow the same shape.
@@ -39,11 +39,11 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `status` | string | Order status, see the status enum below |
 | `pay_status` | string | Payment status, see the payment status enum below |
 | `quote_fee` | integer | Quoted fee at order time, i.e. the amount paid (cents) |
-| `actual_fee` | integer \| null | Actual amount charged by the delivery provider (cents), filled in after completion; `null` while open |
+| `actual_fee` | integer \| null | Actual amount charged by the courier (cents), filled in after completion; `null` while open |
 | `tip_fee` | integer | Total tip amount added so far (cents) |
 | `cancel_fee` | integer \| null | Cancellation penalty (cents); `null` if not cancelled |
-| `company_code` | integer | Delivery provider code |
-| `company_name` | string | Delivery provider name, e.g. "JD Now". A few providers have no name on file and show as "Other carrier" — this is a normal value, not an error |
+| `company_code` | integer | Carrier code |
+| `company_name` | string | Carrier name, e.g. "JD Now". A few providers have no name on file and show as "Other carrier" — this is a normal value, not an error |
 | `from` | object | Pickup contact info: `contact_name` / `contact_phone_masked` / `address_text` / `lat` / `lng` |
 | `from.contact_name` | string | Pickup contact name |
 | `from.contact_phone_masked` | string | Pickup contact's masked phone, e.g. `138****5678` |
@@ -55,7 +55,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `goods[].name` | string | Goods name |
 | `goods[].qty` | integer | Quantity |
 | `goods[].price_fen` | integer | Unit price (cents) |
-| `goods_category_code` | integer \| null | Goods category code chosen at order time; `null` if none was chosen. When reusing this order for a new quote, pass this value back **as-is** — otherwise it falls back to the default category |
+| `goods_category_code` | integer \| null | Goods category code chosen at order time; `null` if none was chosen. When reusing this order for a new quote, pass this value back **as-is** — otherwise the default category is used |
 | `goods_category_name` | string \| null | Goods category name, matching the name given by the category list tool; `null` if no category was chosen |
 | `goods_total_amount_fen` | integer | Estimated total value of all goods (unit price × quantity, summed; cents) |
 | `total_weight_g` | integer \| null | Declared total weight at order time (grams); if it was not provided at order time, this returns the system default weight (1000 g), not `null` |
@@ -69,7 +69,7 @@ Fetches the details of a single errand order. **Open orders** (dispatched but no
 | `payment_expire_at` | string \| null | Payment deadline (Beijing time), 2 minutes after the order is placed; past that point payment is no longer accepted and the order closes shortly after. **Only unpaid orders have a value** — `null` for every other status |
 | `cashier_url` | string \| null | Cashier payment page URL — the same one returned at order creation; hand it to the user to complete payment. **Only unpaid orders have a value** — `null` for every other status |
 | `cashier_qr_url` | string | Only present when `with_pay_qr: true` was passed and the order is awaiting payment: URL of a QR-code PNG image (https) encoding `cashier_url`. Valid until the payment deadline `payment_expire_at`, then opening it returns 404. Absent (not `null`) for other statuses or if the image could not be generated |
-| `status_desc` | string | (open orders only) Localized status text from the delivery provider, e.g. "Waiting for rider assignment" |
+| `status_desc` | string | (open orders only) Localized status text from the courier, e.g. "Waiting for rider assignment" |
 | `timeline` | array | (open orders only) Status change timeline |
 | `timeline[].status` | string | Status text |
 | `timeline[].time` | integer | Timestamp (milliseconds) |
@@ -134,7 +134,7 @@ For an unpaid order, `with_pay_qr: true` adds a `cashier_qr_url` next to `cashie
 |------|------|
 | `pending_payment` | Awaiting payment (no rider is dispatched until paid) |
 | `dispatching` | Payment complete, calling a rider |
-| `pending` | Submitted to the delivery provider, awaiting acceptance |
+| `pending` | Submitted to the courier, awaiting acceptance |
 | `waiting_rider` | Waiting for a rider to be assigned |
 | `rider_reassigning` | Reassigning to a different rider |
 | `rider_accepted` | Rider has accepted the order |

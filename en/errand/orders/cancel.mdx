@@ -17,7 +17,7 @@ Cancels an order. An unpaid order is simply closed; a paid order is **automatica
 |-----------|------|----------|---------|-------------|
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `errand_verify_user_bind`), identifying the consenting user |
 | `order_id` | string | Yes | — | Order ID (`err_` prefix) |
-| `reason` | string | No | — | Cancellation reason, passed through to the delivery provider as-is |
+| `reason` | string | No | — | Cancellation reason, forwarded to the courier as-is |
 
 ### Returns
 

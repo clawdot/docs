@@ -201,20 +201,20 @@ Clawdot Gateway 把外卖能力以 **MCP 工具**的形式开放给 AI Agent。�
 </Steps>
 
 <Note>
-  **免密支付签约（账户级，一次性）**：免密支付需用户先完成一次签约，签约后续免密订单即自动扣款。它是**账户级、一次性的前置设置**，不绑定某一笔订单、也不是每单都做——独立于上面的下单链路。用 `get_sign_action(consent_grant_id, return_url)`（**入参不含 `order_id`**）拿到 H5 签约链接交给用户完成，再用 `get_sign_status` 查询签约进度。详见 [发起免密签约](/mcp/payment/sign-action)。
+  **免密支付签约（账户级，一次性）**：免密支付需用户先完成一次签约，签约后续免密订单即自动扣款。它是**账户级、一次性的前置设置**，不绑定某一笔订单、也不是每单都做——独立于上面的下单流程。用 `get_sign_action(consent_grant_id, return_url)`（**入参不含 `order_id`**）拿到 H5 签约链接交给用户完成，再用 `get_sign_status` 查询签约进度。详见 [发起免密签约](/mcp/payment/sign-action)。
 </Note>
 
-## 完整链路一览
+## 完整流程一览
 
 `select_address`（得 address_id）→ `search_shops`（用 address_id，得 shop_id + cart_id）→ `get_shop_menu`（得 item_id / sku_id）→ `quote_cart`（得 quote_id）→ `preview_order`（得 preview_id + confirmation_token）→ `create_order`（得 order_id）→ `get_order_status`
 
-所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。
+所有跨步骤的 ID（`shop_id` / `cart_id` / `address_id` / `preview_id` …）都由网关签发、**原样回传**，不要自行构造或跨流程混用。
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="MCP 工具" icon="plug" href="/mcp/overview">24 个外卖 MCP 工具的完整入参 / 出参</Card>
   <Card title="认证机制" icon="key" href="/gateway/authentication">API Key + consent grant 详解</Card>
-  <Card title="下单链路" icon="route" href="/gateway/order-flow">下单与支付时序全景</Card>
+  <Card title="下单流程" icon="route" href="/gateway/order-flow">下单与支付时序全景</Card>
   <Card title="错误处理" icon="triangle-alert" href="/gateway/error-handling">统一错误码与处理</Card>
 </CardGroup>

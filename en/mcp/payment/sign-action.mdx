@@ -5,7 +5,7 @@ description: "MCP tool that starts passwordless-payment signing for an authorize
 
 ## get_sign_action
 
-Starts passwordless-payment signing for the current authorized user: the gateway first checks the user's signing status, requests a signing address upstream if not yet signed, and issues an `action` that opens the signing H5 page. Already-signed users get no signing link.
+Starts passwordless-payment signing for the current authorized user: the gateway first checks the user's signing status, requests a signing address if not yet signed, and issues an `action` that opens the signing H5 page. Already-signed users get no signing link.
 
 <Note>
   **Signing flow**: call this tool to get an `action`; if `action.action_type` is `open_h5`, send the user to `action.action_url` (the H5 signing page) to complete signing, after which the browser returns to the `return_url` you provided. Then poll the result with `get_sign_status`. If `action.action_type` is `none`, the user is already signed and no page needs to be opened. Signing is a prerequisite for placing passwordless-payment orders.
@@ -16,7 +16,7 @@ Starts passwordless-payment signing for the current authorized user: the gateway
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `consent_grant_id` | string | Yes | — | User consent grant ID (`cg_` prefix, from `verify_user_bind`), identifying the consenting user |
-| `return_url` | string | Yes | — | The URL the browser returns to after the user completes signing on the H5 page; provided by the caller and passed through to the upstream signing page as-is |
+| `return_url` | string | Yes | — | The URL the browser returns to after the user completes signing on the H5 page; provided by the caller and forwarded as-is to the signing page |
 
 ### Returns
 
@@ -47,10 +47,10 @@ Starts passwordless-payment signing for the current authorized user: the gateway
 | `CONSENT_GRANT_INVALID` | Consent grant is invalid |
 | `CONSENT_GRANT_EXPIRED` | Consent grant has expired; re-authorization required |
 | `CAP_NOT_BOUND` | The capability is not enabled for this agent |
-| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability / provider |
-| `SIGN_ADDRESS_NOT_FOUND` | Upstream response did not return a signing address |
-| `ELEME_ERROR` | Taobao Instant Commerce / Ele.me upstream API error |
-| `PROVIDER_NOT_AVAILABLE` | Provider adapter temporarily unavailable |
+| `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability |
+| `SIGN_ADDRESS_NOT_FOUND` | No signing address was returned |
+| `ELEME_ERROR` | The food-delivery platform (Taobao Instant Commerce / Ele.me) returned an error |
+| `PROVIDER_NOT_AVAILABLE` | The platform is temporarily unavailable |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 

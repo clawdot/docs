@@ -11,12 +11,12 @@ import Mermaid from '/components/Mermaid';
 
 **A Skill is an installable skill pack built on top of the gateway.** Install it into your Agent (Claude Code / OpenClaw / Codex) and the Agent immediately gains the corresponding local-life capability—for example, "ordering takeout." You don't have to stitch the call chain together from scratch; the pack already wraps a complete set of actions plus an interaction "soul."
 
-Underneath, it still runs on the same gateway: the gateway aggregates downstream platforms (Ele.me, etc.) and local-life services, and exposes a standardized set of capabilities for menu lookup, order fulfillment, address management, and order tracking. A Skill simply packages those capabilities into a ready-to-use form for one concrete scenario.
+Underneath, it still runs on the same gateway: the gateway aggregates the platforms it connects to (Ele.me, etc.) and local-life services, and exposes a standardized set of capabilities for menu lookup, order fulfillment, address management, and order tracking. A Skill simply packages those capabilities into a ready-to-use form for one concrete scenario.
 
 <Mermaid
   chart={`
     graph TB
-      subgraph Platforms["Downstream Platforms"]
+      subgraph Platforms["Platform Services"]
         P1["Ele.me"]
         P2["Local-life services"]
       end

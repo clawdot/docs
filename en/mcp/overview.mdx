@@ -99,7 +99,7 @@ To keep the Chinese original alongside the translation (for example, so staff ca
 - **Off by default**: without `include_chinese`, or with it set to `false`, the response never has `<key>_zh`. Only an explicit `true` returns the Chinese original.
 - **Pass it together with `lang`**: set `lang` to the target language (e.g. `en`) and `include_chinese` to `true` at the same time.
 - **When `lang` is Chinese (`zh`) or not passed at all, `include_chinese` has no effect** and never errors — a Chinese response is already Chinese, so there's nothing to attach.
-- Scope matches single-language `lang`: set it at binding time via `request_user_bind`, or per call on any tool that accepts `lang`. **The binding-time `include_chinese` only applies when this call passes neither `lang` nor `include_chinese`.** As soon as a call passes `lang`, `include_chinese` for that call falls back to its default (`false`) instead of inheriting the binding-time setting — pass both together whenever a single call needs bilingual output.
+- Scope matches single-language `lang`: set it at binding time via `request_user_bind`, or per call on any tool that accepts `lang`. **The binding-time `include_chinese` only applies when this call passes neither `lang` nor `include_chinese`.** As soon as a call passes `lang`, `include_chinese` for that call reverts to its default (`false`) instead of inheriting the binding-time setting — pass both together whenever a single call needs bilingual output.
 
 When `include_chinese=true`, every field that was **translated successfully** gets a sibling `<key>_zh` next to it, holding the Chinese original:
 

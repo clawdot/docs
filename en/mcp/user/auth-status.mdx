@@ -123,7 +123,7 @@ func DecryptPhone(apiKey, phoneEncrypted string) (string, error) {
 
   **A wrong key fails loudly rather than producing garbage**: AES-GCM is authenticated, so a wrong key or tampered ciphertext raises an error.
 
-  **Prefer decrypting in your own backend**: have the Agent pass the ciphertext through untouched to your server and decrypt there, so the phone number never appears in the conversation context or in third-party platform logs.
+  **Prefer decrypting in your own backend**: have the Agent relay the ciphertext untouched to your server and decrypt there, so the phone number never appears in the conversation context or in third-party platform logs.
 </Note>
 
 ### Error Codes

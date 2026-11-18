@@ -1,10 +1,10 @@
 ---
 title: "Order Flow"
-description: "The complete end-to-end chain from preparing a delivery address and picking a shop to previewing and placing the order — each step maps to one MCP tool"
+description: "The complete end-to-end flow from preparing a delivery address and picking a shop to previewing and placing the order — each step maps to one MCP tool"
 icon: "route"
 ---
 
-Completing an order is a **stateful chain**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across chains. This page threads the whole chain together using MCP tools; the full field table for each tool lives in the corresponding [tool reference](/en/mcp/shops/search).
+Completing an order is a **stateful flow**: every ID returned by one step must be passed verbatim to the next, never fabricated or mixed across flows. This page threads the whole flow together using MCP tools; the full field table for each tool lives in the corresponding [tool reference](/en/mcp/shops/search).
 
 <Note>
   Every example below is an **MCP tool call**: a tool name plus JSON arguments. Apart from the binding tools, each business tool carries a `consent_grant_id` argument (user consent, `cg_` prefix). The Agent identity is carried at the connection layer via the `Authorization: Bearer clw_...` header — see the "Authentication" section below.
@@ -12,10 +12,10 @@ Completing an order is a **stateful chain**: every ID returned by one step must 
 
 ## Overview
 
-The order flow threads these MCP tools in a fixed order: **prepare the delivery address first** (`search_addresses` → `select_address`), then `search_shops` to pick a shop, `get_shop_menu` to pick items, then `quote_cart` to price, `preview_order` to get the ordering tokens, and `create_order` to place the order. Fixing the address first means you search shops that deliver there, and every downstream tool has the delivery coordinates. Cross-step IDs are issued by the gateway and passed back verbatim.
+The order flow threads these MCP tools in a fixed order: **prepare the delivery address first** (`search_addresses` → `select_address`), then `search_shops` to pick a shop, `get_shop_menu` to pick items, then `quote_cart` to price, `preview_order` to get the ordering tokens, and `create_order` to place the order. Fixing the address first means you search shops that deliver there, and every subsequent tool has the delivery coordinates. Cross-step IDs are issued by the gateway and passed back verbatim.
 
 <Note>
-  **Passwordless signing is a one-time, account-level prerequisite** (see "Passwordless payment signing" below) — it is not part of any single order's chain and is not tied to a specific order. Don't treat it as the last step of ordering.
+  **Passwordless signing is a one-time, account-level prerequisite** (see "Passwordless payment signing" below) — it is not part of any single order's flow and is not tied to a specific order. Don't treat it as the last step of ordering.
 </Note>
 
 ```mermaid
@@ -45,7 +45,7 @@ sequenceDiagram
     G-->>A: order_id, status, payment_action
 ```
 
-How IDs flow through the chain:
+How IDs pass from step to step:
 
 | Step | Produces | Consumed by |
 |---|---|---|
@@ -61,7 +61,7 @@ How IDs flow through the chain:
   All amount fields are in **cents (integers)**, not yuan. For example, `payable_price: 1500` means ¥15.00.
 </Warning>
 
-## The Full Chain
+## The Full Flow
 
 <Steps>
 
@@ -98,7 +98,7 @@ search_shops(
 
 Searches shops that can deliver to the address. Without `keyword` it is **browse mode**, returning up to 20 nearby shops (with decision fields like distance, rating, delivery fee, minimum order). With `keyword` it is **precise search** (~5 shops), accepting a shop name, a category, or a concrete item name; matched shops carry `matched_items` previews.
 
-Every result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop and this delivery location, and is the entry point for the downstream `get_shop_menu` / `quote_cart` / `preview_order`. Pass it **verbatim** — downstream calls then need no lat/lng.
+Every result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop and this delivery location, and is the entry point for the subsequent `get_shop_menu` / `quote_cart` / `preview_order`. Pass it **verbatim** — subsequent calls then need no lat/lng.
 
 <Note>
   Full fields: [Search Shops](/en/mcp/shops/search). `matched_items` are display-only and carry no IDs; to order you must use the `item_id` / `sku_id` returned by `get_shop_menu`. Give at least one of `address_id` or `lat`/`lng`, otherwise it returns `COORDS_REQUIRED`.
@@ -183,7 +183,7 @@ Places the order with the `preview_id` + `confirmation_token` from the same prev
 
 ## Passwordless payment signing (account-level, one-time)
 
-Passwordless signing lets the user authorize **passwordless payment**: sign once, and subsequent passwordless-payment orders charge automatically. It is an **account-level, one-time prerequisite** — **not tied to any single order, and not done per order** — which is why it sits apart from the ordering chain above. Before you need passwordless payment, check whether the user has signed with `get_sign_status`; if not, initiate signing:
+Passwordless signing lets the user authorize **passwordless payment**: sign once, and subsequent passwordless-payment orders charge automatically. It is an **account-level, one-time prerequisite** — **not tied to any single order, and not done per order** — which is why it sits apart from the ordering flow above. Before you need passwordless payment, check whether the user has signed with `get_sign_status`; if not, initiate signing:
 
 ```python
 get_sign_action(

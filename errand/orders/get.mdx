@@ -55,7 +55,7 @@ description: "MCP 工具 errand_get_order —— 查询跑腿订单详情，在�
 | `goods[].name` | string | 货品名称 |
 | `goods[].qty` | integer | 数量 |
 | `goods[].price_fen` | integer | 单价（分）|
-| `goods_category_code` | integer \| null | 下单时选择的物品品类码；未选择时为 `null`。复用本单重新询价时**原样回填**该值，否则会退回默认品类 |
+| `goods_category_code` | integer \| null | 下单时选择的物品品类码；未选择时为 `null`。复用本单重新询价时**原样回填**该值，否则会按默认品类处理 |
 | `goods_category_name` | string \| null | 物品品类名称，与品类清单接口给出的名称一致；未选择品类时为 `null` |
 | `goods_total_amount_fen` | integer | 全部货品的预估总价值（单价 × 件数之和，分）|
 | `total_weight_g` | integer \| null | 下单时申报的总重量（克）；下单时未填写的，这里返回系统默认重量（1000 克），不是 `null` |

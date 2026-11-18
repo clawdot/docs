@@ -134,11 +134,11 @@ Tool parameters and return values are optimized for how AI models call them. For
 
 ## Workflow Details
 
-The full ordering flow is a **stateful chain** — each step's returned ID must be passed verbatim to the next: `search_addresses` → `select_address` → `search_shops` → `get_shop_menu` → `quote_cart` → `preview_order` → `create_order`. Fix the address first, then search deliverable shops by that address, so downstream tools all have the delivery coordinates. For full field tables, see [Order Flow](/en/gateway/order-flow).
+Ordering is a **stateful flow** — each step's returned ID must be passed verbatim to the next: `search_addresses` → `select_address` → `search_shops` → `get_shop_menu` → `quote_cart` → `preview_order` → `create_order`. Fix the address first, then search deliverable shops by that address, so subsequent tools all have the delivery coordinates. For full field tables, see [Order Flow](/en/gateway/order-flow).
 
 <AccordionGroup>
   <Accordion title="Address Management Phase" icon="map-pin">
-    Fix "where to deliver" first; downstream shop search and quote / preview all rely on this address. First use:
+    Fix "where to deliver" first; subsequent shop search and quote / preview all rely on this address. First use:
     1. Call `search_addresses` to search the address the user mentioned; it returns `suggestions[].token`
     2. User selects from the suggestion list
     3. Call `select_address` (with `suggestion_token` + contact) to register the delivery address, which returns an `address_id`
@@ -161,7 +161,7 @@ The full ordering flow is a **stateful chain** — each step's returned ID must 
   </Accordion>
 
   <Accordion title="Quote + Preview + Order Phase" icon="clipboard-check">
-    This is the core stateful chain:
+    This is the core stateful flow:
 
     **Quote** → `quote_cart`
     - Input: `shop_id` + `cart_id` + `address_id` + `items` (list)
@@ -190,10 +190,10 @@ The full ordering flow is a **stateful chain** — each step's returned ID must 
   </Accordion>
 
   <Accordion title="Passwordless Signing Phase" icon="credit-card">
-    Passwordless signing is an **account-level, one-time prerequisite**: sign once, and later passwordless-payment orders can be charged automatically — it is **not bound to any single order and is not done per order**, so it stands outside the ordering chain above (do not treat it as the last step of placing an order). Check with `get_sign_status` whether already signed first, and only if not, call `get_sign_action` (with `return_url`, no `order_id`) to get a signing `action`. When `action_type` is `open_h5`, direct the user to `action.action_url` to complete signing; the browser then returns to `return_url`. When it is `none`, signing is already done. Then poll the result with `get_sign_status`.
+    Passwordless signing is an **account-level, one-time prerequisite**: sign once, and later passwordless-payment orders can be charged automatically — it is **not bound to any single order and is not done per order**, so it stands outside the ordering flow above (do not treat it as the last step of placing an order). Check with `get_sign_status` whether already signed first, and only if not, call `get_sign_action` (with `return_url`, no `order_id`) to get a signing `action`. When `action_type` is `open_h5`, direct the user to `action.action_url` to complete signing; the browser then returns to `return_url`. When it is `none`, signing is already done. Then poll the result with `get_sign_status`.
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  Create an Agent in the [Developer Center](https://hub.clawdot.net/#/account/keys) to get an API Key; obtain a user consent grant via the binding flow (SMS code or H5). For the full chain and fields, see [Order Flow](/en/gateway/order-flow) and [Authentication](/en/gateway/authentication).
+  Create an Agent in the [Developer Center](https://hub.clawdot.net/#/account/keys) to get an API Key; obtain a user consent grant via the binding flow (SMS code or H5). For the full flow and fields, see [Order Flow](/en/gateway/order-flow) and [Authentication](/en/gateway/authentication).
 </Note>

@@ -40,7 +40,7 @@ After installing, drop a `.env` into the skill root:
 API_KEY=clw_your_api_key                                    # Required: Agent identity
 GATEWAY_MCP_URL=https://eleme-gateway.hicaspian.com/mcp/v1  # MCP endpoint (this is the default; may be omitted)
 # CONSENT_GRANT_ID=                                          # Read-only pre-injection (optional); normally the credential lives in the shared cache ~/.clawdot/
-# Optional: CLAWDOT_HOME (shared credential cache dir), DEFAULT_LAT / DEFAULT_LNG (cold-start fallback location)
+# Optional: CLAWDOT_HOME (shared credential cache dir), DEFAULT_LAT / DEFAULT_LNG (cold-start default location)
 ```
 
 `API_KEY` is required; `GATEWAY_MCP_URL` can stay at its default. Create an Agent on the **我的密钥** (My keys) page of the [Developer Center](https://hub.clawdot.net/#/account/keys) to get an API Key starting with `clw_`.

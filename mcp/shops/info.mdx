@@ -10,7 +10,7 @@ description: "MCP 工具 get_shop_info — 查询店铺本身的信息：营业�
 只要店铺信息的话，本工具比 `get_shop_menu` 快得多——它不拉商品数据。需要菜单请用 [`get_shop_menu`](/mcp/shops/detail)。
 
 <Note>
-  **链路**：`search_shops` 得 `shop_id` + `cart_id` → **`get_shop_info`** 看店铺信息。`shop_id` 与 `cart_id` 必须来自同一次 `search_shops` 的**同一家店**，否则报 `PUBLIC_REFERENCE_INVALID`。
+  **调用顺序**：`search_shops` 得 `shop_id` + `cart_id` → **`get_shop_info`** 看店铺信息。`shop_id` 与 `cart_id` 必须来自同一次 `search_shops` 的**同一家店**，否则报 `PUBLIC_REFERENCE_INVALID`。
 </Note>
 
 ### 参数
@@ -76,7 +76,7 @@ description: "MCP 工具 get_shop_info — 查询店铺本身的信息：营业�
 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
-| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 |
 | `PUBLIC_REFERENCE_INVALID` | `shop_id` 或 `cart_id` 无效、过期，或两者不是同一家店 |
 | `ELEME_ERROR` | 店铺信息查询失败，可重试 |
 

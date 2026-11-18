@@ -18,9 +18,9 @@ Starts a user consent binding. With `auth_type=sms` the gateway sends a verifica
 | `phone` | string | Yes | — | User phone number |
 | `auth_type` | string | No | `"sms"` | Binding mode, enum `"sms"` / `"h5"`; other values return 422 |
 | `callback_url` | string \| null | No | `null` | **`h5` only**: the gateway polls the binding result and POSTs a callback (with `consent_grant_id`) to this URL on success or expiry. Must be an absolute http(s) URL; private / loopback hosts are rejected. Passing it in `sms` mode is an error |
-| `extra` | object \| null | No | `null` | Caller passthrough (JSON object, ≤2KB): supplied at request time, echoed back verbatim by `verify_user_bind` and the callback. The gateway does not interpret its contents |
+| `extra` | object \| null | No | `null` | Caller-defined data (JSON object, ≤2KB): supplied at request time, echoed back verbatim by `verify_user_bind` and the callback. The gateway does not interpret its contents |
 | `external_user_id` | string \| null | No | `null` | Caller-side unique user identifier (1–128 characters): when provided, it is used as the `open_id` in the H5 authorization link and the cashier single sign-on / payment links; the caller keeps it unique and stable per user. Supported in both `sms` and `h5` modes. In `h5` mode, if another Agent has already bound this phone number with this ID (or the ID uses the gateway-reserved `clw_` format), the call returns `EXTERNAL_USER_ID_TAKEN`; give each Agent its own IDs |
-| `lang` | string | No | — | Language for all later responses for this user. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; persists after binding, no need to pass it on every call |
+| `lang` | string | No | — | Language for all later responses for this user. One of `zh` / `en` / `ja` / `ko` / `ru` / `ms` / `es`; remembered after binding, no need to pass it on every call |
 | `include_chinese` | boolean | No | false | When `true`, all later responses for this user also include the Chinese original (`<key>_zh`) — see [Bilingual responses](/mcp/overview) |
 
 ### Returns
@@ -61,10 +61,10 @@ The return shape depends on `auth_type`.
 |-------|------|-------------|
 | `auth_type` | string | Always `"h5"` |
 | `request_id` | string | H5 binding session ID; pass it back as `request_id` to `verify_user_bind` |
-| `h5_url` | string | User authorization link (shortened URL; falls back to the raw long URL if the shortener is unavailable) |
+| `h5_url` | string | User authorization link (shortened URL; the raw long URL is used if the shortener is unavailable) |
 | `expires_in` | integer | Link / session lifetime in seconds; currently `300` (5 minutes) |
 | `masked_phone` | string \| null | Masked phone (e.g. `138****8000`) |
-| `callback_registered` | boolean | Whether a callback was registered (`true` when a valid `callback_url` was provided); when `true` the gateway polls and pushes the result, while client polling still works as a fallback |
+| `callback_registered` | boolean | Whether a callback was registered (`true` when a valid `callback_url` was provided); when `true` the gateway polls and pushes the result, and you can still poll as well |
 | `next_action` | string | Suggested next step, always `"verify_user_bind"` |
 
 ### Error Codes

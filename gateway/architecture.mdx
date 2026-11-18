@@ -1,9 +1,9 @@
 ---
 title: "架构概览"
-description: "Clawdot Gateway 的 MCP 入口、认证模型与下单链路"
+description: "Clawdot Gateway 的 MCP 入口、认证模型与下单流程"
 ---
 
-Clawdot Gateway 把外卖能力以 **MCP（Model Context Protocol）** 对外开放：Agent 通过 MCP Server（`/mcp/v1`）调用网关工具，用 API Key 表明自己的身份，用 `consent_grant` 表明"已获得某个外卖用户的授权"，网关据此把请求路由到上游平台并把响应转换成统一的标准格式。
+Clawdot Gateway 把外卖能力以 **MCP（Model Context Protocol）** 对外开放：Agent 通过 MCP Server（`/mcp/v1`）调用网关工具，用 API Key 表明自己的身份，用 `consent_grant` 表明"已获得某个外卖用户的授权"，网关据此把请求路由到外卖平台并把响应转换成统一的标准格式。
 
 ## 整体架构
 
@@ -13,8 +13,8 @@ graph LR
   MCP["MCP Server<br/>/mcp/v1"]
   Service["服务层<br/>PublicGatewayService"]
   Gate["认证 + 能力门禁<br/>API Key · consent_grant · cap binding"]
-  Provider["Provider 适配层<br/>转换为上游平台 API"]
-  Upstream["上游平台<br/>(饿了么 / …)"]
+  Provider["平台对接层<br/>转换为外卖平台接口调用"]
+  Upstream["外卖平台<br/>(饿了么 / 淘宝闪购)"]
   DB[("MySQL")]
   Redis[("Redis")]
 
@@ -34,7 +34,7 @@ graph LR
 
 - **MCP 是唯一对外入口** — Agent 以 Streamable HTTP 连接 `/mcp/v1`，把外卖能力当作一组标准工具调用。底层是同一套服务层 `PublicGatewayService`，对外只暴露 MCP 这一种协议。
 - **认证 + 能力门禁** — 每个工具调用在执行前都要过同一道门禁：校验 API Key（识别 Agent）、校验 consent_grant（识别已授权用户）、校验 Agent 是否已开通对应能力（cap binding）。
-- **Provider 适配层** — 把标准工具调用转换成上游平台的 API 调用，并把平台响应转换回统一的标准格式与错误码。
+- **平台对接层** — 把标准工具调用转换成外卖平台的接口调用，并把平台响应转换回统一的标准格式与错误码。
 - **状态存储** — MySQL 保存 Agent / API Key / 用户绑定 / 订单等记录；Redis 承载算价上下文、单飞锁、店铺列表缓存等短时态。
 
 <Note>
@@ -52,7 +52,7 @@ MCP Server 挂在 `/mcp/v1`，传输为 Streamable HTTP（FastMCP），对外主
 
 ## MCP 工具清单
 
-外卖网关对外暴露 24 个工具，覆盖授权、地址、店铺、购物车、优惠券、订单、支付签约整条链路：
+外卖网关对外暴露 24 个工具，覆盖授权、地址、店铺、购物车、优惠券、订单、支付签约整个流程：
 
 | 分组 | 工具 | 用途 |
 |---|---|---|
@@ -100,31 +100,31 @@ flowchart LR
   D -- 是 --> F["能力门禁<br/>+ consent_grant 解析"]
   F -- Agent 未开通能力 --> G["403 CAP_NOT_BOUND"]
   F -- 授权无效/过期 --> H["401 CONSENT_GRANT_*"]
-  F -- 授权属于其它能力/服务商 --> I["403 CONSENT_GRANT_WRONG_CAP"]
+  F -- 授权属于其它能力 --> I["403 CONSENT_GRANT_WRONG_CAP"]
   F -- 通过 --> J["(agent_id, 已授权用户)"]
 ```
 
 完整的认证链、错误码与传递方式见 [认证机制](/gateway/authentication)。
 
-### Agent — 能力 — 服务商
+### Agent — 能力 — 平台
 
-授权不是"Agent 直接拿到用户"，而是绑定到一个具体的**能力（cap）**与**服务商（provider）**上：
+授权不是"Agent 直接拿到用户"，而是绑定到一个具体的**能力（cap）**与**平台（provider）**上：
 
-- **能力绑定（cap binding）** — 一条 `(agent_id, cap_code)` 记录，声明某个 Agent 开通了某项能力（外卖链路的能力码为 `delivery`），并在该记录上携带服务商坐标（`provider_code`）。所有工具调用执行前都要先解析出一条 `active` 的能力绑定，否则返回 `CAP_NOT_BOUND`。
-- **用户绑定（consent_grant）** — 用户授权时落一条用户绑定记录，记下它属于哪个 `agent_id`、哪个 `cap_code`、哪个 `provider_code`。请求进来时，网关把 `consent_grant_id` 哈希后查到这条记录，并校验它的能力/服务商坐标与 Agent 的能力绑定一致——不一致即 `CONSENT_GRANT_WRONG_CAP`。
+- **能力绑定（cap binding）** — 一条 `(agent_id, cap_code)` 记录，声明某个 Agent 开通了某项能力（外卖能力的能力码为 `delivery`），并在该记录上携带平台坐标（`provider_code`）。所有工具调用执行前都要先解析出一条 `active` 的能力绑定，否则返回 `CAP_NOT_BOUND`。
+- **用户绑定（consent_grant）** — 用户授权时落一条用户绑定记录，记下它属于哪个 `agent_id`、哪个 `cap_code`、哪个 `provider_code`。请求进来时，网关把 `consent_grant_id` 哈希后查到这条记录，并校验它的能力/平台坐标与 Agent 的能力绑定一致——不一致即 `CONSENT_GRANT_WRONG_CAP`。
 
 也就是说，一次成功的调用要同时满足三件事：**API Key 有效**（Agent 可信）、**能力已开通**（Agent 有权用这项能力）、**consent_grant 有效且坐标匹配**（用户确实授权了这个 Agent 用这项能力）。
 
-## 下单链路
+## 下单流程
 
-一条标准下单链路上下游 ID 逐跳串联，每一步的产物喂给下一步：
+标准下单流程中的 ID 逐跳串联，每一步的产物喂给下一步：
 
 ```mermaid
 sequenceDiagram
   participant Agent
   participant GW as MCP Server
   participant Svc as PublicGatewayService
-  participant Up as 上游平台
+  participant Up as 外卖平台
 
   Agent->>GW: search_shops
   GW->>Svc: 门禁 + 路由
@@ -162,10 +162,10 @@ sequenceDiagram
 6. `create_order` → 得 `order_id`
 7. `get_sign_action` → 免密签约动作（`get_sign_status` 查询签约状态）
 
-完整时序与字段见 [下单链路](/gateway/order-flow)。
+完整时序与字段见 [下单流程](/gateway/order-flow)。
 
 <Note>
-  所有金额字段单位为**分（整数）**；对外暴露的全部是网关签发的不透明 ID（`shop_id` / `cart_id` / `quote_id` / `address_id` / `preview_id` / `order_id`），上游平台的原始 ID 不外泄。
+  所有金额字段单位为**分（整数）**；对外暴露的全部是网关签发的不透明 ID（`shop_id` / `cart_id` / `quote_id` / `address_id` / `preview_id` / `order_id`），外卖平台的原始 ID 不外泄。
 </Note>
 
 ## 错误处理
@@ -188,8 +188,8 @@ sequenceDiagram
 | 机制 | 实现 |
 |------|------|
 | API Key 存储 | 服务端加密保存，开发者中心可随时查看和复制，禁用即时失效 |
-| consent_grant 存储 | 只存 SHA-256 哈希（`consent_grant_hash`），原值不落库 |
+| consent_grant 存储 | 只存 SHA-256 哈希（`consent_grant_hash`），网关不保存原值 |
 | 手机号存储 | 加密存储，并以 SHA-256 哈希用于去重 |
 | 用户 ID 存储 | AES-256-GCM 加密 |
-| 对外 ID | 全部为网关签发的不透明 ID，与上游平台原始 ID 解耦 |
+| 对外 ID | 全部为网关签发的不透明 ID，与外卖平台原始 ID 无关 |
 | 公开面边界 | 对外只暴露 `/mcp/v1` MCP 工具；运营 / 管理动作（创建 Agent、签发 API Key 等）走开发者中心，不属于公开 API |
