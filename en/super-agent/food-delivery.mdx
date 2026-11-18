@@ -22,7 +22,7 @@ Super Agent's core capabilities in food delivery scenarios (each capability maps
 | Order Tracking | Query order status | `get_order_status` |
 
 <Note>
-  Ordering is a **stateful chain**: every id returned by one step must be passed verbatim to the next — never fabricate ids or mix them across chains. See [Order Flow](/en/gateway/order-flow) for the full chain and field tables.
+  Ordering is a **stateful flow**: every id returned by one step must be passed verbatim to the next — never fabricate ids or mix them across flows. See [Order Flow](/en/gateway/order-flow) for the full flow and field tables.
 </Note>
 
 ## Typical Dialogue Scenario
@@ -175,7 +175,7 @@ Agent: → Calls create_order(
 
 ## Core Workflow Deep Dive
 
-Full chain: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. The key segments are broken down below.
+Full flow: `search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`. The key segments are broken down below.
 
 ### 1. Search Merchants
 
@@ -194,7 +194,7 @@ graph LR
 
 **Key points**:
 - Without `keyword` it is browse mode (up to 20 nearby shops with distance / rating / delivery fee); with `keyword` it is precise search
-- Every result carries a `shop_id` and a `cart_id`; the `cart_id` encapsulates the shop and delivery location — pass it verbatim to downstream calls
+- Every result carries a `shop_id` and a `cart_id`; the `cart_id` encapsulates the shop and delivery location — pass it verbatim to subsequent calls
 - Amount fields (e.g. `min_order_amount`) are in cents
 
 ### 2. Get Menu and Specs
@@ -259,7 +259,7 @@ graph LR
 
 ## Related Reading
 
-- [Order Flow](/en/gateway/order-flow) — full end-to-end chain and per-step fields
+- [Order Flow](/en/gateway/order-flow) — full end-to-end flow and per-step fields
 - [Authentication](/en/gateway/authentication) — API Key identifies the Agent, consent grant identifies the authorized user
 - [Item Specs](/en/gateway/item-specs) — spec / attribute / ingredient system
 - [MCP Tools Overview](/en/mcp/overview) — the 18-tool contract

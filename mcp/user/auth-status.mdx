@@ -8,7 +8,7 @@ description: "查询某个 consent_grant_id 当前是否仍有效绑定，并返
 查询一个 `consent_grant_id` 当前的授权状态：是否仍有效绑定、授权覆盖的能力范围（`scopes`）、过期时间，以及未绑定时的下一步建议动作（`next_action`）。
 
 <Note>
-  **授权链路**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用前可用 **`get_user_auth_status`** 探活。`consent_grant_id` 是本工具的参数（必填）；一个 Agent 下可绑定多个用户，不带 grant 无法指定查哪个授权。
+  **授权流程**：`request_user_bind` → `verify_user_bind` 得 `consent_grant_id` → 业务调用前可用 **`get_user_auth_status`** 探活。`consent_grant_id` 是本工具的参数（必填）；一个 Agent 下可绑定多个用户，不带 grant 无法指定查哪个授权。
 </Note>
 
 <Note>

@@ -26,7 +26,7 @@ Gateway 以 **MCP（Model Context Protocol）工具**的形式对外开放能力
                      │
 ┌────────────────────▼────────────────────────┐
 │        业务逻辑层 (你的代码)                  │
-│  • 用户授权管理      • 下单链路管理          │
+│  • 用户授权管理      • 下单流程管理          │
 │  • 本地缓存         • 错误处理               │
 └────────────────────┬────────────────────────┘
                      │
@@ -115,7 +115,7 @@ API Key 标识 **Agent**，在**连接层**通过 `Authorization: Bearer clw_...
 // → { "bound": true, "consent_grant_id": "cg_...", "scopes": [...], "expires_at": "..." }
 ```
 
-拿到 `consent_grant_id` 后，妥善保存——它明文仅本次返回一次，落库仅存哈希。后续每个业务工具调用都把它作为参数带上。
+拿到 `consent_grant_id` 后，妥善保存——它明文仅本次返回一次，网关只保存其哈希。后续每个业务工具调用都把它作为参数带上。
 
 <Note>
 也支持 **H5 模式**：`request_user_bind(auth_type="h5")` 返回 `h5_url`（有效期约 300 秒），把链接交给用户打开完成授权；随后 `verify_user_bind(auth_type="h5", request_id=...)` 轮询，`pending` 表示还没好，`bound=true` 时返回 `consent_grant_id`。也可在 `request_user_bind` 传 `callback_url`，授权完成后网关 POST 回调（`event=user_bind`）。完整字段见 [发起绑定](/mcp/user/bind-request) 与 [确认绑定](/mcp/user/bind-verify)。
@@ -129,7 +129,7 @@ API Key 标识 **Agent**，在**连接层**通过 `Authorization: Bearer clw_...
 
 ## Step 3：核心业务流程
 
-实现从备好收货地址、搜店选品、算价、预览到下单的完整链路。整条链路是**有状态的**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。**先备好收货地址、再按地址搜可送达的店**，下游工具因此都拿得到配送坐标。
+实现从备好收货地址、搜店选品、算价、预览到下单的完整流程。整个流程是**有状态的**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨流程混用。**先备好收货地址、再按地址搜可送达的店**，后续工具因此都拿得到配送坐标。
 
 ```
 search_addresses → select_address → search_shops → get_shop_menu
@@ -141,7 +141,7 @@ search_addresses → select_address → search_shops → get_shop_menu
 </Warning>
 
 <Info>
-**免密支付签约是账户级的一次性前置**（见下文「免密支付签约」），不属于每一单的链路、也不绑定某笔订单——不要把它当成下单链路里的一步。
+**免密支付签约是账户级的一次性前置**（见下文「免密支付签约」），不属于每一单的流程、也不绑定某笔订单——不要把它当成下单流程里的一步。
 </Info>
 
 下面每个业务工具调用都带 `consent_grant_id` 参数（来自 Step 2）。
@@ -191,7 +191,7 @@ search_addresses → select_address → search_shops → get_shop_menu
 
 用上一步的 `address_id` 搜可送达的店铺。不传 `keyword` 即按该地址附近**浏览模式**（最多 20 家），带距离、评分、配送费、起送价等决策字段；传 `keyword`（店名 / 品类 / 商品名）则精确搜索（约 5 家）。浏览模式可传 `offset` 翻页：首次传 `offset: 0`，用返回的 `next_offset` 继续翻，直到 `shops` 为空。
 
-每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，下游工具因此免传经纬度。完整字段见 [搜索店铺](/mcp/shops/search)。
+每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，后续工具因此免传经纬度。完整字段见 [搜索店铺](/mcp/shops/search)。
 
 ### Phase 3：查看菜单详情
 
@@ -291,7 +291,7 @@ search_addresses → select_address → search_shops → get_shop_menu
 
 ## Step 4：免密支付签约（账户级，一次性）
 
-免密签约让用户授权**免密支付**：签约一次，后续免密支付类订单即可自动扣款。它是**账户级、一次性的前置设置**，**不绑定某一笔订单、也不是每单都要做**——所以独立于上面的下单链路。建议在需要免密支付前先用 `get_sign_status` 查是否已签约，未签约再发起：
+免密签约让用户授权**免密支付**：签约一次，后续免密支付类订单即可自动扣款。它是**账户级、一次性的前置设置**，**不绑定某一笔订单、也不是每单都要做**——所以独立于上面的下单流程。建议在需要免密支付前先用 `get_sign_status` 查是否已签约，未签约再发起：
 
 ```json
 // 工具：get_sign_action —— 发起免密签约（拿 H5 签约动作）
@@ -312,7 +312,7 @@ search_addresses → select_address → search_shops → get_shop_menu
 // → { "signed": ..., "status": "...", ... }
 ```
 
-完整字段见 [发起免密签约](/mcp/payment/sign-action) 与 [查询签约状态](/mcp/payment/sign-status)；下单链路与支付时序见 [下单流程](/gateway/order-flow)。
+完整字段见 [发起免密签约](/mcp/payment/sign-action) 与 [查询签约状态](/mcp/payment/sign-status)；下单流程与支付时序见 [下单流程](/gateway/order-flow)。
 
 ---
 
@@ -329,9 +329,9 @@ search_addresses → select_address → search_shops → get_shop_menu
 | `AUTH_REQUIRED` / `AUTH_INVALID` | 连接层 API Key 缺失或无效 | 检查 `Authorization: Bearer clw_...` 连接头 |
 | `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | 用户授权无效或已过期 | 重新发起绑定（`request_user_bind` → `verify_user_bind`）|
 | `CAP_NOT_BOUND` | 当前 Agent 未开通该能力 | 联系平台为该 Agent 开通对应能力 |
-| `PUBLIC_REFERENCE_INVALID` | 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户 | 重新从上一步获取该 ID，不要自造或跨链路混用 |
+| `PUBLIC_REFERENCE_INVALID` | 平台 ID（店铺 / 地址 / 订单）无效、过期或不属于当前用户 | 重新从上一步获取该 ID，不要自造或跨流程混用 |
 | `RATE_LIMITED` / `QUOTA_EXCEEDED` | 请求过于频繁或配额用尽 | 用指数退避稍后重试 |
-| `ELEME_ERROR` | 上游服务异常 | 提示用户稍后重试，或降级展示缓存结果 |
+| `ELEME_ERROR` | 外卖平台暂时异常 | 提示用户稍后重试，或降级展示缓存结果 |
 
 ```python
 # 示意：包装一次 MCP 工具调用，按 error.code 分支处理
@@ -351,7 +351,7 @@ def handle_tool_result(result: dict):
     elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):
         print("❌ 请求过于频繁或配额用尽，请稍后再试")
     elif code == "ELEME_ERROR":
-        print("❌ 上游服务异常，请稍后重试")
+        print("❌ 外卖平台暂时异常，请稍后重试")
     else:
         print(f"❌ 工具错误：{code} - {err.get('message')}")
     return None
@@ -370,7 +370,7 @@ def handle_tool_result(result: dict):
 
 ### 商家关闭处理
 
-`search_shops` 浏览模式结果中的 `available` / `unavailable_reason` 可提前判断商家是否营业。若下单链路中途遇到商家关闭，提示用户选择其他商家，并回到 `search_shops` 重新选店。
+`search_shops` 浏览模式结果中的 `available` / `unavailable_reason` 可提前判断商家是否营业。若下单流程中途遇到商家关闭，提示用户选择其他商家，并回到 `search_shops` 重新选店。
 
 ### 订单查询重试
 
@@ -423,13 +423,13 @@ def handle_tool_result(result: dict):
   </Card>
 
   <Card title="优雅降级" icon="minimize">
-    当上游不可用（`ELEME_ERROR`）时，提供替代方案（展示缓存结果或提示用户稍后重试）。
+    当外卖平台暂时不可用（`ELEME_ERROR`）时，提供替代方案（展示缓存结果或提示用户稍后重试）。
   </Card>
 </CardGroup>
 
 ---
 
-## 完整链路一览
+## 完整流程一览
 
 把上面各步骤的工具调用串起来，就是一次完整下单：
 
@@ -443,13 +443,13 @@ preview_order（得 preview_id + confirmation_token）
 create_order（得 order_id）→ get_order_status（查状态）
 ```
 
-先备好收货地址、再按地址搜可送达的店，下游工具因此都拿得到配送坐标。所有跨步骤的 ID（`address_id` / `shop_id` / `cart_id` / `preview_id` / `confirmation_token` …）都由网关签发、**原样回传**，不要自行构造或跨链路混用。`confirmation_token` 是下单幂等键，绑定阶段铸造的 `consent_grant_id` 是后续每个业务工具调用都要带的用户授权参数。**免密支付签约（`get_sign_action`）是账户级、一次性的前置，独立于这条下单链路**（见 Step 4）。
+先备好收货地址、再按地址搜可送达的店，后续工具因此都拿得到配送坐标。所有跨步骤的 ID（`address_id` / `shop_id` / `cart_id` / `preview_id` / `confirmation_token` …）都由网关签发、**原样回传**，不要自行构造或跨流程混用。`confirmation_token` 是下单幂等键，绑定阶段铸造的 `consent_grant_id` 是后续每个业务工具调用都要带的用户授权参数。**免密支付签约（`get_sign_action`）是账户级、一次性的前置，独立于这条下单流程**（见 Step 4）。
 
 ---
 
 ## 下一步
 
 - 查看 [MCP 概览](/mcp/overview) 了解 24 个工具的连接方式、分组与完整入参 / 出参
-- 阅读 [下单流程](/gateway/order-flow) 掌握完整的有状态下单链路与支付时序
+- 阅读 [下单流程](/gateway/order-flow) 掌握完整的有状态下单流程与支付时序
 - 阅读 [安全模型](/skills/security-model) 学习数据保护最佳实践
 - 探索 [支持的平台](/skills/supported-platforms) 集成到你的 Agent 应用

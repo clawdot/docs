@@ -117,7 +117,7 @@ Paginates the consenting user's order history, sorted by creation time in descen
 | `refunded` | 已退款 |
 
 <Note>
-  In rare cases the status refresh times out; that order falls back to its last known status while the rest of the list is unaffected. For especially time-sensitive cases you can double-check that order with `get_order_status`. Unrecognized statuses safely fall back to `created` and never leak the channel's raw status code to the caller.
+  In rare cases the status refresh times out; that order keeps its last known status while the rest of the list is unaffected. For especially time-sensitive cases you can double-check that order with `get_order_status`. Unrecognized statuses are shown as `created` and never leak the channel's raw status code to the caller.
 </Note>
 
 ### Pagination

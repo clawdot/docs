@@ -8,7 +8,7 @@ description: "MCP 工具 errand_verify_user_bind — 校验验证码完成跑腿
 校验短信验证码并建立用户授权，返回 `consent_grant_id`。本工具是跑腿授权流程的收口步骤，只需 Agent 凭证，不需要 `consent_grant_id` 参数。
 
 <Note>
-  **跑腿授权链路（收口）**：`errand_request_user_bind` → 拿到 `bind_id` → 用户收到验证码 → **`errand_verify_user_bind`** 换取 `consent_grant_id` → 后续跑腿工具带该 `consent_grant_id` 调用。
+  **跑腿授权流程（收口）**：`errand_request_user_bind` → 拿到 `bind_id` → 用户收到验证码 → **`errand_verify_user_bind`** 换取 `consent_grant_id` → 后续跑腿工具带该 `consent_grant_id` 调用。
 </Note>
 
 <Warning>

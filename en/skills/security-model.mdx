@@ -159,7 +159,7 @@ Access Rules:
 2. The server verifies the API Key and resolves the `agent_id`
 3. The server verifies the `consent_grant_id`, locating the authorized user and its granted capability
 4. Database query condition: `WHERE agent_id = ? AND user_id = ?`
-5. Any query crossing these two conditions is rejected (a grant for another capability / provider returns `CONSENT_GRANT_WRONG_CAP`; a capability not enabled returns `CAP_NOT_BOUND`)
+5. Any query crossing these two conditions is rejected (a grant for another capability returns `CONSENT_GRANT_WRONG_CAP`; a capability not enabled returns `CAP_NOT_BOUND`)
 
 ## Consent Grant Lifecycle
 
@@ -206,7 +206,7 @@ Auth / authorization failures return a uniform `{"error": {"code", "message"}}` 
 
   <Card title="403 Forbidden" icon="ban">
     **No permission to access**
-    - Grant belongs to another capability / provider (`CONSENT_GRANT_WRONG_CAP`)
+    - Grant belongs to another capability (`CONSENT_GRANT_WRONG_CAP`)
     - This Agent has not enabled the capability (`CAP_NOT_BOUND`)
   </Card>
 

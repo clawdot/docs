@@ -5,10 +5,10 @@ description: "MCP 工具，查询当前授权用户是否已完成免密支付�
 
 ## get_sign_status
 
-查询当前授权用户在该服务商下是否已完成免密支付签约。下单（`create_order`）前应确认 `signed` 为 `true`；未签约时按返回的 `next_action` 引导用户去签约。签约状态由网关用授权上下文（用户、设备）向上游实时查询，无需调用方传入手机号或设备 ID。
+查询当前授权用户在该外卖平台下是否已完成免密支付签约。下单（`create_order`）前应确认 `signed` 为 `true`；未签约时按返回的 `next_action` 引导用户去签约。签约状态由网关用授权上下文（用户、设备）实时查询，无需调用方传入手机号或设备 ID。
 
 <Note>
-  **签约链路**：调用 **`get_sign_status`** 检查 `signed` → 若为 `false`，调用 `get_sign_action` 获取 H5 签约链接，引导用户在浏览器完成签约 → 再次调用 `get_sign_status` 确认 `signed` 变为 `true` → 进入下单流程。
+  **签约流程**：调用 **`get_sign_status`** 检查 `signed` → 若为 `false`，调用 `get_sign_action` 获取 H5 签约链接，引导用户在浏览器完成签约 → 再次调用 `get_sign_status` 确认 `signed` 变为 `true` → 进入下单流程。
 </Note>
 
 ### 参数
@@ -55,8 +55,8 @@ description: "MCP 工具，查询当前授权用户是否已完成免密支付�
 | `CONSENT_GRANT_INVALID` | 用户授权无效 |
 | `CONSENT_GRANT_EXPIRED` | 用户授权已过期，需重新授权 |
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
-| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 / 服务商 |
-| `ELEME_ERROR` | 上游查询签约状态失败 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 |
+| `ELEME_ERROR` | 外卖平台查询签约状态失败 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

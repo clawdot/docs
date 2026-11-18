@@ -8,20 +8,20 @@ description: "MCP tool search_shops — search or browse nearby shops by locatio
 Searches or browses shops near the delivery location. Each result carries a `shop_id` and a `cart_id`: the `cart_id` encapsulates the shop and the delivery coordinates, and is the entry point for the subsequent `get_shop_menu`, `quote_cart`, and `preview_order` calls.
 
 <Note>
-  **Order flow**: **`search_shops`** → `shop_id` + `cart_id` (carries delivery coordinates) → `get_shop_menu` to pick items → `quote_cart` to price the cart and get `quote_id` → `select_address` to get `address_id` → `preview_order` → `preview_id` + `confirmation_token` → `create_order`. Pass the `shop_id` / `cart_id` to downstream tools as-is; do not synthesize them.
+  **Order flow**: **`search_shops`** → `shop_id` + `cart_id` (carries delivery coordinates) → `get_shop_menu` to pick items → `quote_cart` to price the cart and get `quote_id` → `select_address` to get `address_id` → `preview_order` → `preview_id` + `confirmation_token` → `create_order`. Pass the `shop_id` / `cart_id` to subsequent tools as-is; do not synthesize them.
 </Note>
 
 **Two modes (switched by `keyword`):**
 
 - **Omit / empty `keyword`** → browse mode: a nearby shop feed (up to 20) with decision fields — distance, rating, delivery fee, minimum order amount, and availability.
-- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the upstream search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / rating are usually `null` (upstream limitation); but `delivery_time_text` / `delivery_fee_text` are now derived from the upstream `orderLeadTime` / `floatDeliveryFee` (a fee of 0 shows as "免配送费", i.e. free delivery).
+- **Provide `keyword`** → precise search (~5 shops): `keyword` may be a shop name ("瑞幸咖啡"), a category ("奶茶"), or a concrete item name ("生椰拿铁"); the search matches at the item level, so an item keyword returns the shops that actually carry it. Each shop includes `matched_items` (display-only previews of the matched items). Note: in this mode distance / rating are usually `null`; but `delivery_time_text` / `delivery_fee_text` are now returned too (a fee of 0 shows as "免配送费", i.e. free delivery).
 
 <Note>
   **Browse pagination**: in browse mode (no `keyword`), pass `offset` to page through results — send `offset: 0` on the first call, then the response's `next_offset` on each subsequent call, until `shops` comes back empty (end reached). Page size is fixed and not adjustable (it only caps how many shops one page may return). Keyword search does not support pagination.
 </Note>
 
 <Warning>
-  **A keyword search does not necessarily return the shop you asked for.** The search never returns an empty list — when no shop name matches the keyword, it falls back to similar shops in the same category. `search_match_level` tells the two apart:
+  **A keyword search does not necessarily return the shop you asked for.** The search never returns an empty list — when no shop name matches the keyword, it returns similar shops in the same category instead. `search_match_level` tells the two apart:
 
   - **`exact`** — at least one shop's name or brand matches the keyword; those shops are listed first.
   - **`related`** — no shop name matched; every result is a same-category alternative. For a category keyword ("奶茶") that is normal. For a shop or brand keyword ("星巴克") it means **that brand is not orderable at this delivery location** — do not treat the results as the shop the user asked for. Tell the user it wasn't found, or retry with a different address.
@@ -105,14 +105,14 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `search_match_level` | string | **Keyword search only**: `exact` = at least one shop name or brand matched the keyword, and those shops are listed first; `related` = no shop name matched, the results are same-category alternatives. Browse mode does **not** include this field |
 | `next_offset` | integer \| null | **Returned only when paging in browse mode** (request included `offset`): cursor for the next page, use as the next request's `offset`; empty `shops` means the end. Requests without `offset` do **not** include this field |
 | `shops[].shop_id` | string | Shop ID (`shop_` prefix); pass to `get_shop_menu` / `quote_cart` / `preview_order` as-is |
-| `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; downstream tools reuse it instead of passing lat/lng |
+| `shops[].cart_id` | string | Cart context ID (`cart_` prefix), carries the shop & delivery coordinates; subsequent tools reuse it instead of passing lat/lng |
 | `shops[].name` | string | Shop name |
 | `shops[].brand_name` | string \| null | Brand name |
 | `shops[].tags` | string[] | Category tags: one of `咖啡` / `奶茶` / `快餐`, or empty `[]` when none. For client-side category filtering; the gateway does not filter for you |
 | `shops[].logo_url` | string \| null | Shop logo URL |
 | `shops[].distance_text` | string \| null | Distance from the delivery location (text; may be `null` in keyword search mode) |
-| `shops[].delivery_time_text` | string \| null | Estimated delivery text; present in both modes, `null` only when the upstream omits it |
-| `shops[].delivery_fee_text` | string \| null | Delivery fee text; present in both modes, `null` only when the upstream omits it; a fee of 0 shows as "免配送费" (free delivery) |
+| `shops[].delivery_time_text` | string \| null | Estimated delivery text; present in both modes, `null` only when the information is unavailable |
+| `shops[].delivery_fee_text` | string \| null | Delivery fee text; present in both modes, `null` only when the information is unavailable; a fee of 0 shows as "免配送费" (free delivery) |
 | `shops[].rating` | float \| null | Rating (may be `null` in keyword search mode) |
 | `shops[].monthly_sales_text` | string \| null | Monthly sales text. **Currently always `null`** — shop-level monthly sales are not available; for per-dish monthly sales see `items[].tip_texts` on `get_shop_menu` |
 | `shops[].min_order_amount` | integer \| null | Minimum order amount (cents); `null` when absent |
@@ -123,7 +123,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `shops[].matched_items[].description` | string \| null | Item description (max 80 chars) |
 | `shops[].matched_items[].price` | integer | Item price (cents) |
 | `shops[].matched_items[].original_price` | integer \| null | Original price (cents) |
-| `shops[].matched_items[].image_url` | string \| null | Item image URL (upstream thumbnail, ~184×184). For the original or another size, rewrite/drop the trailing `?x-oss-process` parameter |
+| `shops[].matched_items[].image_url` | string \| null | Item image URL (thumbnail, ~184×184). For the original or another size, rewrite/drop the trailing `?x-oss-process` parameter |
 | `shops[].recommend_items` | array | 1–2 signature dishes for the shop (**only when `with_recommendations: true`**). Picked by monthly sales and the shop's own hot/signature categories, with sub-¥1 loss leaders excluded |
 | `shops[].recommend_items[].item_id` | string | Item ID. Pair it with this shop's `cart_id` to call `get_item_options` right away and see specs and add-ons, with no full menu pull; pricing and ordering start with one `get_shop_menu` call, and the ID stays valid across it |
 | `shops[].recommend_items[].name` | string | Item name |
@@ -150,7 +150,7 @@ Searches or browses shops near the delivery location. Each result carries a `sho
 | `CONSENT_GRANT_WRONG_CAP` | Consent grant belongs to a different capability or provider |
 | `PUBLIC_REFERENCE_INVALID` | `address_id` is invalid or does not belong to the consented user |
 | `COORDS_REQUIRED` | Neither `address_id` nor `lat`/`lng` was given and no remembered location is available |
-| `ELEME_ERROR` | Upstream search API error |
+| `ELEME_ERROR` | The food-delivery platform failed to search |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 

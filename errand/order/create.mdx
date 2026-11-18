@@ -8,7 +8,7 @@ description: "MCP 工具 errand_create —— 核销 quote_id 落待支付单，
 核销 `errand_quote` 返回的 `quote_id`，落一笔**待支付单**，返回订单 ID、收银台支付链接，以及可直接摆给用户核对的**整单信息**。
 
 <Note>
-  **下单链路**：`errand_quote` 得 `quote_id` + 各运力 `company_code` / `fee` → **`errand_create`** 得 `order_id` + `cashier_url` → 用户打开 `cashier_url` 完成支付 → 支付成功后平台自动呼叫骑手。
+  **下单流程**：`errand_quote` 得 `quote_id` + 各运力 `company_code` / `fee` → **`errand_create`** 得 `order_id` + `cashier_url` → 用户打开 `cashier_url` 完成支付 → 支付成功后平台自动呼叫骑手。
 </Note>
 
 <Note>

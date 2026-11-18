@@ -22,7 +22,7 @@ Super Agent 在外卖场景下的核心能力（每个能力对应一个或多�
 | 订单追踪 | 查询订单状态 | `get_order_status` |
 
 <Note>
-  下单是一条**有状态的链路**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。完整链路与字段表见 [下单流程](/gateway/order-flow)。
+  下单是一条**有状态的流程**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨流程混用。完整流程与字段表见 [下单流程](/gateway/order-flow)。
 </Note>
 
 ## 典型对话场景
@@ -175,7 +175,7 @@ Agent：→ 调用 create_order(
 
 ## 核心流程深入
 
-完整链路：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。下面拆解其中几个关键环节。
+完整流程：`search_shops` → `get_shop_menu` → `quote_cart` → `select_address` → `preview_order` → `create_order` → `get_sign_action`。下面拆解其中几个关键环节。
 
 ### 1. 搜索商家
 
@@ -259,7 +259,7 @@ graph LR
 
 ## 相关阅读
 
-- [下单流程](/gateway/order-flow) — 完整端到端链路与每步字段
+- [下单流程](/gateway/order-flow) — 完整端到端流程与每步字段
 - [认证机制](/gateway/authentication) — API Key 标识 Agent，consent grant 标识已授权用户
 - [商品规格说明](/gateway/item-specs) — 规格 / 属性 / 加料体系
 - [MCP 工具总览](/mcp/overview) — 24 个工具的契约

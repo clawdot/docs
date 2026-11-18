@@ -1,10 +1,10 @@
 ---
 title: "下单流程"
-description: "从备好收货地址、搜店选品到预览下单的完整端到端链路，每步对应一个 MCP 工具"
+description: "从备好收货地址、搜店选品到预览下单的完整端到端流程，每步对应一个 MCP 工具"
 icon: "route"
 ---
 
-完成一笔订单是一条**有状态的链路**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨链路混用。本页用 MCP 工具串起整条链路；每个工具的完整字段表见对应的 [工具参考](/mcp/shops/search)。
+完成一笔订单是一条**有状态的流程**：每一步返回的 ID 必须原样回传给下一步，不可自造或跨流程混用。本页用 MCP 工具串起整个流程；每个工具的完整字段表见对应的 [工具参考](/mcp/shops/search)。
 
 <Note>
   本页示例均为 **MCP 工具调用**：工具名 + JSON 参数，除绑定类工具外每个业务工具都带 `consent_grant_id` 参数（用户授权，`cg_` 前缀）。Agent 身份则在连接层用 `Authorization: Bearer clw_...` 请求头携带，见下方「认证」小节。
@@ -12,10 +12,10 @@ icon: "route"
 
 ## 概览
 
-下单链路按固定顺序串起这些 MCP 工具：**先备好收货地址**（`search_addresses` → `select_address`），再 `search_shops` 选店、`get_shop_menu` 选品，然后 `quote_cart` 算价、`preview_order` 预览拿到下单令牌、`create_order` 正式下单。先定地址、再按地址搜可送达的店，下游工具因此都拿得到配送坐标。跨步 ID 由网关签发、原样回传。
+下单流程按固定顺序串起这些 MCP 工具：**先备好收货地址**（`search_addresses` → `select_address`），再 `search_shops` 选店、`get_shop_menu` 选品，然后 `quote_cart` 算价、`preview_order` 预览拿到下单令牌、`create_order` 正式下单。先定地址、再按地址搜可送达的店，后续工具因此都拿得到配送坐标。跨步 ID 由网关签发、原样回传。
 
 <Note>
-  **免密支付签约是账户级的一次性前置**（见下文「免密支付签约」），不属于每一单的链路、也不绑定某笔订单——不要把它当成下单的最后一步。
+  **免密支付签约是账户级的一次性前置**（见下文「免密支付签约」），不属于每一单的流程、也不绑定某笔订单——不要把它当成下单的最后一步。
 </Note>
 
 ```mermaid
@@ -45,7 +45,7 @@ sequenceDiagram
     G-->>A: order_id, status, payment_action
 ```
 
-链路的 ID 传递关系：
+流程的 ID 传递关系：
 
 | 这一步 | 产出 | 被谁消费 |
 |---|---|---|
@@ -61,7 +61,7 @@ sequenceDiagram
   所有金额字段单位为**分（整数）**，不是元。例如 `payable_price: 1500` 表示 ¥15.00。
 </Warning>
 
-## 完整链路
+## 完整流程
 
 <Steps>
 
@@ -80,7 +80,7 @@ select_address(
 )
 ```
 
-先定下"送到哪里"。`search_addresses` 按关键词搜 POI（传 `lat`/`lng` 时还会标注 `distance_meters` 与 `nearest_address_id`）；`select_address` 把一条 `suggestion_token` 落库为收货地址、返回 `address_id`。已有地址时，`search_addresses` 返回的 `saved_addresses[].address_id` 可直接复用，跳过 `select_address`。这个 `address_id` 既用于下一步搜店，也用于后续算价 / 预览。
+先定下"送到哪里"。`search_addresses` 按关键词搜 POI（传 `lat`/`lng` 时还会标注 `distance_meters` 与 `nearest_address_id`）；`select_address` 把一条 `suggestion_token` 保存为收货地址、返回 `address_id`。已有地址时，`search_addresses` 返回的 `saved_addresses[].address_id` 可直接复用，跳过 `select_address`。这个 `address_id` 既用于下一步搜店，也用于后续算价 / 预览。
 
 <Note>
   用 `suggestion_token` 新建地址时，`contact_name` / `contact_phone` / `address_detail` 为必填。地址三件套：[搜索地址](/mcp/addresses/search) · [选择/登记地址](/mcp/addresses/select) · [更新地址](/mcp/addresses/update)。
@@ -98,7 +98,7 @@ search_shops(
 
 按收货地址搜可送达的店铺。不传 `keyword` 为**浏览模式**，返回附近至多 20 家店铺（含距离、评分、配送费、起送价等决策字段）；传 `keyword` 为**精确搜索**（约 5 家），可传店名、品类或具体商品名，命中的店铺带 `matched_items` 预览。
 
-每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，下游工具因此免传经纬度。
+每个结果都附带 `shop_id` 与 `cart_id`：`cart_id` 已封装该店铺与本次配送坐标，是后续 `get_shop_menu` / `quote_cart` / `preview_order` 的入口，**原样回传**即可，后续工具因此免传经纬度。
 
 <Note>
   完整字段见 [搜索店铺](/mcp/shops/search)。`matched_items` 仅供展示、不带 ID；下单必须用 `get_shop_menu` 返回的 `item_id` / `sku_id`。`address_id` 与 `lat`/`lng` 二者至少给一个，否则报 `COORDS_REQUIRED`。
@@ -183,7 +183,7 @@ create_order(
 
 ## 免密支付签约（账户级，一次性）
 
-免密签约让用户授权**免密支付**：签约一次，后续免密支付类订单即可自动扣款。它是**账户级、一次性的前置设置**，**不绑定某一笔订单、也不是每单都要做**——所以独立于上面的下单链路。建议在需要免密支付前先用 `get_sign_status` 查是否已签约，未签约再发起：
+免密签约让用户授权**免密支付**：签约一次，后续免密支付类订单即可自动扣款。它是**账户级、一次性的前置设置**，**不绑定某一笔订单、也不是每单都要做**——所以独立于上面的下单流程。建议在需要免密支付前先用 `get_sign_status` 查是否已签约，未签约再发起：
 
 ```python
 get_sign_action(

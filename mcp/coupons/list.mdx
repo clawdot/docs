@@ -8,7 +8,7 @@ description: "MCP 工具，列出当前授权用户账户下的可用优惠券�
 列出当前授权用户账户下的可用优惠券。返回的是**账户级**优惠券，与某次具体下单是否可用无关——某张券在当前购物车能否使用，由 `preview_order` 的 `available_coupons` 判定。
 
 <Note>
-  本工具仅凭 `consent_grant_id` 识别用户后，向上游服务商查询其账户优惠券。返回的 `coupon_id` 仅用于阅读展示，**不能**直接回传给 `preview_order` 的 `coupon_ids`——预览选券时应使用该次预览返回的 `available_coupons[].coupon_id`。
+  本工具仅凭 `consent_grant_id` 识别用户后，向外卖平台查询其账户优惠券。返回的 `coupon_id` 仅用于阅读展示，**不能**直接回传给 `preview_order` 的 `coupon_ids`——预览选券时应使用该次预览返回的 `available_coupons[].coupon_id`。
 </Note>
 
 ### 参数
@@ -68,8 +68,8 @@ description: "MCP 工具，列出当前授权用户账户下的可用优惠券�
 | `CONSENT_GRANT_INVALID` | 授权 ID 无效（未找到对应绑定）|
 | `CONSENT_GRANT_EXPIRED` | 授权已过期，需重新授权 |
 | `CAP_NOT_BOUND` | 该 Agent 未开通外卖能力 |
-| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力或服务商 |
-| `ELEME_ERROR` | 上游优惠券查询失败 |
+| `CONSENT_GRANT_WRONG_CAP` | 授权属于其它能力 |
+| `ELEME_ERROR` | 外卖平台优惠券查询失败 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 

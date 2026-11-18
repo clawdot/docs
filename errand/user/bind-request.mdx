@@ -8,7 +8,7 @@ description: "MCP 工具 errand_request_user_bind — 向用户手机发送验�
 向用户手机发送短信验证码。本工具是获取跑腿 consent 的入口，仅需 Agent 凭证（`Authorization: Bearer`），参数不带 `consent_grant_id`。
 
 <Note>
-  **跑腿授权链路（入口）**：**`errand_request_user_bind`** → 拿到 `bind_id` → 用户收到验证码 → `errand_verify_user_bind` 换取 `consent_grant_id` → 后续跑腿工具带该 `consent_grant_id` 调用。跑腿与外卖的 consent 分能力发放，即使该用户已经绑定过外卖，跑腿仍需单独走一遍这套流程。
+  **跑腿授权流程（入口）**：**`errand_request_user_bind`** → 拿到 `bind_id` → 用户收到验证码 → `errand_verify_user_bind` 换取 `consent_grant_id` → 后续跑腿工具带该 `consent_grant_id` 调用。跑腿与外卖的 consent 分能力发放，即使该用户已经绑定过外卖，跑腿仍需单独走一遍这套流程。
 </Note>
 
 ### 参数

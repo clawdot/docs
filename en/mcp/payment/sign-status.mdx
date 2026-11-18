@@ -5,7 +5,7 @@ description: "MCP tool that checks whether the consented user has completed pass
 
 ## get_sign_status
 
-Checks whether the current consented user has completed passwordless payment signing with the provider. Before placing an order (`create_order`), confirm that `signed` is `true`; if not signed, follow the returned `next_action` to guide the user through signing. Signing status is queried live from upstream using the consent context (user, device); the caller does not pass a mobile number or device ID.
+Checks whether the current consented user has completed passwordless payment signing with the food-delivery platform. Before placing an order (`create_order`), confirm that `signed` is `true`; if not signed, follow the returned `next_action` to guide the user through signing. Signing status is queried live using the consent context (user, device); the caller does not pass a mobile number or device ID.
 
 <Note>
   **Signing flow**: call **`get_sign_status`** to check `signed` → if `false`, call `get_sign_action` to get an H5 signing URL and guide the user to complete signing in a browser → call `get_sign_status` again to confirm `signed` becomes `true` → proceed to the order flow.
@@ -55,8 +55,8 @@ When already signed:
 | `CONSENT_GRANT_INVALID` | User consent grant invalid |
 | `CONSENT_GRANT_EXPIRED` | User consent grant expired; re-authorization required |
 | `CAP_NOT_BOUND` | The Agent has not been granted the delivery capability |
-| `CONSENT_GRANT_WRONG_CAP` | Grant belongs to a different capability / provider |
-| `ELEME_ERROR` | Upstream sign-status query failed |
+| `CONSENT_GRANT_WRONG_CAP` | Grant belongs to a different capability |
+| `ELEME_ERROR` | The food-delivery platform failed to return the sign-status |
 
 See [Error Handling](/en/gateway/error-handling) for the full list.
 

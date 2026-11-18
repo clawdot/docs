@@ -10,7 +10,7 @@ description: "MCP 工具 errand_save_address —— 把地址存进跑腿地址�
 地址、门牌、联系人三者都相同才算同一条：已经存在的会直接返回原地址，不会重复创建；同一个地点填不同门牌或不同联系人，会各存一条。
 
 <Note>
-  **地址链路**：先用 `errand_search_addresses` 搜到地点拿到坐标，再用 `errand_save_address` 存进地址簿；之后可以用 `errand_list_addresses` 查看、`errand_update_address` 修改、`errand_delete_address` 删除。
+  **地址流程**：先用 `errand_search_addresses` 搜到地点拿到坐标，再用 `errand_save_address` 存进地址簿；之后可以用 `errand_list_addresses` 查看、`errand_update_address` 修改、`errand_delete_address` 删除。
 </Note>
 
 ### 参数

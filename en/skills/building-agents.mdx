@@ -26,7 +26,7 @@ A complete local life Agent consists of the following modules:
                      │
 ┌────────────────────▼────────────────────────┐
 │        Business Logic Layer (Your Code)     │
-│  • User consent mgmt    • Order chain mgmt  │
+│  • User consent mgmt    • Order flow mgmt  │
 │  • Local caching        • Error handling    │
 └────────────────────┬────────────────────────┘
                      │
@@ -129,7 +129,7 @@ The `expires_at` returned on success is the consent expiry (ISO 8601). **Re-auth
 
 ## Step 3: Core Business Flow
 
-Implement the complete chain from preparing the delivery address, finding shops and picking items, quoting, previewing, to placing the order. The whole chain is **stateful**: each step's returned ID must be passed verbatim to the next — never fabricate one or mix IDs across chains. **Prepare the delivery address first, then search deliverable shops by that address**, so downstream tools all get the delivery coordinates.
+Implement the complete flow from preparing the delivery address, finding shops and picking items, quoting, previewing, to placing the order. The whole flow is **stateful**: each step's returned ID must be passed verbatim to the next — never fabricate one or mix IDs across flows. **Prepare the delivery address first, then search deliverable shops by that address**, so subsequent tools all get the delivery coordinates.
 
 ```
 search_addresses → select_address → search_shops → get_shop_menu
@@ -141,7 +141,7 @@ All amount fields are in **cents (integer)**, not yuan. For example `payable_pri
 </Warning>
 
 <Info>
-**Password-free payment signing is an account-level, one-time prerequisite** (see "Password-Free Payment Signing" below); it is not part of any single order's chain and is not bound to a specific order — do not treat it as a step in the order chain.
+**Password-free payment signing is an account-level, one-time prerequisite** (see "Password-Free Payment Signing" below); it is not part of any single order's flow and is not bound to a specific order — do not treat it as a step in the order flow.
 </Info>
 
 Every business tool call below carries the `consent_grant_id` argument (from Step 2).
@@ -191,7 +191,7 @@ You can also call `select_address` directly with an existing address's `address_
 
 Use the `address_id` from the previous step to search deliverable shops. Without `keyword` it is **browse mode** (up to 20 shops near that address) with distance, rating, delivery fee, min-order and other decision fields; with `keyword` (shop name / category / item name) it is precise search (~5 shops). Browse mode accepts `offset` for paging: pass `offset: 0` first, keep paging with the returned `next_offset` until `shops` is empty.
 
-Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**, so downstream tools need not pass coordinates. Full fields in [Search Shops](/en/mcp/shops/search).
+Each result carries a `shop_id` and a `cart_id`: the `cart_id` already encapsulates that shop plus the delivery coordinates, and is the entry point for the later `get_shop_menu` / `quote_cart` / `preview_order` — pass it **verbatim**, so subsequent tools need not pass coordinates. Full fields in [Search Shops](/en/mcp/shops/search).
 
 ### Phase 3: View Menu Details
 
@@ -291,7 +291,7 @@ This tool uses `confirmation_token` as the **idempotency key**: a token can plac
 
 ## Step 4: Password-Free Payment Signing (Account-Level, One-Time)
 
-Password-free signing lets the user authorize **password-free payment**: sign once, and later password-free orders are charged automatically. It is an **account-level, one-time prerequisite** that is **not bound to any single order and is not done per order** — so it stands apart from the order chain above. Before you need password-free payment, check with `get_sign_status` whether already signed, and only initiate when not:
+Password-free signing lets the user authorize **password-free payment**: sign once, and later password-free orders are charged automatically. It is an **account-level, one-time prerequisite** that is **not bound to any single order and is not done per order** — so it stands apart from the order flow above. Before you need password-free payment, check with `get_sign_status` whether already signed, and only initiate when not:
 
 ```json
 // tool: get_sign_action — initiate password-free signing (get the H5 signing action)
@@ -312,7 +312,7 @@ When `action_type=open_h5`, direct the user to `action_url` (the H5 sign page) t
 // → { "signed": ..., "status": "...", ... }
 ```
 
-Full fields in [Initiate Password-Free Signing](/en/mcp/payment/sign-action) and [Query Signing Status](/en/mcp/payment/sign-status); the order chain and payment sequence are in [Order Flow](/en/gateway/order-flow).
+Full fields in [Initiate Password-Free Signing](/en/mcp/payment/sign-action) and [Query Signing Status](/en/mcp/payment/sign-status); the order flow and payment sequence are in [Order Flow](/en/gateway/order-flow).
 
 ---
 
@@ -329,9 +329,9 @@ Branch on `error.code` to show friendly messages:
 | `AUTH_REQUIRED` / `AUTH_INVALID` | Connection-layer API Key missing or invalid | Check the `Authorization: Bearer clw_...` connection header |
 | `CONSENT_GRANT_INVALID` / `CONSENT_GRANT_EXPIRED` | User consent invalid or expired | Re-initiate binding (`request_user_bind` → `verify_user_bind`) |
 | `CAP_NOT_BOUND` | This Agent has not enabled the capability | Ask the platform to enable the capability for the Agent |
-| `PUBLIC_REFERENCE_INVALID` | Platform ID (shop / address / order) invalid, expired, or not the user's | Re-fetch the ID from the prior step; never fabricate or mix across chains |
+| `PUBLIC_REFERENCE_INVALID` | Platform ID (shop / address / order) invalid, expired, or not the user's | Re-fetch the ID from the prior step; never fabricate or mix across flows |
 | `RATE_LIMITED` / `QUOTA_EXCEEDED` | Too many requests or quota exhausted | Retry later with exponential backoff |
-| `ELEME_ERROR` | Upstream service error | Ask the user to retry later, or degrade to cached results |
+| `ELEME_ERROR` | Food-delivery platform error | Ask the user to retry later, or degrade to cached results |
 
 ```python
 # Illustrative: wrap one MCP tool result and branch on error.code
@@ -351,7 +351,7 @@ def handle_tool_result(result: dict):
     elif code in ("RATE_LIMITED", "QUOTA_EXCEEDED"):
         print("❌ Too many requests or quota exhausted, retry later")
     elif code == "ELEME_ERROR":
-        print("❌ Upstream error, retry later")
+        print("❌ Platform error, retry later")
     else:
         print(f"❌ Tool error: {code} - {err.get('message')}")
     return None
@@ -370,7 +370,7 @@ business tool returns CONSENT_GRANT_INVALID / EXPIRED
 
 ### Shop Closed Handling
 
-The `available` / `unavailable_reason` in `search_shops` browse results let you pre-check whether a shop is open. If the order chain hits a closed shop mid-way, prompt the user to choose another shop and go back to `search_shops` to re-select.
+The `available` / `unavailable_reason` in `search_shops` browse results let you pre-check whether a shop is open. If the order flow hits a closed shop mid-way, prompt the user to choose another shop and go back to `search_shops` to re-select.
 
 ### Order Query with Retry
 
@@ -423,13 +423,13 @@ Use bounded backoff retries (e.g. up to 3) for read-only tools like `get_order_s
   </Card>
 
   <Card title="Graceful Degradation" icon="minimize">
-    When upstream is unavailable (`ELEME_ERROR`), provide alternatives (show cached results or ask the user to retry later).
+    When the food-delivery platform is temporarily unavailable (`ELEME_ERROR`), provide alternatives (show cached results or ask the user to retry later).
   </Card>
 </CardGroup>
 
 ---
 
-## The Full Chain at a Glance
+## The Full Flow at a Glance
 
 Chaining the tool calls from each step above gives one complete order:
 
@@ -443,13 +443,13 @@ preview_order (get preview_id + confirmation_token)
 create_order (get order_id) → get_order_status (query status)
 ```
 
-Prepare the delivery address first, then search deliverable shops by that address, so downstream tools all get the delivery coordinates. All cross-step IDs (`address_id` / `shop_id` / `cart_id` / `preview_id` / `confirmation_token` …) are issued by the gateway and must be passed **verbatim** — never fabricate them or mix across chains. `confirmation_token` is the order idempotency key, and the `consent_grant_id` minted during binding is the user-consent argument carried by every subsequent business tool call. **Password-free payment signing (`get_sign_action`) is an account-level, one-time prerequisite, independent of this order chain** (see Step 4).
+Prepare the delivery address first, then search deliverable shops by that address, so subsequent tools all get the delivery coordinates. All cross-step IDs (`address_id` / `shop_id` / `cart_id` / `preview_id` / `confirmation_token` …) are issued by the gateway and must be passed **verbatim** — never fabricate them or mix across flows. `confirmation_token` is the order idempotency key, and the `consent_grant_id` minted during binding is the user-consent argument carried by every subsequent business tool call. **Password-free payment signing (`get_sign_action`) is an account-level, one-time prerequisite, independent of this order flow** (see Step 4).
 
 ---
 
 ## Next Steps
 
 - See the [MCP Overview](/en/mcp/overview) for the 24 tools' connection, grouping, and complete inputs / outputs
-- Read [Order Flow](/en/gateway/order-flow) to master the full stateful order chain and payment sequence
+- Read [Order Flow](/en/gateway/order-flow) to master the full stateful order flow and payment sequence
 - Read [Security Model](/en/skills/security-model) to learn data protection best practices
 - Explore [Supported Platforms](/en/skills/supported-platforms) to integrate with your Agent app

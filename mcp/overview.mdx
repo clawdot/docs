@@ -1,6 +1,6 @@
 ---
 title: "MCP 概览"
-description: "通过 Streamable HTTP 连接 Clawdot Gateway，使用 24 个 MCP 工具完成绑定授权、找店选品、下单支付的完整外卖链路"
+description: "通过 Streamable HTTP 连接 Clawdot Gateway，使用 24 个 MCP 工具完成绑定授权、找店选品、下单支付的完整外卖流程"
 icon: "plug"
 ---
 
@@ -10,7 +10,7 @@ icon: "plug"
   登录 hub.clawdot.net → 文档中心：按能力下载完整包（外卖 / 跑腿 / 零售），或按你用的平台接入。本页内容不再更新。[前往 Hub →](https://hub.clawdot.net/#/docs)
 </Warning>
 
-Clawdot Gateway 通过 **MCP (Model Context Protocol)** 对外提供 Agent 接口，使用 **Streamable HTTP** 传输协议。MCP Server 暴露 **24 个工具**，覆盖从用户绑定授权、搜索商家、加购算价，到预览下单、免密支付的完整外卖链路。本页介绍怎么连、怎么认证、有哪些工具、怎么按顺序把它们串成一单。
+Clawdot Gateway 通过 **MCP (Model Context Protocol)** 对外提供 Agent 接口，使用 **Streamable HTTP** 传输协议。MCP Server 暴露 **24 个工具**，覆盖从用户绑定授权、搜索商家、加购算价，到预览下单、免密支付的完整外卖流程。本页介绍怎么连、怎么认证、有哪些工具、怎么按顺序把它们串成一单。
 
 ## 连接方式
 
@@ -61,7 +61,7 @@ https://eleme-gateway.hicaspian.com/mcp/v1
 
 所有工具遵循同一套调用约定：
 
-- **参数：** 以 JSON 对象传入。除绑定类工具外，业务工具都带 `consent_grant_id`；跨步骤的 ID（`cart_id` / `quote_id` / `preview_id` / `confirmation_token` 等）由网关签发，须**原样回传**，不可自造或跨链路混用。
+- **参数：** 以 JSON 对象传入。除绑定类工具外，业务工具都带 `consent_grant_id`；跨步骤的 ID（`cart_id` / `quote_id` / `preview_id` / `confirmation_token` 等）由网关签发，须**原样回传**，不可自造或跨流程混用。
 - **返回：** 结构化 JSON，每个工具的完整字段见对应工具页。
 - **错误：** 统一 `{"error": {"code", "message"}}` 格式，详见 [错误处理](/gateway/error-handling)。
 
@@ -225,7 +225,7 @@ MCP Server 暴露 **24 个工具**，按功能分组如下。每个工具链接�
 | [`get_sign_action`](/mcp/payment/sign-action) | 获取免密签约动作 |
 | [`get_sign_status`](/mcp/payment/sign-status) | 查询签约状态 |
 
-## 下单链路
+## 下单流程
 
 从搜索到下单的工具调用顺序，每一步的输出喂给下一步：
 

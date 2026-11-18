@@ -8,11 +8,11 @@ description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / 
 完成一次由 `request_user_bind` 开启的用户授权绑定：`auth_type=sms` 用 `bind_id` + 验证码 `code` 核验；`auth_type=h5` 用 `request_id` 查询用户在授权链接中的授权状态。核验成功即铸造并返回 `consent_grant_id`，后续业务工具凭它调用。本工具为绑定流程的收口步骤，只需 Agent 身份（连接层 `Authorization: Bearer clw_`），**不需要 `consent_grant_id` 参数**。
 
 <Note>
-  **绑定链路（绑定收口）**：`request_user_bind` → 拿到 `bind_id`（sms）或 `request_id`（h5）→ 用户收验证码 / 打开链接授权 → **`verify_user_bind`** 换取 `consent_grant_id` → 后续业务工具带该 `consent_grant_id` 调用。
+  **绑定流程（绑定收口）**：`request_user_bind` → 拿到 `bind_id`（sms）或 `request_id`（h5）→ 用户收验证码 / 打开链接授权 → **`verify_user_bind`** 换取 `consent_grant_id` → 后续业务工具带该 `consent_grant_id` 调用。
 </Note>
 
 <Warning>
-  **重授权即轮换**：同一用户每次成功绑定都会铸造新的 `consent_grant_id`，旧的不再可用。`consent_grant_id` 明文只在本次响应出现一次，落库仅存哈希，请妥善保存。
+  **重授权即轮换**：同一用户每次成功绑定都会铸造新的 `consent_grant_id`，旧的不再可用。`consent_grant_id` 明文只在本次响应出现一次，网关只保存其哈希，请妥善保存。
 </Warning>
 
 ### 参数
@@ -53,7 +53,7 @@ description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / 
 | `consent_grant_id` | string | 用户授权 ID（`cg_...`），传给后续业务工具的 `consent_grant_id` 参数。明文仅本次返回 |
 | `scopes` | string[] | 授权范围，形如 `["<provider_code>.<cap_code>"]`（如 `["eleme.delivery"]`）|
 | `expires_at` | string | 授权过期时间（ISO 8601，UTC）|
-| `extra` | object \| null | `request_user_bind` 发起时透传的 `extra`，原样回传；未传则为 `null` |
+| `extra` | object \| null | `request_user_bind` 发起时传入的 `extra`，原样回传；未传则为 `null` |
 | `next_action` | string \| null | 下一步建议；成功为 `null` |
 
 <Note>
@@ -81,7 +81,7 @@ description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / 
 | `consent_grant_id` | string \| null | 待定 / 过期时为 `null` |
 | `scopes` | string[] | 待定 / 过期时为空数组 `[]` |
 | `expires_at` | string \| null | 待定 / 过期时为 `null` |
-| `extra` | object \| null | 发起时透传的 `extra`，原样回传；未传则为 `null` |
+| `extra` | object \| null | 发起时传入的 `extra`，原样回传；未传则为 `null` |
 | `next_action` | string | `pending` → `"verify_user_bind"`（稍后重试本工具）；`expired` → `"request_bind"`（重新发起绑定）|
 
 ### 错误码
@@ -93,7 +93,7 @@ description: "MCP 工具：完成用户授权绑定，换取 consent_grant_id / 
 | `ELEME_USER_NOT_FOUND` | 该手机号无可绑定的淘宝闪购 / 饿了么账号 |
 | `BINDING_LIMIT_REACHED` | 当前 Agent 已达可绑定用户数上限 |
 | `PUBLIC_REFERENCE_INVALID` | 工具参数不合法或按 `auth_type` 缺必填字段：`auth_type` 非 `sms`/`h5`、`sms` 模式缺 `bind_id`/`code`、`h5` 模式缺 `request_id`（MCP 工具参数无 `Literal` / 模型校验，非法输入归到 `PUBLIC_REFERENCE_INVALID`）|
-| `ELEME_ERROR` | 淘宝闪购 / 饿了么上游 API 错误 |
+| `ELEME_ERROR` | 外卖平台（淘宝闪购 / 饿了么）返回错误 |
 
 完整错误码见 [错误处理](/gateway/error-handling)。
 
