@@ -60,6 +60,20 @@ Callback body:
 | `status_text` | Chinese display text for `status` (e.g. `配送中`) |
 | `event_at` | When the change happened (ISO 8601, Beijing time) |
 | `consent_grant_id` | The user grant this order belongs to. **Rarely absent** (orders whose tracking resumed after a service restart cannot recover this value) — match on `order_id` instead |
+| `pay_order_id` | Only for channels with their own checkout (orders whose response carries `extra_map.pay_order_id`); same value as `extra_map.pay_order_id`. Callbacks for other orders don't have this key |
+
+For channels with their own checkout, every callback carries an extra top-level `pay_order_id`:
+
+```json
+{
+  "event": "order_status",
+  "order_id": "ord_...",
+  "seq": 1,
+  "status": "pending_payment",
+  "pay_order_id": "8888888888888888888",
+  "...": "all other fields as above"
+}
+```
 
 **`status` enum (8 values):**
 
