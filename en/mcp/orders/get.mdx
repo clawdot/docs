@@ -5,7 +5,7 @@ description: "MCP tool that queries an order's real-time status, shop, item summ
 
 ## get_order_status
 
-Queries the current status of a single order by its platform order ID. The gateway first tries to fetch real-time status from upstream, falls back to the local snapshot on failure, and normalizes the result to a unified platform status enum.
+Queries the current status of a single order by its platform order ID; status values are listed in the enum below. When the real-time status is temporarily unavailable, the most recently recorded status is returned.
 
 <Note>
   **Order flow**: `preview_order` → `preview_id` + `confirmation_token` → `create_order` → `order_id` → **`get_order_status`** to check status. The `order_id` (`ord_` prefix) must be used as-is from the `create_order` response — do not fabricate or rewrite it.
@@ -67,8 +67,8 @@ Queries the current status of a single order by its platform order ID. The gatew
 | `detail_url` | string \| null | Order detail page link — share it with the user to track the order; for unpaid orders it also opens the checkout. Each call may return a different link, and all of them work — do not use it as an order identifier or compare it across calls. Valid for 30 days. For orders created with `require_phone_verify: true`, the link first asks for the last 4 digits of the ordering phone number |
 | `detail_qr_url` | string | Only present when `with_pay_qr: true` was passed and the order is awaiting payment (`status` is `pending_payment`): URL of a QR-code PNG image (https) encoding `detail_url`; valid for 15 minutes, then opening it returns 404. Absent for other statuses, or if the image could not be generated (not `null`) |
 | `created_at` | string \| null | Order creation time (ISO 8601) |
-| `paid_at` | string \| null | Payment time (currently always `null`; upstream does not return this field yet) |
-| `completed_at` | string \| null | Completion time (currently always `null`; upstream does not return this field yet) |
+| `paid_at` | string \| null | Payment time (currently always `null`) |
+| `completed_at` | string \| null | Completion time (currently always `null`) |
 | `refund_amount` | integer \| null | Amount refunded to the original payment method (cents). `0` when nothing has been refunded; `null` when it is temporarily unavailable. An order fully refunded after payment has `status` `cancelled` with `refund_amount` greater than 0 |
 
 For an unpaid order, `with_pay_qr: true` adds a `detail_qr_url` next to `detail_url` (relevant fields only):
@@ -96,7 +96,7 @@ For an unpaid order, `with_pay_qr: true` adds a `detail_qr_url` next to `detail_
 | `failed` | 下单或履约失败 |
 | `refunded` | 已退款 |
 
-Unrecognized upstream statuses safely fall back to `created` and never leak the channel's raw status code to the caller.
+An unrecognized order status is returned as `created`; no value outside the table above is ever returned.
 
 ### Error Codes
 
